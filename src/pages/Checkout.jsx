@@ -71,18 +71,15 @@ export default function Checkout() {
         phone: form.phone,
         address: form.address,
         notes: form.notes || null,
-        restaurant_id: restaurant?.id,
-        kitchen_id: 1, // Default kitchen - adjust if you have multiple
+        kitchen_id: restaurant?.kitchen_id || 1,
         courier_id: null,
-        channel: 'Website',
-        items: itemsString,          // String for display in admin
-        order_items: orderItems,     // JSONB for detailed tracking
+        channel: 'אתר',
+        items: itemsString,
+        order_items: orderItems,
         drinks: null,
         dessert: null,
         quantity: items.reduce((sum, i) => sum + i.quantity, 0),
-        amount: subtotal,
-        delivery_fee: deliveryFee,
-        payment_method: payment,
+        amount: total,
         status: 'new',
       });
 

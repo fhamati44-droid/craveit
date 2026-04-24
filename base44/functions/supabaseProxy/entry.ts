@@ -64,6 +64,10 @@ Deno.serve(async (req) => {
         result = await supaFetch('/deals?select=*&active=eq.true&order=sort_order.asc');
         break;
 
+      case 'inspectOrders':
+        result = await supaFetch('/orders?select=*&limit=1');
+        break;
+
       case 'createOrder':
         result = await supaFetch('/orders', {
           method: 'POST',
