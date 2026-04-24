@@ -53,14 +53,23 @@ export const getMenuItemsByRestaurant = async (restaurantId) => {
   return itemsPerCategory;
 };
 
-// Extra groups for an item
-export const getExtraGroups = (itemId) =>
-  apiFetch(`/menu_extra_groups?select=*,menu_extra_options(*)&item_id=eq.${itemId}`)
-    .catch(() => []);
+// Extra groups for an item (with extras nested)
+export const getExtraGroups = async (itemId) => {
+  const groups = await apiFetch(`/menu_extra_groups?select=*&item_id=eq.${itemId}&order=sort_order.asc`).catch(() => []);
+  if (!groups || !groups.length) return [];
+  const withExtras = await Promise.all(
+    groups.map(g =>
+      apiFetch(`/menu_extras?select=*&group_id=eq.${g.id}&order=sort_order.asc`)
+        .then(opts => ({ ...g, menu_extra_options: opts || [] }))
+        .catch(() => ({ ...g, menu_extra_options: [] }))
+    )
+  );
+  return withExtras;
+};
 
 // Deals
 export const getDeals = () =>
-  apiFetch('/deals?select=*&active=eq.true&order=created_at.desc')
+  apiFetch('/deals?select=*&active=eq.true&order=sort_order.asc')
     .catch(() => []);
 
 // Orders
