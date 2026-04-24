@@ -38,25 +38,22 @@ export default function Restaurant() {
     setActiveCategory(catId);
     const el = sectionRefs.current[catId];
     if (el) {
-      const offset = 100;
+      const offset = 110;
       const top = el.getBoundingClientRect().top + window.scrollY - offset;
       window.scrollTo({ top, behavior: 'smooth' });
     }
   };
 
-  const handleAddItem = (itemData) => {
-    addItem(itemData, restaurant);
-  };
-
   if (loading) {
     return (
       <div className="bg-white min-h-screen">
-        <div className="h-56 skeleton" />
-        <div className="bg-white p-4 space-y-2">
-          <div className="h-7 w-1/2 skeleton rounded-xl" />
-          <div className="h-4 w-3/4 skeleton rounded-xl" />
+        <div className="h-52 skeleton" />
+        <div className="bg-white px-4 py-4 space-y-2">
+          <div className="h-7 w-2/3 skeleton rounded-xl ml-auto" />
+          <div className="h-4 w-full skeleton rounded-xl" />
+          <div className="h-4 w-3/4 skeleton rounded-xl ml-auto" />
         </div>
-        <div className="p-4 space-y-4">
+        <div className="space-y-0">
           {[1, 2, 3, 4].map(i => <MenuItemSkeleton key={i} />)}
         </div>
       </div>
@@ -65,17 +62,17 @@ export default function Restaurant() {
 
   if (!restaurant) {
     return (
-      <div className="min-h-screen bg-[#0C0C0F] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
         <div className="text-center">
           <p className="text-4xl mb-3">🍽️</p>
-          <p className="text-white/60">Restaurant not found</p>
+          <p className="text-gray-500">המסעדה לא נמצאה</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-32">
+    <div className="bg-[#F5F5F5] min-h-screen pb-32">
       <MenuHeader restaurant={restaurant} />
 
       {categories.length > 0 && (
@@ -86,14 +83,26 @@ export default function Restaurant() {
         />
       )}
 
-      {/* Menu Items */}
-      <div className="px-4 py-4 space-y-6">
+      {/* Menu Sections */}
+      <div>
         {categories.map(cat => (
-          <div key={cat.id} ref={el => sectionRefs.current[cat.id] = el}>
-            <h2 className="text-gray-900 font-bold text-lg mb-3">{cat.name}</h2>
-            <div className="space-y-3">
+          <div
+            key={cat.id}
+            ref={el => sectionRefs.current[cat.id] = el}
+            className="mb-2"
+          >
+            {/* Category header */}
+            <div className="bg-[#F5F5F5] px-4 py-3 rtl-text" dir="rtl">
+              <h2 className="text-gray-900 font-bold text-lg">{cat.name}</h2>
+            </div>
+            {/* Items in white card */}
+            <div className="bg-white divide-y divide-gray-100">
               {(cat.items || []).map(item => (
-                <MenuItem key={item.id} item={item} onClick={setSelectedItem} />
+                <MenuItem
+                  key={item.id}
+                  item={item}
+                  onClick={setSelectedItem}
+                />
               ))}
             </div>
           </div>
@@ -104,7 +113,7 @@ export default function Restaurant() {
         item={selectedItem}
         restaurant={restaurant}
         onClose={() => setSelectedItem(null)}
-        onAdd={handleAddItem}
+        onAdd={(itemData) => addItem(itemData, restaurant)}
       />
 
       <FloatingCartButton />

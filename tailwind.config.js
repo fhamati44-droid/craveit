@@ -11,8 +11,8 @@ module.exports = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
-        '2xl': '1.5rem',
-        '3xl': '2rem',
+        '2xl': '1.25rem',
+        '3xl': '1.5rem',
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -48,9 +48,10 @@ module.exports = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        // Brand colors
+        blue: { DEFAULT: '#1A73E8', dark: '#1557B0' },
+        green: { DEFAULT: '#2DB34A', dark: '#1E8A35' },
         orange: '#FF6B2B',
-        'orange-hover': '#FF4D4D',
-        success: '#22C55E',
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',
@@ -82,14 +83,6 @@ module.exports = {
           from: { transform: 'translateY(100%)', opacity: '0' },
           to: { transform: 'translateY(0)', opacity: '1' }
         },
-        'fade-in': {
-          from: { opacity: '0' },
-          to: { opacity: '1' }
-        },
-        'scale-in': {
-          from: { transform: 'scale(0.95)', opacity: '0' },
-          to: { transform: 'scale(1)', opacity: '1' }
-        },
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' }
@@ -98,30 +91,19 @@ module.exports = {
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'slide-up': 'slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-        'fade-in': 'fade-in 0.3s ease-out',
-        'scale-in': 'scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        'slide-up': 'slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
         shimmer: 'shimmer 1.5s infinite',
       },
       boxShadow: {
-        'card': '0 4px 16px rgba(0,0,0,0.2)',
-        'card-hover': '0 20px 40px rgba(0,0,0,0.4)',
-        'orange': '0 0 20px rgba(255, 107, 43, 0.4)',
-        'orange-lg': '0 4px 24px rgba(255, 107, 43, 0.5)',
-      },
-      backgroundImage: {
-        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-food': 'linear-gradient(180deg, transparent 0%, rgba(12,12,15,0.8) 60%, rgba(12,12,15,1) 100%)',
-      },
-      safelist: [
-        'bg-orange', 'text-orange', 'border-orange',
-        'bg-success', 'text-success',
-      ]
+        'card': '0 2px 12px rgba(0,0,0,0.08)',
+        'card-lg': '0 4px 24px rgba(0,0,0,0.12)',
+        'top': '0 -2px 12px rgba(0,0,0,0.08)',
+      }
     }
   },
   plugins: [require("tailwindcss-animate")],
   safelist: [
-    'bg-orange', 'text-orange', 'border-orange',
-    'bg-success', 'text-success',
+    'bg-blue', 'text-blue', 'bg-green', 'text-green',
+    'bg-red-500', 'text-red-500', 'bg-orange', 'text-orange',
   ]
 }

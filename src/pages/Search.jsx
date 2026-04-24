@@ -1,20 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Search as SearchIcon, X } from 'lucide-react';
 import { getRestaurants } from '@/lib/api';
-import SearchBar from '@/components/home/SearchBar';
 import RestaurantCard from '@/components/home/RestaurantCard';
 import { RestaurantSkeleton } from '@/components/shared/SkeletonCard';
-import { ChevronLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 const FILTERS = [
-  { id: 'all', label: 'All' },
-  { id: 'free', label: '🚚 Free Delivery' },
-  { id: 'fast', label: '⚡ Fast (< 30min)' },
-  { id: 'top', label: '⭐ Top Rated' },
+  { id: 'all', label: 'הכל' },
+  { id: 'free', label: '🚚 משלוח חינם' },
+  { id: 'fast', label: '⚡ מהיר (< 30 דק)' },
+  { id: 'top', label: '⭐ מדורגים גבוה' },
 ];
 
 export default function Search() {
-  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,40 +33,65 @@ export default function Search() {
   }, [restaurants, query, filter]);
 
   return (
-    <div className="min-h-screen bg-[#0C0C0F]">
-      <div className="px-4 pt-14 pb-4">
-        <h1 className="text-white font-bold text-2xl mb-4">Search</h1>
-        <SearchBar value={query} onChange={setQuery} placeholder="Search restaurants, dishes..." />
+    <div className="min-h-screen bg-[#F5F5F5]" dir="rtl">
+      {/* Header */}
+      <div className="bg-white px-4 pt-12 pb-3 sticky top-0 z-20 shadow-sm">
+        <div className="relative">
+          <SearchIcon size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="חיפוש מסעדות, מנות..."
+            autoFocus
+            className="w-full bg-gray-100 border border-transparent rounded-2xl pr-11 pl-10 py-3.5 text-gray-900 placeholder-gray-400 text-sm outline-none focus:border-blue/30 text-right"
+          />
+          {query && (
+            <button onClick={() => setQuery('')} className="absolute left-3 top-1/2 -translate-y-1/2">
+              <X size={16} className="text-gray-400" />
+            </button>
+          )}
+        </div>
+
+        {/* Filters */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide mt-3 pb-1">
+          {FILTERS.map(f => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                filter === f.id ? 'bg-blue text-white' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 mb-5">
-        {FILTERS.map(f => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
-              filter === f.id ? 'bg-orange text-white' : 'glass text-white/60'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {/* Results */}
+      <div className="px-3 pt-4 pb-4">
+        {query || filter !== 'all' ? (
+          <p className="text-gray-500 text-sm mb-3 text-right">
+            {filtered.length} תוצאות{query ? ` עבור "${query}"` : ''}
+          </p>
+        ) : null}
 
-      <div className="px-4 space-y-4">
-        {loading
-          ? [1, 2, 3].map(i => <RestaurantSkeleton key={i} />)
-          : filtered.length > 0
-            ? filtered.map(r => <RestaurantCard key={r.id} restaurant={r} />)
-            : (
-              <div className="text-center py-20">
-                <p className="text-5xl mb-4">🔍</p>
-                <p className="text-white font-bold text-lg">No results found</p>
-                <p className="text-white/40 text-sm mt-1">Try a different search</p>
-              </div>
-            )
-        }
+        {loading ? (
+          <div className="grid grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map(i => <RestaurantSkeleton key={i} />)}
+          </div>
+        ) : filtered.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3">
+            {filtered.map(r => <RestaurantCard key={r.id} restaurant={r} />)}
+          </div>
+        ) : (
+          <div className="text-center py-20">
+            <p className="text-5xl mb-4">🔍</p>
+            <p className="text-gray-900 font-bold text-lg">לא נמצאו תוצאות</p>
+            <p className="text-gray-400 text-sm mt-1">נסה חיפוש אחר</p>
+          </div>
+        )}
       </div>
     </div>
   );

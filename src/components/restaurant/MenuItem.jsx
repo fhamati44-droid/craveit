@@ -9,44 +9,50 @@ export default function MenuItem({ item, onClick }) {
     <motion.div
       whileTap={{ scale: 0.98 }}
       onClick={() => onClick(item)}
-      className="flex gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow active:bg-gray-50"
+      className="flex items-center gap-3 bg-white p-4 cursor-pointer active:bg-gray-50 border-b border-gray-100 last:border-0 rtl-text"
     >
-      {/* Info */}
-      <div className="flex-1 min-w-0 flex flex-col justify-between">
-        <div>
-          {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-1.5">
-              {tags.map(tag => <TagBadge key={tag} tag={tag} />)}
-            </div>
-          )}
-          <h4 className="font-semibold text-gray-900 text-[15px] leading-tight mb-1">{item.name}</h4>
-          {item.description && (
-            <p className="text-gray-400 text-xs line-clamp-2 leading-relaxed">{item.description}</p>
-          )}
-        </div>
-        <div className="flex items-center justify-between mt-3">
-          <span className="text-gray-900 font-bold text-base">₪{item.price}</span>
+      {/* Info - RTL so text comes first (right) */}
+      <div className="flex-1 min-w-0">
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-1.5 justify-end">
+            {tags.map(tag => <TagBadge key={tag} tag={tag} />)}
+          </div>
+        )}
+        <h4 className="font-bold text-gray-900 text-[15px] leading-tight mb-1">{item.name}</h4>
+        {item.description && (
+          <p className="text-gray-400 text-xs line-clamp-2 leading-relaxed mb-2">{item.description}</p>
+        )}
+        <p className="text-blue font-bold text-sm">₪{item.price}</p>
+      </div>
+
+      {/* Image + Add button */}
+      <div className="flex flex-col items-center gap-2 flex-shrink-0">
+        {item.image_url ? (
+          <div className="w-24 h-20 rounded-xl overflow-hidden relative">
+            <img
+              src={item.image_url}
+              alt={item.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+            <motion.button
+              whileTap={{ scale: 0.8 }}
+              onClick={e => { e.stopPropagation(); onClick(item); }}
+              className="absolute -bottom-2 -right-2 w-8 h-8 bg-white border-2 border-blue rounded-full flex items-center justify-center shadow-card"
+            >
+              <Plus size={16} className="text-blue" strokeWidth={3} />
+            </motion.button>
+          </div>
+        ) : (
           <motion.button
             whileTap={{ scale: 0.85 }}
             onClick={e => { e.stopPropagation(); onClick(item); }}
-            className="w-9 h-9 rounded-full bg-orange flex items-center justify-center shadow-orange-lg text-white"
+            className="w-8 h-8 bg-white border-2 border-blue rounded-full flex items-center justify-center"
           >
-            <Plus size={18} strokeWidth={2.5} />
+            <Plus size={16} className="text-blue" strokeWidth={3} />
           </motion.button>
-        </div>
+        )}
       </div>
-
-      {/* Image */}
-      {item.image_url && (
-        <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
-          <img
-            src={item.image_url}
-            alt={item.name}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        </div>
-      )}
     </motion.div>
   );
 }

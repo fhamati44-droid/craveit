@@ -1,11 +1,11 @@
 export function RestaurantSkeleton() {
   return (
-    <div className="rounded-2xl overflow-hidden bg-white/5 animate-pulse">
-      <div className="h-44 skeleton" />
-      <div className="p-4 space-y-2">
-        <div className="h-5 w-2/3 skeleton rounded-lg" />
-        <div className="h-4 w-1/2 skeleton rounded-lg" />
-        <div className="h-4 w-1/3 skeleton rounded-lg" />
+    <div className="rounded-2xl overflow-hidden bg-white shadow-card">
+      <div className="h-32 skeleton" />
+      <div className="p-3 space-y-2">
+        <div className="h-4 w-3/4 skeleton rounded-lg ml-auto" />
+        <div className="h-3 w-1/2 skeleton rounded-lg ml-auto" />
+        <div className="h-3 w-2/3 skeleton rounded-lg ml-auto" />
       </div>
     </div>
   );
@@ -13,19 +13,19 @@ export function RestaurantSkeleton() {
 
 export function DealSkeleton() {
   return (
-    <div className="w-64 h-36 rounded-2xl skeleton flex-shrink-0" />
+    <div className="h-40 skeleton rounded-2xl" />
   );
 }
 
 export function MenuItemSkeleton() {
   return (
-    <div className="flex gap-4 p-4 bg-white/5 rounded-2xl animate-pulse">
+    <div className="flex items-center gap-4 p-4 bg-white border-b border-gray-100 animate-pulse">
+      <div className="w-24 h-20 skeleton rounded-xl flex-shrink-0" />
       <div className="flex-1 space-y-2">
-        <div className="h-5 w-3/4 skeleton rounded-lg" />
-        <div className="h-4 w-full skeleton rounded-lg" />
-        <div className="h-4 w-1/3 skeleton rounded-lg" />
+        <div className="h-4 w-3/4 skeleton rounded-lg ml-auto" />
+        <div className="h-3 w-full skeleton rounded-lg" />
+        <div className="h-4 w-1/4 skeleton rounded-lg ml-auto" />
       </div>
-      <div className="w-20 h-20 skeleton rounded-xl flex-shrink-0" />
     </div>
   );
 }
