@@ -87,7 +87,7 @@ export default function Checkout() {
       navigate(`/order/${order?.id || 'success'}`);
     } catch (err) {
       console.error('Order submission error:', err);
-      alert('שגיאה בשליחת ההזמנה. נסה שוב.');
+      alert(`שגיאה בשליחת ההזמנה: ${err.message}`);
     } finally {
       setLoading(false);
     }
