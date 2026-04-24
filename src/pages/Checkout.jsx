@@ -112,7 +112,7 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] pb-32">
+    <div className="min-h-screen bg-[#F5F5F5] pb-40">
       {/* Header */}
       <div className="bg-white px-4 pt-12 pb-4 sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-3">
@@ -258,7 +258,7 @@ export default function Checkout() {
       </div>
 
       {/* Bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-20">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 pb-safe" style={{paddingBottom: 'max(16px, env(safe-area-inset-bottom))'}}>
         <button
           onClick={handleSubmit}
           disabled={loading}
