@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { useCart } from '@/lib/CartContext';
 import { createOrder } from '@/lib/api';
 
+const WA_NUMBER = '972544616474'; // Your WhatsApp number
+
 const PAYMENT_METHODS = [
   { id: 'cash', label: 'מזומן בעת המסירה', icon: Banknote, desc: 'שלם כשהאוכל מגיע' },
   { id: 'credit', label: 'כרטיס אשראי', icon: CreditCard, desc: 'הוסף כרטיס בדלת' },
@@ -43,21 +45,42 @@ export default function Checkout() {
       if (payment === 'whatsapp') {
         const lines = items.map(i => `${i.quantity}x ${i.name} - ₪${(i.price * i.quantity).toFixed(0)}`);
         const msg = `הזמנה חדשה מ${form.name}\nטלפון: ${form.phone}\nכתובת: ${form.address}\n\n${lines.join('\n')}\n\nמשלוח: ₪${deliveryFee}\nסה"כ: ₪${total.toFixed(0)}`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank');
         clearCart();
         navigate('/');
         return;
       }
 
+      // Format items as string for DB display
+      const itemsString = items.map(i => 
+        `${i.quantity}x ${i.name}${i.extras?.length ? ' + ' + i.extras.map(e => e.name).join(', ') : ''}`
+      ).join(', ');
+
+      // Format order_items as JSONB for detailed tracking
+      const orderItems = items.map(i => ({
+        item_id: i.id,
+        name: i.name,
+        quantity: i.quantity,
+        price: i.price,
+        extras: i.extras || [],
+        subtotal: i.price * i.quantity
+      }));
+
       const order = await createOrder({
         customer_name: form.name,
         phone: form.phone,
         address: form.address,
-        notes: form.notes,
+        notes: form.notes || null,
         restaurant_id: restaurant?.id,
-        restaurant_name: restaurant?.name,
-        items: items.map(i => ({ item_id: i.id, name: i.name, quantity: i.quantity, price: i.price, extras: i.extras || [] })),
-        total_amount: total,
+        kitchen_id: 1, // Default kitchen - adjust if you have multiple
+        courier_id: null,
+        channel: 'Website',
+        items: itemsString,          // String for display in admin
+        order_items: orderItems,     // JSONB for detailed tracking
+        drinks: null,
+        dessert: null,
+        quantity: items.reduce((sum, i) => sum + i.quantity, 0),
+        amount: subtotal,
         delivery_fee: deliveryFee,
         payment_method: payment,
         status: 'new',
@@ -66,7 +89,7 @@ export default function Checkout() {
       clearCart();
       navigate(`/order/${order?.id || 'success'}`);
     } catch (err) {
-      console.error(err);
+      console.error('Order submission error:', err);
       alert('שגיאה בשליחת ההזמנה. נסה שוב.');
     } finally {
       setLoading(false);
@@ -78,9 +101,13 @@ export default function Checkout() {
       <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
         <div className="text-center px-8">
           <p className="text-5xl mb-4">🛒</p>
-          <p className="text-gray-900 font-bold text-xl mb-2">הסל שלך ריק</p>
-          <button onClick={() => navigate('/')} className="mt-4 px-6 py-3 btn-blue text-white rounded-2xl">
-            עיין במסעדות
+          <p className="text-gray-500 mb-2 text-lg font-medium">הסל ריק</p>
+          <p className="text-gray-400 text-sm mb-6">הוסף פריטים כדי להמשיך</p>
+          <button
+            onClick={() => navigate('/')}
+            className="bg-[#009DE0] text-white px-8 py-3 rounded-full font-semibold"
+          >
+            חזרה לדף הבית
           </button>
         </div>
       </div>
@@ -88,115 +115,161 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] pb-8" dir="rtl">
+    <div className="min-h-screen bg-[#F5F5F5] pb-32">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3 sticky top-0 z-10">
-        <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-          <ChevronLeft size={20} className="text-gray-700 rotate-180" />
-        </motion.button>
-        <h1 className="text-gray-900 font-bold text-xl">קופה</h1>
+      <div className="bg-white px-4 pt-12 pb-4 sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)}>
+            <ChevronLeft size={24} className="text-gray-900" />
+          </button>
+          <h1 className="text-xl font-bold text-gray-900">פרטי הזמנה</h1>
+        </div>
       </div>
 
-      <div className="px-4 py-4 space-y-4 max-w-lg mx-auto">
+      <div className="px-4 py-4 space-y-4">
         {/* Delivery Details */}
-        <div className="bg-white rounded-2xl p-5 shadow-card">
-          <h2 className="text-gray-900 font-bold text-lg mb-4 text-right">פרטי משלוח</h2>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl p-4 shadow-sm"
+        >
+          <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <MapPin size={20} className="text-[#009DE0]" />
+            פרטי משלוח
+          </h2>
           <div className="space-y-3">
-            <Field icon={<User size={16} />} placeholder="שם מלא" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} error={errors.name} />
-            <Field icon={<Phone size={16} />} placeholder="מספר טלפון" type="tel" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} error={errors.phone} />
-            <Field icon={<MapPin size={16} />} placeholder="כתובת למשלוח" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} error={errors.address} />
-            <Field icon={<FileText size={16} />} placeholder="הערות (אופציונלי)" value={form.notes} onChange={v => setForm(f => ({ ...f, notes: v }))} multiline />
+            <div>
+              <label className="text-sm text-gray-600 mb-1 flex items-center gap-1.5">
+                <User size={14} />
+                שם מלא
+              </label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={e => setForm({ ...form, name: e.target.value })}
+                className={`w-full px-4 py-3 rounded-xl border ${errors.name ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-[#009DE0]`}
+                placeholder="הכנס שם מלא"
+              />
+              {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+            </div>
+            <div>
+              <label className="text-sm text-gray-600 mb-1 flex items-center gap-1.5">
+                <Phone size={14} />
+                טלפון
+              </label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={e => setForm({ ...form, phone: e.target.value })}
+                className={`w-full px-4 py-3 rounded-xl border ${errors.phone ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-[#009DE0]`}
+                placeholder="05X-XXX-XXXX"
+              />
+              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+            </div>
+            <div>
+              <label className="text-sm text-gray-600 mb-1 flex items-center gap-1.5">
+                <MapPin size={14} />
+                כתובת למשלוח
+              </label>
+              <input
+                type="text"
+                value={form.address}
+                onChange={e => setForm({ ...form, address: e.target.value })}
+                className={`w-full px-4 py-3 rounded-xl border ${errors.address ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-[#009DE0]`}
+                placeholder="רחוב, מספר בית, עיר"
+              />
+              {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+            </div>
+            <div>
+              <label className="text-sm text-gray-600 mb-1 flex items-center gap-1.5">
+                <FileText size={14} />
+                הערות (אופציונלי)
+              </label>
+              <textarea
+                value={form.notes}
+                onChange={e => setForm({ ...form, notes: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#009DE0] resize-none"
+                rows={3}
+                placeholder="הערות מיוחדות למסעדה..."
+              />
+            </div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Payment */}
-        <div className="bg-white rounded-2xl p-5 shadow-card">
-          <h2 className="text-gray-900 font-bold text-lg mb-4 text-right">אמצעי תשלום</h2>
+        {/* Payment Method */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white rounded-2xl p-4 shadow-sm"
+        >
+          <h2 className="font-bold text-gray-900 mb-4">אמצעי תשלום</h2>
           <div className="space-y-2">
-            {PAYMENT_METHODS.map(method => {
-              const Icon = method.icon;
+            {PAYMENT_METHODS.map(pm => {
+              const Icon = pm.icon;
               return (
-                <motion.button
-                  key={method.id}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setPayment(method.id)}
-                  className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 text-right transition-all ${
-                    payment === method.id ? 'border-blue bg-blue/5' : 'border-gray-100 bg-gray-50'
+                <button
+                  key={pm.id}
+                  onClick={() => setPayment(pm.id)}
+                  className={`w-full p-4 rounded-xl border-2 transition-all ${
+                    payment === pm.id
+                      ? 'border-[#009DE0] bg-blue-50'
+                      : 'border-gray-200'
                   }`}
                 >
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    payment === method.id ? 'border-blue' : 'border-gray-300'
-                  }`}>
-                    {payment === method.id && <div className="w-2.5 h-2.5 rounded-full bg-blue" />}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${
+                      payment === pm.id ? 'border-[#009DE0] bg-[#009DE0]' : 'border-gray-300'
+                    }`}>
+                      {payment === pm.id && <div className="w-full h-full rounded-full bg-white scale-50" />}
+                    </div>
+                    <Icon size={20} className={payment === pm.id ? 'text-[#009DE0]' : 'text-gray-400'} />
+                    <div className="flex-1 text-right">
+                      <p className="font-medium text-gray-900">{pm.label}</p>
+                      <p className="text-xs text-gray-500">{pm.desc}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 text-right">
-                    <p className={`font-semibold text-sm ${payment === method.id ? 'text-blue' : 'text-gray-800'}`}>{method.label}</p>
-                    <p className="text-gray-400 text-xs">{method.desc}</p>
-                  </div>
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${payment === method.id ? 'bg-blue text-white' : 'bg-gray-200 text-gray-500'}`}>
-                    <Icon size={18} />
-                  </div>
-                </motion.button>
+                </button>
               );
             })}
           </div>
-        </div>
+        </motion.div>
 
         {/* Order Summary */}
-        <div className="bg-white rounded-2xl p-5 shadow-card">
-          <h2 className="text-gray-900 font-bold text-lg mb-4 text-right">סיכום הזמנה</h2>
-          <div className="space-y-2 mb-3">
-            {items.map(item => (
-              <div key={item.cartId} className="flex justify-between text-sm">
-                <span className="text-gray-900 font-medium">₪{(item.price * item.quantity).toFixed(0)}</span>
-                <span className="text-gray-600">{item.quantity}× {item.name}</span>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-gray-100 pt-3 space-y-1.5">
-            <div className="flex justify-between text-gray-500 text-sm">
-              <span>₪{subtotal.toFixed(0)}</span>
-              <span>סכום ביניים</span>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-2xl p-4 shadow-sm"
+        >
+          <h2 className="font-bold text-gray-900 mb-3">סיכום הזמנה</h2>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">סכום ביניים</span>
+              <span className="font-medium">₪{subtotal.toFixed(0)}</span>
             </div>
-            <div className="flex justify-between text-gray-500 text-sm">
-              <span className={deliveryFee === 0 ? 'text-green-600 font-semibold' : ''}>{deliveryFee === 0 ? 'חינם' : `₪${deliveryFee}`}</span>
-              <span>משלוח</span>
+            <div className="flex justify-between">
+              <span className="text-gray-600">משלוח</span>
+              <span className="font-medium">₪{deliveryFee.toFixed(0)}</span>
             </div>
-            <div className="flex justify-between text-gray-900 font-bold text-lg">
-              <span>₪{total.toFixed(0)}</span>
-              <span>סה"כ</span>
+            <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between">
+              <span className="font-bold text-gray-900">סה"כ</span>
+              <span className="font-bold text-[#009DE0] text-lg">₪{total.toFixed(0)}</span>
             </div>
           </div>
-        </div>
+        </motion.div>
+      </div>
 
-        {/* Place Order */}
-        <motion.button
-          whileTap={{ scale: 0.97 }}
+      {/* Bottom CTA */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-20">
+        <button
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full btn-blue py-5 text-lg rounded-2xl disabled:opacity-50"
+          className="w-full bg-[#009DE0] text-white py-4 rounded-full font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#0088C5] transition-colors"
         >
-          {loading ? 'שולח הזמנה...' : `שלח הזמנה • ₪${total.toFixed(0)}`}
-        </motion.button>
+          {loading ? 'שולח הזמנה...' : `בצע הזמנה • ₪${total.toFixed(0)}`}
+        </button>
       </div>
-    </div>
-  );
-}
-
-function Field({ icon, placeholder, value, onChange, error, type = 'text', multiline = false }) {
-  const base = "w-full bg-gray-50 border rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 text-sm outline-none transition-all text-right";
-  const borderClass = error ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-blue';
-  return (
-    <div>
-      <div className="relative">
-        <span className="absolute left-3 top-3.5 text-gray-400">{icon}</span>
-        {multiline ? (
-          <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} className={`${base} ${borderClass} pl-10 resize-none`} />
-        ) : (
-          <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={`${base} ${borderClass} pl-10`} />
-        )}
-      </div>
-      {error && <p className="text-red-500 text-xs mt-1 text-right">{error}</p>}
     </div>
   );
 }
