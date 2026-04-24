@@ -39,7 +39,7 @@ export default function MenuHeader({ restaurant }) {
         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-2">
           <div className="flex items-center gap-1">
             <Star size={14} className="text-yellow-400 fill-yellow-400" />
-            <span className="font-semibold text-gray-700">{restaurant.rating || '8.0'}</span>
+            <span className="font-semibold text-gray-700">{restaurant.rating || '9.0'}</span>
           </div>
           <span>·</span>
           <span>פתוח עד 23:00</span>

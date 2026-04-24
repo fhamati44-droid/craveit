@@ -55,7 +55,7 @@ export default function RestaurantCard({ restaurant }) {
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-0.5">
             <Star size={11} className="text-yellow-400 fill-yellow-400" />
-            <span className="text-gray-600 text-[11px] font-semibold">{restaurant.rating || '4.5'}</span>
+            <span className="text-gray-600 text-[11px] font-semibold">{restaurant.rating || '9.0'}</span>
           </div>
           <span className="text-gray-300 text-[11px]">·</span>
           <div className="flex items-center gap-0.5">
