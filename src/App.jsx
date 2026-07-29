@@ -13,6 +13,9 @@ import Checkout from '@/pages/Checkout';
 import OrderTracking from '@/pages/OrderTracking';
 import Profile from '@/pages/Profile';
 import Search from '@/pages/Search';
+import TamamGame from '@/pages/TamamGame';
+import TamamSuggestions from '@/pages/TamamSuggestions';
+import TamamAdmin from '@/pages/TamamAdmin';
 
 function App() {
   return (
@@ -29,6 +32,9 @@ function App() {
               <Route path="/orders" element={<OrderTracking />} />
               <Route path="/profile" element={<Profile />} />
             </Route>
+            <Route path="/tamam-game" element={<TamamGame />} />
+            <Route path="/tamam-suggestions/:moodId" element={<TamamSuggestions />} />
+            <Route path="/tamam-admin" element={<TamamAdmin />} />
             <Route path="*" element={<PageNotFound />} />
           </Routes>
         </Router>

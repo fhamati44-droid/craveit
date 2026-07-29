@@ -47,6 +47,20 @@ Deno.serve(async (req) => {
         result = await supaFetch(`/menu_items?select=*&category_id=eq.${payload.categoryId}&order=sort_order.asc`);
         break;
 
+      case 'getMenuItemsByIds': {
+        const ids = (payload.ids || []).join(',');
+        if (!ids) { result = []; break; }
+        result = await supaFetch(`/menu_items?select=*&id=in.(${ids})`);
+        break;
+      }
+
+      case 'getRestaurantsByIds': {
+        const rIds = (payload.ids || []).join(',');
+        if (!rIds) { result = []; break; }
+        result = await supaFetch(`/restaurants?select=*&id=in.(${rIds})`);
+        break;
+      }
+
       case 'getExtraGroups': {
         const groups = await supaFetch(`/menu_extra_groups?select=*&item_id=eq.${payload.itemId}&order=sort_order.asc`);
         if (!groups || !groups.length) { result = []; break; }

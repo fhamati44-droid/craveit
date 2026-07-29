@@ -58,6 +58,27 @@ export default function Home() {
       {/* Hero Deals Banner */}
       <HeroDeals deals={deals} loading={loading} />
 
+      {/* TAMAM Mood Game CTA */}
+      <div className="px-3 pb-4">
+        <Link to="/tamam-game">
+          <motion.div
+            whileTap={{ scale: 0.98 }}
+            className="relative overflow-hidden rounded-2xl p-4 text-white"
+            style={{ background: 'radial-gradient(circle at 30% 30%, #3DEB8B 0%, #16a34a 50%, #051614 100%)' }}
+          >
+            <div className="relative z-10 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold opacity-80">TAMAM</p>
+                <h3 className="font-extrabold text-lg mt-0.5">جاهز تنطلق؟</h3>
+                <p className="text-xs opacity-90 mt-0.5">اعطيني اقتراح TAMAM حسب مودك</p>
+              </div>
+              <div className="text-4xl">🎮</div>
+            </div>
+            <div className="absolute -left-6 -bottom-6 w-24 h-24 rounded-full bg-white/10" />
+          </motion.div>
+        </Link>
+      </div>
+
       {/* "Nearby" section - Sala/HAAT style with 2-col grid */}
       <div className="px-3 pb-4">
         <div className="flex items-center justify-between mb-3">

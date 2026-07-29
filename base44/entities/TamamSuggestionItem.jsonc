@@ -1,0 +1,55 @@
+{
+  "name": "TamamSuggestionItem",
+  "type": "object",
+  "properties": {
+    "suggestion_set_id": {
+      "type": "string",
+      "title": "\u05de\u05d6\u05d4\u05d4 \u05e1\u05d8 \u05d4\u05e6\u05e2\u05d4 (TamamSuggestionSet id)"
+    },
+    "restaurant_id": {
+      "type": "number",
+      "title": "\u05de\u05d6\u05d4\u05d4 \u05de\u05e1\u05e2\u05d3\u05d4 (Supabase)"
+    },
+    "meal_id": {
+      "type": "number",
+      "title": "\u05de\u05d6\u05d4\u05d4 \u05de\u05e0\u05d4 (Supabase menu_items)"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1,
+      "title": "\u05db\u05de\u05d5\u05ea"
+    },
+    "selected_addon_ids": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "title": "\u05ea\u05d5\u05e1\u05e4\u05d5\u05ea \u05e0\u05d1\u05d7\u05e8\u05d5\u05ea (ids)"
+    },
+    "selected_drink_ids": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "title": "\u05de\u05e9\u05e7\u05d0\u05d5\u05ea \u05e0\u05d1\u05d7\u05e8\u05d9\u05dd (ids)"
+    },
+    "item_note": {
+      "type": "string",
+      "title": "\u05d4\u05e2\u05e8\u05d4 \u05dc\u05e4\u05e8\u05d9\u05d8"
+    },
+    "is_required": {
+      "type": "boolean",
+      "default": true,
+      "title": "\u05d7\u05d5\u05d1\u05d4 / \u05d0\u05d5\u05e4\u05e6\u05d9\u05d5\u05e0\u05dc\u05d9"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0,
+      "title": "\u05e1\u05d3\u05e8 \u05ea\u05e6\u05d5\u05d2\u05d4"
+    }
+  },
+  "required": [
+    "suggestion_set_id",
+    "meal_id"
+  ]
+}
