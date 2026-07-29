@@ -86,11 +86,8 @@ export default function TamamSuggestions() {
 
   const handleChoose = (level, set) => {
     trackEvent({ action: 'package_selected', mood_id: moodId, suggestion_set_id: set?.id, package_level: level });
-    const meals = mealsBySet[set?.id] || [];
-    const lines = meals.map(m => `${m._qty || 1}x ${m.name}`).join('\n');
-    const msg = `مرحبا، اخترت اقتراح من TAMAM 👋\nالمود: ${mood?.name_ar || ''}\nالباقة: ${level}\nالاقتراح: ${set?.title_ar || ''}\n\nالطلب:\n${lines}\n\nاسمي:\nرقم الهاتف:\nملاحظات:`;
-    trackEvent({ action: 'whatsapp_clicked', mood_id: moodId, suggestion_set_id: set?.id, package_level: level });
-    window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank');
+    trackEvent({ action: 'order_started', mood_id: moodId, suggestion_set_id: set?.id, package_level: level });
+    navigate(`/tamam-order/${set.id}`);
   };
 
   if (loading) {

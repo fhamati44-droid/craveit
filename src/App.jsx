@@ -16,6 +16,7 @@ import Search from '@/pages/Search';
 import TamamGame from '@/pages/TamamGame';
 import TamamSuggestions from '@/pages/TamamSuggestions';
 import TamamAdmin from '@/pages/TamamAdmin';
+import TamamOrder from '@/pages/TamamOrder';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
             </Route>
             <Route path="/tamam-game" element={<TamamGame />} />
             <Route path="/tamam-suggestions/:moodId" element={<TamamSuggestions />} />
+            <Route path="/tamam-order/:suggestionSetId" element={<TamamOrder />} />
             <Route path="/tamam-admin" element={<TamamAdmin />} />
             <Route path="*" element={<PageNotFound />} />
           </Routes>
