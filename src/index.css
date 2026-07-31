@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -140,3 +141,38 @@
 }
 .btn-green:hover { background-color: #1E8A35; }
 .btn-green:active { background-color: #166B29; transform: scale(0.98); }
+
+/* ===== TAMAM Customer Design System (Phase 1 Foundation) ===== */
+:root {
+  --tamam-ink: #071312;
+  --tamam-bg: #101412;
+  --tamam-surface-lowest: #0B0F0D;
+  --tamam-surface-low: #181D1A;
+  --tamam-surface: #1C211E;
+  --tamam-surface-high: #262B29;
+  --tamam-surface-highest: #313633;
+  --tamam-green: #6EBF5F;
+  --tamam-green-bright: #89DB78;
+  --tamam-green-light: #A2F790;
+  --tamam-green-dark: #1C6D17;
+  --tamam-teal: #0E3B40;
+  --tamam-gold: #EAC45C;
+  --tamam-gold-dark: #CCA944;
+  --tamam-cream: #F4F0E5;
+  --tamam-text: #DFE3E0;
+  --tamam-text-muted: #C0CAB8;
+  --tamam-outline: #40493C;
+  --tamam-error: #FFB4AB;
+}
+
+.font-tamam { font-family: 'Alexandria', 'IBM Plex Sans Arabic', system-ui, sans-serif; }
+
+.skeleton-t {
+  background: linear-gradient(90deg, #181D1A 25%, #262B29 50%, #181D1A 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Safe-area helpers for TAMAM customer shell */
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
