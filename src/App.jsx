@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { CartProvider } from '@/lib/CartContext';
 import AppLayout from '@/components/layout/AppLayout';
+import CustomerMobileLayout from '@/components/tamam/customer/CustomerMobileLayout';
 
 // Pages
 import Home from '@/pages/Home';
@@ -24,8 +25,10 @@ function App() {
       <CartProvider>
         <Router>
           <Routes>
-            <Route element={<AppLayout />}>
+            <Route element={<CustomerMobileLayout />}>
               <Route path="/" element={<Home />} />
+            </Route>
+            <Route element={<AppLayout />}>
               <Route path="/search" element={<Search />} />
               <Route path="/restaurant/:slug" element={<Restaurant />} />
               <Route path="/checkout" element={<Checkout />} />

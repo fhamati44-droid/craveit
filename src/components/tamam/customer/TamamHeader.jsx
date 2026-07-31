@@ -35,7 +35,7 @@ export default function TamamHeader({ cartCount = 0, location = 'موقعك ال
               </span>
             )}
           </Link>
-          <Link to="/account" aria-label="حسابي" className="w-10 h-10 rounded-full bg-tamam-surface flex items-center justify-center text-tamam-text-muted">
+          <Link to="/profile" aria-label="حسابي" className="w-10 h-10 rounded-full bg-tamam-surface flex items-center justify-center text-tamam-text-muted">
             <User size={18} />
           </Link>
         </div>

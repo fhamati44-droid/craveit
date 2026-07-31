@@ -1,13 +1,16 @@
 import { Outlet } from 'react-router-dom';
+import { useCart } from '@/lib/CartContext';
 import TamamHeader from './TamamHeader';
 import TamamBottomNav from './TamamBottomNav';
 
 /**
  * Shared customer mobile shell — dark TAMAM identity.
  * Usable as a Route layout (renders <Outlet/>) or wrapped around children.
- * No data logic lives here; cartCount/location come from parent in Phase 2.
+ * Cart count comes from the existing CartContext (single source of truth).
  */
-export default function CustomerMobileLayout({ children, cartCount = 0, location = 'موقعك الحالي' }) {
+export default function CustomerMobileLayout({ children, location = 'موقعك الحالي' }) {
+  const { totalItems } = useCart();
+  const cartCount = totalItems;
   return (
     <div
       dir="rtl"

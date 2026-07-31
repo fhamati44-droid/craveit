@@ -3,10 +3,10 @@ import { Home, UtensilsCrossed, Sparkles, ClipboardList, User } from 'lucide-rea
 
 const ITEMS = [
   { to: '/', label: 'الرئيسية', icon: Home },
-  { to: '/restaurants', label: 'المطاعم', icon: UtensilsCrossed },
+  { to: '/search', label: 'المطاعم', icon: UtensilsCrossed },
   { to: '/tamam-game', label: 'اقتراح TAMAM', icon: Sparkles, highlight: true },
   { to: '/orders', label: 'طلباتي', icon: ClipboardList },
-  { to: '/account', label: 'حسابي', icon: User },
+  { to: '/profile', label: 'حسابي', icon: User },
 ];
 
 export default function TamamBottomNav() {
