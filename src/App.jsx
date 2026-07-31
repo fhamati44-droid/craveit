@@ -14,6 +14,7 @@ import Checkout from '@/pages/Checkout';
 import OrderTracking from '@/pages/OrderTracking';
 import Profile from '@/pages/Profile';
 import Search from '@/pages/Search';
+import Restaurants from '@/pages/Restaurants';
 import TamamGame from '@/pages/TamamGame';
 import TamamSuggestions from '@/pages/TamamSuggestions';
 import TamamAdmin from '@/pages/TamamAdmin';
@@ -27,10 +28,11 @@ function App() {
           <Routes>
             <Route element={<CustomerMobileLayout />}>
               <Route path="/" element={<Home />} />
+              <Route path="/restaurants" element={<Restaurants />} />
+              <Route path="/restaurant/:slug" element={<Restaurant />} />
             </Route>
             <Route element={<AppLayout />}>
               <Route path="/search" element={<Search />} />
-              <Route path="/restaurant/:slug" element={<Restaurant />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/order/:id" element={<OrderTracking />} />
               <Route path="/orders" element={<OrderTracking />} />
