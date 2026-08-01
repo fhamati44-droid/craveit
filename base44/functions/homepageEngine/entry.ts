@@ -566,6 +566,92 @@ export default async function(req) {
       return Response.json({ data: await buildPublishedHomepage(base44) });
     }
 
+    // Public: discovery feed — 10 carousels + 3 banners, ALWAYS rendered with real fallback meals (no CMS dependency)
+    if (action === 'getDiscoveryFeed') {
+      const LIMIT = 8;
+      const shown = new Set();
+      const proxy = (action2, payload) => base44.asServiceRole.functions.invoke('supabaseProxy', { action: action2, payload });
+      const unwrap = (r) => (r && (r.data?.data || r.data)) || [];
+
+      const [poolRes, newRes, sets] = await Promise.all([
+        proxy('getRandomMeals', { limit: 100 }).catch(() => []),
+        proxy('getNewMeals', { days: 60, limit: LIMIT }).catch(() => []),
+        base44.asServiceRole.entities.TamamSuggestionSet.filter({ is_active: true }, 'sort_order', 200).catch(() => []),
+      ]);
+      const pool = unwrap(poolRes).filter((m) => m.is_available !== false);
+      const newMeals = unwrap(newRes);
+      const activeSets = sets || [];
+
+      const takePool = (n) => {
+        const out = [];
+        for (const m of pool) { if (shown.has(m.id)) continue; shown.add(m.id); out.push(m); if (out.length >= n) break; }
+        return out;
+      };
+      const resolveCats = async (key, title, subtitle, variant, cats, badge, viewAll) => {
+        let meals = [];
+        try {
+          const res = await proxy('getMealsByCategoryNamesFlat', { names: cats, limit: LIMIT, excludeIds: [...shown] });
+          meals = unwrap(res);
+          meals.forEach((m) => shown.add(m.id));
+        } catch (e) { console.error('disc cat error', key, e); }
+        if (meals.length < 2) meals = takePool(LIMIT);
+        return { key, title, subtitle, card_variant: variant, badge, view_all_route: viewAll || '/restaurants', view_all_label: 'عرض الكل', meals: meals.slice(0, LIMIT) };
+      };
+
+      const hourStr = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Jerusalem', hour12: false, hour: '2-digit' });
+      const hour = parseInt(hourStr, 10);
+      let timeCats;
+      if (hour >= 5 && hour < 11) timeCats = ['فطور', 'معجنات', 'سندويشات', 'مشروبات'];
+      else if (hour >= 11 && hour < 16) timeCats = ['وجبات رئيسية', 'أكل بيتي', 'دجاج', 'لحوم'];
+      else if (hour >= 16 && hour < 23) timeCats = ['بيتزا', 'برجر', 'عائلية', 'مشاوي'];
+      else timeCats = ['سريع', 'سندويشات', 'حلويات', 'تسالي'];
+
+      const timeNow = await resolveCats('time_now', 'شو بناسبك هسا؟', 'اقتراحات حسب الوقت والمود', 'compact', timeCats, null, '/restaurants');
+      const tamamPicks = { key: 'tamam_picks', title: 'اختيارات تستاهل التجربة', subtitle: 'وجبات اخترناها بعناية إلك', card_variant: 'feature', badge: 'اختيار TAMAM', view_all_route: '/restaurants', view_all_label: 'عرض الكل', meals: takePool(LIMIT) };
+      const family = await resolveCats('family', 'للعيلة واللّمات', 'وجبات وصواني بتكفي الكل', 'wide', ['عائلية', 'مشاوي', 'صواني', 'منسف', 'مقلوبة', 'كبسة'], null, '/restaurants');
+      const lunch = await resolveCats('lunch', 'غدا اليوم', 'وجبات مشبعة بدون حيرة', 'tall', ['وجبات رئيسية', 'أكل بيتي', 'دجاج', 'لحوم', 'مشاوي'], null, '/restaurants');
+      const quick = await resolveCats('quick', 'سريع وخفيف', 'للجوع السريع أو لما بدك إشي خفيف', 'medium', ['سندويشات', 'معجنات', 'سلطات', 'برجر', 'خفيف', 'مناقيش'], null, '/restaurants');
+
+      let newFinal = newMeals.slice(0, LIMIT);
+      newFinal.forEach((m) => shown.add(m.id));
+      if (newFinal.length < 2) newFinal = takePool(LIMIT);
+      const newDiscovery = { key: 'new', title: 'جديد على TAMAM', subtitle: 'وجبات انضافت جديد وتستاهل تنجرّب', card_variant: 'new', badge: 'جديد', view_all_route: '/restaurants', view_all_label: 'عرض الكل', meals: newFinal };
+
+      const desserts = await resolveCats('desserts', 'حلويات وتسالي', 'إشي حلو أو تسالي تكمل فيها القعدة', 'circular', ['حلويات', 'آيس كريم', 'كنافة', 'كيك', 'شوكولاتة', 'تسالي', 'بوظة'], null, '/restaurants');
+      const completeOrder = await resolveCats('complete_order', 'كمّل طلبك', 'مشروب، تحلاية أو إضافة صغيرة', 'mini', ['مشروبات', 'عصائر', 'إضافات', 'بطاطا', 'صلصات', 'حلويات'], null, '/restaurants');
+
+      // Budget: pick first range that has meals
+      const ranges = [
+        { label: 'أقل من ₪40', min: 0, max: 40 },
+        { label: '₪40–₪70', min: 40, max: 70 },
+        { label: '₪70–₪100', min: 70, max: 100 },
+        { label: '₪100 وفوق', min: 100, max: null },
+      ];
+      let budgetMeals = []; let activeRangeIdx = 0;
+      for (let i = 0; i < ranges.length; i++) {
+        try { const res = await proxy('getMealsByPriceRange', { min: ranges[i].min, max: ranges[i].max, limit: LIMIT, excludeIds: [...shown] }); budgetMeals = unwrap(res); } catch (e) {}
+        if (budgetMeals.length >= 2) { activeRangeIdx = i; break; }
+      }
+      if (budgetMeals.length < 2) budgetMeals = takePool(LIMIT);
+      budgetMeals.forEach((m) => shown.add(m.id));
+      const budget = { key: 'budget', title: 'خيارات بسعر مريح', subtitle: 'وجبات بتناسب ميزانيات مختلفة', ranges, activeRangeIdx, meals: budgetMeals.slice(0, LIMIT), view_all_route: '/restaurants', view_all_label: 'عرض الكل' };
+
+      // Mix + Plus suggestions
+      let countsMap = {};
+      try { const allItems = await base44.asServiceRole.entities.TamamSuggestionItem.list('sort_order', 1000); (allItems || []).forEach((it) => { if (activeSets.some((s) => s.id === it.suggestion_set_id)) countsMap[it.suggestion_set_id] = (countsMap[it.suggestion_set_id] || 0) + 1; }); } catch (e) {}
+      const mixCards = activeSets.slice(0, LIMIT).map((s) => {
+        const pkg = normalizePkg(s.package_level);
+        return { type: 'suggestion', id: s.id, title: s.title_ar || 'اقتراح TAMAM', image_url: s.hero_image_url, display_price: s.display_price, package_level: pkg, included_count: countsMap[s.id] || 0, route: `/tamam-order/${s.id}` };
+      });
+      const mixPlus = { key: 'mix_plus_ideas', title: 'Mix وPlus وأفكار أكثر', subtitle: 'مقترحات جاهزة وتجميعات مختلفة', card_variant: 'compact', cards: mixCards, view_all_route: '/tamam-suggestions?package=all', view_all_label: 'عرض الكل' };
+
+      const homeKitchenBanner = { key: 'home_kitchen_banner', layout: 'split', headline: 'مطبخ البيت مسكّر؟', subtitle: 'ولا يهمك، وجبات جاهزة للعيلة بتوصلك.', cta_label: 'شوف الوجبات', destination: '/restaurants', file_url: null };
+      const lateNightBanner = { key: 'late_night_banner', layout: 'icon', headline: 'جعان آخر الليل؟', subtitle: 'اقتراحات سريعة للسهرة.', cta_label: 'شوف الاقتراحات', destination: '/tamam-suggestions', icon: 'nights_stay', file_url: null };
+      const browseRestaurantsBanner = { key: 'browse_restaurants_banner', layout: 'dashed', headline: 'بدك تختار المطعم بنفسك؟', subtitle: 'كل المطاعم والمنيوات بمكان واحد.', cta_label: 'تصفح المطاعم', destination: '/restaurants', file_url: null };
+
+      return Response.json({ data: { timeNow, tamamPicks, budget, family, lunch, quick, newDiscovery, mixPlus, desserts, completeOrder, homeKitchenBanner, lateNightBanner, browseRestaurantsBanner, shownMealIds: [...shown] } });
+    }
+
     // Admin-only actions
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });

@@ -7,11 +7,9 @@ import { track } from '@/lib/analytics';
 import HomepageActiveOrderCard from '@/components/tamam/customer/HomepageActiveOrderCard';
 import HomeHero from '@/components/tamam/customer/HomeHero';
 import PackageCards from '@/components/tamam/customer/PackageCards';
-import HomepageMealCarousel from '@/components/tamam/customer/HomepageMealCarousel';
-import BudgetMealsSection from '@/components/tamam/customer/BudgetMealsSection';
-import HomepageEditorialBanner from '@/components/tamam/customer/HomepageEditorialBanner';
 import FeaturedRestaurants from '@/components/tamam/customer/FeaturedRestaurants';
 import HomeActiveDealBanner from '@/components/tamam/customer/HomeActiveDealBanner';
+import HomeDiscoverySections from '@/components/tamam/customer/HomeDiscoverySections';
 import PaymentTrustStrip from '@/components/tamam/customer/PaymentTrustStrip';
 import PurchaseJourneyTrustSection from '@/components/tamam/customer/PurchaseJourneyTrustSection';
 import LoyaltyBalanceCard from '@/components/tamam/customer/LoyaltyBalanceCard';
@@ -41,43 +39,13 @@ export default function Home() {
   useEffect(() => { load(); }, []);
 
   if (error) return <ErrorState title="ما قدرنا نحمّل البيانات" onRetry={load} />;
-  const excludeIds = data?.shownMealIds || [];
 
   return (
     <div className="flex flex-col pb-6">
-      {/* Existing upper homepage preserved */}
+      {/* Existing upper homepage — preserved */}
       <HomepageActiveOrderCard />
       <HomeHero hero={data?.hero} />
       <PackageCards packages={data?.packages} />
-
-      {/* 1. شو بناسبك هسا؟ */}
-      <LazySection><HomepageMealCarousel carousel={data?.timeNow} loading={loading} background="bg-surface-container-low/40" /></LazySection>
-      {/* 2. اختيارات تستاهل التجربة */}
-      <LazySection><HomepageMealCarousel carousel={data?.tamamPicks} loading={loading} /></LazySection>
-      {/* Banner 1 — مطبخ البيت مسكّر؟ */}
-      <LazySection><HomepageEditorialBanner banner={data?.homeKitchenBanner} /></LazySection>
-      {/* 3. خيارات بسعر مريح */}
-      <LazySection><BudgetMealsSection budget={data?.budget} excludeIds={excludeIds} /></LazySection>
-      {/* 4. للعيلة واللّمات */}
-      <LazySection><HomepageMealCarousel carousel={data?.family} loading={loading} /></LazySection>
-      {/* 5. غدا اليوم */}
-      <LazySection><HomepageMealCarousel carousel={data?.lunch} loading={loading} background="bg-surface-container-low/40" /></LazySection>
-      {/* Banner 2 — جعان آخر الليل؟ */}
-      <LazySection><HomepageEditorialBanner banner={data?.lateNightBanner} /></LazySection>
-      {/* 6. سريع وخفيف */}
-      <LazySection><HomepageMealCarousel carousel={data?.quick} loading={loading} /></LazySection>
-      {/* 7. جديد على TAMAM */}
-      <LazySection><HomepageMealCarousel carousel={data?.newDiscovery} loading={loading} /></LazySection>
-      {/* 8. Mix وPlus وأفكار أكثر */}
-      <LazySection><HomepageMealCarousel carousel={data?.mixPlus} loading={loading} background="bg-surface-container/60" /></LazySection>
-      {/* Banner 3 — بدك تختار المطعم بنفسك؟ */}
-      <LazySection><HomepageEditorialBanner banner={data?.browseRestaurantsBanner} /></LazySection>
-      {/* 9. حلويات وتسالي */}
-      <LazySection><HomepageMealCarousel carousel={data?.desserts} loading={loading} /></LazySection>
-      {/* 10. كمّل طلبك */}
-      <LazySection><HomepageMealCarousel carousel={data?.completeOrder} loading={loading} /></LazySection>
-
-      {/* Active group deal (existing) */}
       {dealView && (
         <section className="px-4 py-4">
           <HomeActiveDealBanner deal={dealView.deal} thresholds={dealView.thresholds} participants={dealView.participants}
@@ -85,7 +53,10 @@ export default function Home() {
         </section>
       )}
 
-      {/* Featured restaurants (existing) + trust (existing) */}
+      {/* Lower homepage — 10 carousels + 3 banners, always visible, CMS-independent */}
+      <HomeDiscoverySections />
+
+      {/* Existing trust + featured */}
       <LazySection><FeaturedRestaurants restaurants={data?.featuredRestaurants} loading={loading} title="مطاعم بنرشحها" /></LazySection>
       <PaymentTrustStrip />
       <PurchaseJourneyTrustSection />

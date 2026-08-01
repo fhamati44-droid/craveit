@@ -5,6 +5,7 @@ const engine = (action, payload = {}) =>
 
 export const getPublishedConfig = () => engine('getPublishedConfig');
 export const getPublishedHomepage = () => engine('getPublishedHomepage');
+export const getDiscoveryFeed = () => engine('getDiscoveryFeed');
 export const getDraftConfig = () => engine('getDraftConfig');
 export const validatePublish = () => engine('validatePublish');
 export const publishDraft = (label, changeSummary) => engine('publishDraft', { label, changeSummary });
