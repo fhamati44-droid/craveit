@@ -6,9 +6,9 @@ import { SkeletonCard } from '@/components/tamam/customer/States';
 import { track } from '@/lib/analytics';
 
 /**
- * Reusable homepage meal carousel.
- * carousel: { key, title, subtitle, card_variant, view_all_route, view_all_label, meals?, cards? }
- * Renders real meals (meal cards) or suggestion/deal cards, horizontally scrollable, RTL, lazy-tracked.
+ * Reusable RTL homepage carousel: heading + view-all + horizontally scrollable cards.
+ * carousel: { key, title, subtitle, card_variant, badge, view_all_route, view_all_label, meals?, cards? }
+ * Scroll-snap, RTL, hides scrollbar, lazy-tracked via IntersectionObserver.
  */
 export default function HomepageMealCarousel({ carousel, loading = false, background = 'bg-transparent' }) {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ export default function HomepageMealCarousel({ carousel, loading = false, backgr
   const trackedRef = useRef(false);
   const meals = carousel?.meals || [];
   const cards = carousel?.cards || [];
-  const variant = carousel?.card_variant || 'large';
+  const variant = carousel?.card_variant || 'feature';
 
   useEffect(() => {
     if (!ref.current || trackedRef.current || (!meals.length && !cards.length)) return;
@@ -36,24 +36,24 @@ export default function HomepageMealCarousel({ carousel, loading = false, backgr
 
   return (
     <section ref={ref} className={`py-6 ${background}`}>
-      <div className="flex justify-between items-center px-4 mb-3">
+      <div className="flex justify-between items-end px-4 mb-4">
         <div>
-          <h2 className="text-headline-md font-bold">{carousel?.title}</h2>
-          {carousel?.subtitle && <p className="text-xs text-on-surface-variant">{carousel.subtitle}</p>}
+          <h2 className="text-lg font-bold">{carousel?.title}</h2>
+          {carousel?.subtitle && <p className="text-xs text-on-surface-variant mt-0.5">{carousel.subtitle}</p>}
         </div>
         {carousel?.view_all_route && (
-          <button onClick={() => { track('carousel_view_all', { key: carousel.key, route: carousel.view_all_route }); navigate(carousel.view_all_route); }} className="text-primary text-xs font-bold flex items-center gap-0.5">
-            {carousel.view_all_label || 'شوف الكل'} <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+          <button onClick={() => { track('carousel_view_all', { key: carousel.key, route: carousel.view_all_route }); navigate(carousel.view_all_route); }} className="text-primary text-xs font-medium flex items-center gap-0.5 whitespace-nowrap">
+            {carousel.view_all_label || 'عرض الكل'} <span className="material-symbols-outlined text-[14px]">arrow_back</span>
           </button>
         )}
       </div>
-      <div className="flex gap-3 overflow-x-auto no-scrollbar px-4">
+      <div className="flex overflow-x-auto gap-4 px-4 no-scrollbar snap-x snap-mandatory" dir="rtl">
         {loading ? (
           [1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)
         ) : isSuggestions ? (
           cards.map((c) => <HomepageCarouselSuggestionCard key={c.id} card={c} />)
         ) : (
-          meals.map((m) => <HomepageCarouselMealCard key={m.id} meal={m} badge={carousel.badge} variant={variant === 'feature' ? 'large' : variant} />)
+          meals.map((m) => <HomepageCarouselMealCard key={m.id} meal={m} badge={carousel.badge} variant={variant} />)
         )}
       </div>
     </section>

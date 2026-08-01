@@ -45,32 +45,39 @@ export default function Home() {
 
   return (
     <div className="flex flex-col pb-6">
-      {/* Active order */}
+      {/* Existing upper homepage preserved */}
       <HomepageActiveOrderCard />
-
-      {/* Hero */}
       <HomeHero hero={data?.hero} />
-
-      {/* Classic / Mix / Plus */}
       <PackageCards packages={data?.packages} />
 
-      {/* Carousel 1 — شو بناسبك هسا؟ */}
-      <LazySection>
-        <HomepageMealCarousel carousel={data?.timeNow} loading={loading} background="bg-surface-container-low/40" />
-      </LazySection>
-
-      {/* Carousel 2 — اختيارات تستاهل التجربة */}
-      <LazySection>
-        <HomepageMealCarousel carousel={data?.tamamPicks} loading={loading} />
-      </LazySection>
-
-      {/* Small banner after carousel 2 */}
+      {/* 1. شو بناسبك هسا؟ */}
+      <LazySection><HomepageMealCarousel carousel={data?.timeNow} loading={loading} background="bg-surface-container-low/40" /></LazySection>
+      {/* 2. اختيارات تستاهل التجربة */}
+      <LazySection><HomepageMealCarousel carousel={data?.tamamPicks} loading={loading} /></LazySection>
+      {/* Banner 1 — مطبخ البيت مسكّر؟ */}
       <LazySection><HomepageEditorialBanner banner={data?.homeKitchenBanner} /></LazySection>
-
-      {/* Carousel 3 — خيارات بسعر مريح */}
+      {/* 3. خيارات بسعر مريح */}
       <LazySection><BudgetMealsSection budget={data?.budget} excludeIds={excludeIds} /></LazySection>
+      {/* 4. للعيلة واللّمات */}
+      <LazySection><HomepageMealCarousel carousel={data?.family} loading={loading} /></LazySection>
+      {/* 5. غدا اليوم */}
+      <LazySection><HomepageMealCarousel carousel={data?.lunch} loading={loading} background="bg-surface-container-low/40" /></LazySection>
+      {/* Banner 2 — جعان آخر الليل؟ */}
+      <LazySection><HomepageEditorialBanner banner={data?.lateNightBanner} /></LazySection>
+      {/* 6. سريع وخفيف */}
+      <LazySection><HomepageMealCarousel carousel={data?.quick} loading={loading} /></LazySection>
+      {/* 7. جديد على TAMAM */}
+      <LazySection><HomepageMealCarousel carousel={data?.newDiscovery} loading={loading} /></LazySection>
+      {/* 8. Mix وPlus وأفكار أكثر */}
+      <LazySection><HomepageMealCarousel carousel={data?.mixPlus} loading={loading} background="bg-surface-container/60" /></LazySection>
+      {/* Banner 3 — بدك تختار المطعم بنفسك؟ */}
+      <LazySection><HomepageEditorialBanner banner={data?.browseRestaurantsBanner} /></LazySection>
+      {/* 9. حلويات وتسالي */}
+      <LazySection><HomepageMealCarousel carousel={data?.desserts} loading={loading} /></LazySection>
+      {/* 10. كمّل طلبك */}
+      <LazySection><HomepageMealCarousel carousel={data?.completeOrder} loading={loading} /></LazySection>
 
-      {/* Active group deal */}
+      {/* Active group deal (existing) */}
       {dealView && (
         <section className="px-4 py-4">
           <HomeActiveDealBanner deal={dealView.deal} thresholds={dealView.thresholds} participants={dealView.participants}
@@ -78,26 +85,8 @@ export default function Home() {
         </section>
       )}
 
-      {/* Carousel 4 — جديد على TAMAM */}
-      <LazySection>
-        <HomepageMealCarousel carousel={data?.newDiscovery} loading={loading} background="bg-surface-container-low/40" />
-      </LazySection>
-
-      {/* Small banner after carousel 4 */}
-      <LazySection><HomepageEditorialBanner banner={data?.lateNightBanner} /></LazySection>
-
-      {/* Carousel 5 — Mix وPlus وأفكار أكثر */}
-      <LazySection>
-        <HomepageMealCarousel carousel={data?.mixPlus} loading={loading} />
-      </LazySection>
-
-      {/* Featured restaurants */}
+      {/* Featured restaurants (existing) + trust (existing) */}
       <LazySection><FeaturedRestaurants restaurants={data?.featuredRestaurants} loading={loading} title="مطاعم بنرشحها" /></LazySection>
-
-      {/* Browse-all-restaurants banner */}
-      <LazySection><HomepageEditorialBanner banner={data?.browseRestaurantsBanner} /></LazySection>
-
-      {/* Trust, rewards, support */}
       <PaymentTrustStrip />
       <PurchaseJourneyTrustSection />
       <LoyaltyBalanceCard />

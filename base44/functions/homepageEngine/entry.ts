@@ -197,7 +197,7 @@ async function buildPublishedHomepage(base44) {
     lunch: { title: 'غدا اليوم', subtitle: 'وجبات مشبعة للغدا بدون ما تضيع وقت بالاختيار.', badge: null, route: '/restaurants' },
     complete_order: { title: 'كمّل طلبك', subtitle: 'مشروب، تحلاية أو إضافة صغيرة بتكمّل الوجبة.', badge: null, route: '/restaurants' },
   };
-  const CARD_VARIANT = { tamam_picks: 'feature', lunch: 'feature', desserts: 'compact', complete_order: 'compact', new: 'compact' };
+  const CARD_VARIANT = { time_now: 'compact', tamam_picks: 'feature', family: 'wide', lunch: 'tall', quick: 'medium', new: 'new', desserts: 'circular', complete_order: 'mini' };
 
   function withinActiveHours(cfg) {
     const ah = cfg && cfg.active_hours;
@@ -343,10 +343,15 @@ async function buildPublishedHomepage(base44) {
     };
   }
 
-  // Carousels (1 & 2 & 4 & 5) — resolved below in order for meal duplicate-prevention
+  // Carousels resolved in display order for meal duplicate-prevention (shownMealIds threaded)
   let timeNow = await resolveTimeNowCarousel();
   let tamamPicks = await resolveCurated('tamam_picks');
+  let family = await resolveCurated('family');
+  let lunch = await resolveCurated('lunch');
+  let quick = await resolveCurated('quick');
   const newDiscovery = await resolveCurated('new');
+  let desserts = await resolveCurated('desserts');
+  let completeOrder = await resolveCurated('complete_order');
   let mixPlus = await resolveMixPlusCarousel();
 
   // Budget section: returns config only; meals are fetched per-range on interaction
@@ -400,7 +405,7 @@ async function buildPublishedHomepage(base44) {
   const lateNightBanner = resolveEditorialBanner('late_night_banner', 'جعان آخر الليل؟', 'في إشياء سريعة بتوصل لحد عندك.', '/tamam-suggestions');
   const browseRestaurantsBanner = resolveEditorialBanner('browse_restaurants_banner', 'بدك تختار المطعم بنفسك؟', 'كل المطاعم والمنيوات بمكان واحد.', '/restaurants');
 
-  return { hasVersion: !!active, hero, packages, timeNow, tamamPicks, budget, newDiscovery, mixPlus, homeKitchenBanner, lateNightBanner, browseRestaurantsBanner, featuredRestaurants, shownMealIds: [...shownMealIds] };
+  return { hasVersion: !!active, hero, packages, timeNow, tamamPicks, family, lunch, quick, budget, newDiscovery, desserts, completeOrder, mixPlus, homeKitchenBanner, lateNightBanner, browseRestaurantsBanner, featuredRestaurants, shownMealIds: [...shownMealIds] };
 }
 
 // Section metadata for validation and defaults
