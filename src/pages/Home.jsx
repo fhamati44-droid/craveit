@@ -6,7 +6,7 @@ import { restaurantToCard, suggestionToCard } from '@/lib/tamamAdapters';
 import { listPublicDeals } from '@/lib/groupDealApi';
 import { SkeletonCard, EmptyState, ErrorState } from '@/components/tamam/customer/States';
 import { track } from '@/lib/analytics';
-import { getSessionId } from '@/lib/tamamApi';
+import { getSessionId, getPlayableMoods, getAllPublicSuggestions } from '@/lib/tamamApi';
 import { dealStatus } from '@/lib/dealStatus';
 import HomeActiveDealBanner from '@/components/tamam/customer/HomeActiveDealBanner';
 import HomeUpcomingDealBanner from '@/components/tamam/customer/HomeUpcomingDealBanner';
@@ -44,6 +44,7 @@ export default function Home() {
   const [deals, setDeals] = useState([]);
   const [moods, setMoods] = useState([]);
   const [sets, setSets] = useState({ classic: [], mix: [], plus: [] });
+  const [suggestionItems, setSuggestionItems] = useState([]);
   const [tier, setTier] = useState('mix');
   const [activeMeals, setActiveMeals] = useState([]);
   const [popularMeals, setPopularMeals] = useState([]);
@@ -59,12 +60,12 @@ export default function Home() {
     try {
       getPublishedConfig().catch(() => null).then(setPublishedConfig);
       const [rests, dealViews, moodList, popMeals, allCats] = await Promise.all([
-        getRestaurants(), listPublicDeals().catch(() => []), base44.entities.TamamMood.list().catch(() => []),
+        getRestaurants(), listPublicDeals().catch(() => []), getPlayableMoods().catch(() => []),
         getPopularMeals(12), getAllMenuCategories().catch(() => []),
       ]);
       setRestaurants(rests || []);
       setDeals(dealViews || []);
-      setMoods((moodList || []).filter(m => m.is_active).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
+      setMoods((moodList || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
       const mapped = (popMeals || []).map(pm => {
         const r = (rests || []).find(x => x.id === pm.kitchen_id || x.kitchen_id === pm.kitchen_id);
         return { ...pm, restaurantName: r ? (r.name_ar || r.name) : null, restaurantId: r ? r.id : pm.kitchen_id };
@@ -73,11 +74,13 @@ export default function Home() {
       const counts = {};
       (allCats || []).forEach(c => { const n = (c.name_ar || c.name || '').trim(); if (n) counts[n] = (counts[n] || 0) + 1; });
       setPopCats(Object.entries(counts).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 8));
-      const allSets = await base44.entities.TamamSuggestionSet.filter({ is_active: true }).catch(() => []);
+      const suggestionData = await getAllPublicSuggestions().catch(() => ({ sets: [], items: [] }));
+      const allSets = suggestionData.sets || [];
       const grouped = { classic: [], mix: [], plus: [] };
       (allSets || []).forEach(s => { if (grouped[s.package_level]) grouped[s.package_level].push(s); });
       Object.values(grouped).forEach(a => a.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
       setSets(grouped);
+      setSuggestionItems(suggestionData.items || []);
       try {
         const activeView = (dealViews || []).find(v => v.status === 'active' && v.my_participation);
         if (activeView) setJoinedDeal({ deal: activeView.deal, thresholds: activeView.thresholds, participants: activeView.participants });
@@ -93,14 +96,14 @@ export default function Home() {
     if (!currentSet) { setActiveMeals([]); return; }
     (async () => {
       try {
-        const items = await base44.entities.TamamSuggestionItem.filter({ suggestion_set_id: currentSet.id });
-        const ids = [...new Set((items || []).map(i => i.meal_id).filter(Boolean))];
+        const items = (suggestionItems || []).filter(i => i.suggestion_set_id === currentSet.id);
+        const ids = [...new Set(items.map(i => i.meal_id).filter(Boolean))];
         if (!ids.length) { setActiveMeals([]); return; }
         const res = await base44.functions.invoke('supabaseProxy', { action: 'getMenuItemsByIds', payload: { ids } });
         setActiveMeals((res?.data?.data || []).map(m => m.name).filter(Boolean));
       } catch { setActiveMeals([]); }
     })();
-  }, [currentSet?.id]);
+  }, [currentSet?.id, suggestionItems]);
 
   if (error) return <ErrorState title="ما قدرنا نحمّل البيانات" onRetry={load} />;
 

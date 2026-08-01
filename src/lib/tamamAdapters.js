@@ -50,6 +50,36 @@ export function suggestionToCard(s, opts = {}) {
   };
 }
 
+export function normalizeMood(record) {
+  if (!record?.id) return null;
+  const name =
+    record.name_ar ?? record.arabic_name ?? record.name ??
+    record.title_ar ?? record.title ?? record.label ?? record.mood_name;
+  if (!name) return null;
+  return {
+    id: String(record.id),
+    name: String(name),
+    name_ar: String(name),
+    slug: record.slug || null,
+    icon: record.icon ?? record.emoji ?? record.symbol ?? null,
+    description: record.description_ar ?? record.description ?? null,
+    image: record.image_url ?? record.image ?? record.cover_image ?? record.media ?? null,
+    image_url: record.image_url ?? record.image ?? record.cover_image ?? null,
+    sortOrder: Number(record.sort_order ?? record.order ?? record.priority ?? 0),
+    isActive: record.is_active !== false,
+    hasSuggestions: Boolean(record.has_suggestions),
+    raw: record,
+  };
+}
+
+export function extractRecords(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.items)) return response.items;
+  if (Array.isArray(response?.results)) return response.results;
+  return [];
+}
+
 export function dealToCard(d) {
   if (!d) return null;
   return {

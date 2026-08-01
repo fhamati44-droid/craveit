@@ -1,4 +1,6 @@
 import { base44 } from '@/api/base44Client';
+import { normalizeMood, extractRecords } from '@/lib/tamamAdapters';
+import { normalizePackage } from '@/lib/packageUtils';
 
 const SESSION_KEY = 'tamam_session_id';
 
@@ -11,33 +13,48 @@ function getSessionId() {
   return id;
 }
 
-// Moods
-export const getActiveMoods = async () => {
-  const list = await base44.entities.TamamMood.list('sort_order', 100);
-  return (list || []).filter(m => m.is_active);
-};
+// Service-role backend call (avoids 403 on published app)
+const moodEngine = (action, payload = {}) =>
+  base44.functions.invoke('homepageEngine', { action, payload }).then((r) => r.data?.data ?? r.data);
 
-// Moods that have at least one active suggestion set — for the game
+// Moods with suggestion availability — for the game
 export const getPlayableMoods = async () => {
-  const [moods, sets] = await Promise.all([
-    base44.entities.TamamMood.list('sort_order', 100),
-    base44.entities.TamamSuggestionSet.filter({ is_active: true }, 'sort_order', 500).catch(() => []),
-  ]);
-  const activeMoods = (moods || []).filter(m => m.is_active);
-  const moodsWithSuggestions = new Set((sets || []).map(s => s.mood_id).filter(Boolean));
-  return activeMoods.filter(m => moodsWithSuggestions.has(m.id));
+  const records = await moodEngine('getPublicMoods');
+  return extractRecords(records).map(normalizeMood).filter(Boolean);
 };
 
+// All active suggestion sets + items — for the catalog
+export const getAllPublicSuggestions = async () => {
+  const result = await moodEngine('getPublicSuggestions');
+  if (!result) return { sets: [], items: [] };
+  return {
+    sets: extractRecords(result.sets).filter((s) => s.is_active !== false),
+    items: extractRecords(result.items),
+  };
+};
+
+// Mood + its active suggestion sets + items — for the result page
+export const getMoodWithSuggestions = async (moodId) => {
+  const result = await moodEngine('getPublicMoodData', { mood_id: moodId });
+  if (!result || !result.mood) return { mood: null, sets: [], items: [] };
+  return {
+    mood: normalizeMood(result.mood),
+    sets: extractRecords(result.sets).filter((s) => s.is_active !== false),
+    items: extractRecords(result.items),
+  };
+};
+
+// All active moods via backend (for catalog filter dropdown)
+export const getActiveMoods = async () => {
+  const records = await moodEngine('getPublicMoods');
+  return extractRecords(records).map(normalizeMood).filter(Boolean);
+};
+
+// Admin SDK helpers (admin-only)
 export const getAllMoods = () => base44.entities.TamamMood.list('sort_order', 200);
 export const createMood = (data) => base44.entities.TamamMood.create(data);
 export const updateMood = (id, data) => base44.entities.TamamMood.update(id, data);
 export const deleteMood = (id) => base44.entities.TamamMood.delete(id);
-
-// Suggestion sets
-export const getActiveSuggestionSets = async (moodId) => {
-  const list = await base44.entities.TamamSuggestionSet.filter({ mood_id: moodId }, 'sort_order', 100);
-  return (list || []).filter(s => s.is_active);
-};
 
 export const getAllSuggestionSets = (moodId) =>
   base44.entities.TamamSuggestionSet.filter({ mood_id: moodId }, 'sort_order', 200);
@@ -46,13 +63,12 @@ export const createSuggestionSet = (data) => base44.entities.TamamSuggestionSet.
 export const updateSuggestionSet = (id, data) => base44.entities.TamamSuggestionSet.update(id, data);
 export const deleteSuggestionSet = (id) => base44.entities.TamamSuggestionSet.delete(id);
 
-// Suggestion items
 export const getItemsForSet = (setId) =>
   base44.entities.TamamSuggestionItem.filter({ suggestion_set_id: setId }, 'sort_order', 200);
 
 export const getItemsForSets = async (setIds) => {
   const all = await base44.entities.TamamSuggestionItem.list('sort_order', 500);
-  return (all || []).filter(i => setIds.includes(i.suggestion_set_id));
+  return (all || []).filter((i) => setIds.includes(i.suggestion_set_id));
 };
 
 export const createItem = (data) => base44.entities.TamamSuggestionItem.create(data);
@@ -67,4 +83,4 @@ export const trackEvent = (data) =>
     ...data,
   }).catch(() => null);
 
-export { getSessionId };
+export { getSessionId, normalizePackage };

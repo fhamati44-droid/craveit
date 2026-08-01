@@ -10,6 +10,7 @@ export const publishDraft = (label, changeSummary) => engine('publishDraft', { l
 export const listVersions = () => engine('listVersions');
 export const rollbackToVersion = (version_id) => engine('rollbackToVersion', { version_id });
 export const autoRankMostOrdered = (days, limit) => engine('autoRankMostOrdered', { days, limit });
+export const diagnoseMoods = () => engine('diagnoseMoods');
 export const seedDefaults = () => engine('seedDefaults');
 
 // Section CRUD (admin role via SDK)

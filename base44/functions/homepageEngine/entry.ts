@@ -91,6 +91,58 @@ export default async function(req) {
       return Response.json({ data: { version_number: active.version_number, sections, items: snapshot.items || [], generated_at: snapshot.generated_at } });
     }
 
+    // Public: game moods with suggestion availability
+    if (action === 'getPublicMoods') {
+      const [moods, sets] = await Promise.all([
+        base44.asServiceRole.entities.TamamMood.list('sort_order', 100),
+        base44.asServiceRole.entities.TamamSuggestionSet.filter({ is_active: true }, 'sort_order', 500),
+      ]);
+      const moodIdsWithSets = new Set((sets || []).map((s) => s.mood_id).filter(Boolean));
+      const result = (moods || [])
+        .filter((m) => m.is_active !== false)
+        .map((m) => ({
+          id: m.id,
+          name_ar: m.name_ar,
+          slug: m.slug,
+          icon: m.icon,
+          description_ar: m.description_ar,
+          image_url: m.image_url,
+          sort_order: m.sort_order || 0,
+          has_suggestions: moodIdsWithSets.has(m.id),
+        }))
+        .sort((a, b) => a.sort_order - b.sort_order);
+      return Response.json({ data: result });
+    }
+
+    // Public: all active suggestion sets + items (for catalog)
+    if (action === 'getPublicSuggestions') {
+      const [sets, allItems] = await Promise.all([
+        base44.asServiceRole.entities.TamamSuggestionSet.filter({ is_active: true }, 'sort_order', 500),
+        base44.asServiceRole.entities.TamamSuggestionItem.list('sort_order', 500),
+      ]);
+      const setIds = (sets || []).map((s) => s.id);
+      const items = (allItems || []).filter((i) => setIds.includes(i.suggestion_set_id));
+      return Response.json({ data: { sets: sets || [], items } });
+    }
+
+    // Public: mood record + its active suggestion sets + items
+    if (action === 'getPublicMoodData') {
+      const moodId = payload.mood_id;
+      if (!moodId) return Response.json({ error: 'mood_id required' }, { status: 400 });
+      const [moods, sets] = await Promise.all([
+        base44.asServiceRole.entities.TamamMood.list('sort_order', 200),
+        base44.asServiceRole.entities.TamamSuggestionSet.filter({ mood_id: moodId, is_active: true }, 'sort_order', 200),
+      ]);
+      const mood = (moods || []).find((m) => m.id === moodId) || null;
+      const setIds = (sets || []).map((s) => s.id);
+      let items = [];
+      if (setIds.length) {
+        const allItems = await base44.asServiceRole.entities.TamamSuggestionItem.list('sort_order', 500);
+        items = (allItems || []).filter((i) => setIds.includes(i.suggestion_set_id));
+      }
+      return Response.json({ data: { mood, sets: sets || [], items } });
+    }
+
     // Admin-only actions
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -189,6 +241,32 @@ export default async function(req) {
           is_rollback: true,
         });
         return Response.json({ data: { rolledBack: true, to_version: target.version_number } });
+      }
+      case 'diagnoseMoods': {
+        const [moods, sets] = await Promise.all([
+          base44.asServiceRole.entities.TamamMood.list('sort_order', 200),
+          base44.asServiceRole.entities.TamamSuggestionSet.list('sort_order', 500),
+        ]);
+        const moodIds = new Set((moods || []).map((m) => m.id));
+        const moodsMissingNames = (moods || []).filter((m) => !m.name_ar && !m.name);
+        const moodsMissingImages = (moods || []).filter((m) => !m.image_url);
+        const activeMoods = (moods || []).filter((m) => m.is_active !== false);
+        const moodsWithSets = new Set((sets || []).filter((s) => s.is_active !== false).map((s) => s.mood_id).filter(Boolean));
+        const moodsWithoutSuggestions = activeMoods.filter((m) => !moodsWithSets.has(m.id));
+        const orphanedSets = (sets || []).filter((s) => s.mood_id && !moodIds.has(s.mood_id));
+        return Response.json({
+          data: {
+            entityName: 'TamamMood',
+            totalMoods: (moods || []).length,
+            activeMoods: activeMoods.length,
+            moodsMissingNames: moodsMissingNames.length,
+            moodsMissingImages: moodsMissingImages.length,
+            moodsWithSuggestions: moodsWithSets.size,
+            moodsWithoutSuggestions: moodsWithoutSuggestions.length,
+            orphanedSets: orphanedSets.length,
+            orphanedSetDetails: orphanedSets.slice(0, 10).map((s) => ({ id: s.id, title: s.title_ar, mood_id: s.mood_id })),
+          },
+        });
       }
       case 'autoRankMostOrdered': {
         // Invoke supabaseProxy for date-filtered most-ordered meals

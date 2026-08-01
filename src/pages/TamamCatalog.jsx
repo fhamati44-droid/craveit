@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { getActiveMoods, getItemsForSets, trackEvent } from '@/lib/tamamApi';
+import { getActiveMoods, getAllPublicSuggestions, trackEvent } from '@/lib/tamamApi';
 import { moodIconFor } from '@/lib/moodIcons';
 import { normalizePackage, PACKAGE_LABEL, PACKAGES } from '@/lib/packageUtils';
 import { useCart } from '@/lib/CartContext';
@@ -91,14 +91,14 @@ export default function TamamCatalog() {
     (async () => {
       setLoading(true); setError(false);
       try {
-        const [moodList, allSets] = await Promise.all([
+        const [moodList, suggestionData] = await Promise.all([
           getActiveMoods(),
-          base44.entities.TamamSuggestionSet.list('sort_order', 200).then(l => (l || []).filter(s => s.is_active)),
+          getAllPublicSuggestions(),
         ]);
         setMoods(moodList || []);
         const moodMap = {}; (moodList || []).forEach(m => { moodMap[m.id] = m; });
-        const setIds = (allSets || []).map(s => s.id);
-        const items = setIds.length ? await getItemsForSets(setIds) : [];
+        const allSets = suggestionData.sets || [];
+        const items = suggestionData.items || [];
         const itemsBySet = {}; items.forEach(i => { (itemsBySet[i.suggestion_set_id] ||= []).push(i); });
 
         const mealIds = [...new Set(items.map(i => i.meal_id).filter(Boolean))];

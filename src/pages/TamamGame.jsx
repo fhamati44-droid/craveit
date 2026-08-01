@@ -22,7 +22,13 @@ export default function TamamGame() {
       const m = await getPlayableMoods();
       setMoods(m || []);
     } catch (e) {
-      console.error('TamamGame load error', e);
+      console.error('PUBLIC_MOODS_LOAD_FAILED', {
+        entityName: 'TamamMood',
+        errorName: e?.name,
+        errorMessage: e?.message,
+        status: e?.status,
+        code: e?.code,
+      });
       setError(true);
     } finally {
       setLoading(false);

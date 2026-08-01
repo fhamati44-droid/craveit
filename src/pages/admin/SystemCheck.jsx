@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { listVersions } from '@/lib/homepageApi';
+import { listVersions, diagnoseMoods } from '@/lib/homepageApi';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 
@@ -10,6 +10,8 @@ export default function SystemCheck() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(null);
+  const [moodDiag, setMoodDiag] = useState(null);
+  const [moodDiagLoading, setMoodDiagLoading] = useState(false);
 
   const run = useCallback(async () => {
     setLoading(true);
@@ -100,6 +102,18 @@ export default function SystemCheck() {
     setChecking('images');
     setTimeout(() => { run(); setChecking(null); }, 500);
   };
+  const runMoodDiag = async () => {
+    setMoodDiagLoading(true);
+    try {
+      const diag = await diagnoseMoods();
+      setMoodDiag(diag);
+    } catch (e) {
+      console.error('Mood diagnostic error', e);
+      setMoodDiag({ error: e?.message || 'فشل الفحص' });
+    } finally {
+      setMoodDiagLoading(false);
+    }
+  };
   const reloadPublished = async () => {
     setChecking('reload');
     try {
@@ -145,6 +159,26 @@ export default function SystemCheck() {
             <Stat label="المودات النشطة" value={r.activeMoods} ok={r.activeMoods > 0} />
             <Stat label="مودات لها اقتراحات" value={r.moodsWithSuggestions} ok={r.moodsWithSuggestions > 0} />
           </div>
+          {moodDiag && !moodDiag.error && (
+            <div className="mt-2 bg-surface-container/50 border border-outline-variant/20 rounded-xl p-3 space-y-1.5">
+              <p className="text-[10px] font-bold text-on-surface-variant mb-1">فحص متعمّق للمودات</p>
+              <Stat label="الكيان" value={moodDiag.entityName || 'TamamMood'} />
+              <Stat label="مودات بدون أسماء" value={moodDiag.moodsMissingNames} ok={moodDiag.moodsMissingNames === 0} />
+              <Stat label="مودات بدون صور" value={moodDiag.moodsMissingImages} ok={moodDiag.moodsMissingImages === 0} />
+              <Stat label="مودات بدون اقتراحات" value={moodDiag.moodsWithoutSuggestions} ok={moodDiag.moodsWithoutSuggestions === 0} />
+              <Stat label="اقتراحات يتيمة (mood_id مكسور)" value={moodDiag.orphanedSets} ok={moodDiag.orphanedSets === 0} />
+              {moodDiag.orphanedSetDetails?.length > 0 && (
+                <div className="mt-1 bg-error/10 border border-error/30 rounded-lg p-2 space-y-0.5">
+                  {moodDiag.orphanedSetDetails.map((o, i) => (
+                    <div key={i} className="text-[10px] text-error">{o.title} → mood_id: {o.mood_id?.substring(0, 12)}...</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {moodDiag?.error && (
+            <div className="mt-2 bg-error/10 border border-error/30 rounded-xl p-3 text-xs text-error">{moodDiag.error}</div>
+          )}
         </section>
 
         <section>
@@ -187,8 +221,8 @@ export default function SystemCheck() {
           <button onClick={checkImages} disabled={checking === 'images'} className="px-4 py-2.5 rounded-full bg-surface-container border border-outline-variant/30 text-sm font-bold flex items-center gap-2 disabled:opacity-50">
             <Icon name="image" className="text-[18px]" /> فحص روابط الصور
           </button>
-          <button onClick={run} disabled={checking === 'moods'} className="px-4 py-2.5 rounded-full bg-surface-container border border-outline-variant/30 text-sm font-bold flex items-center gap-2">
-            <Icon name="mood" className="text-[18px]" /> فحص المودات
+          <button onClick={runMoodDiag} disabled={moodDiagLoading} className="px-4 py-2.5 rounded-full bg-surface-container border border-outline-variant/30 text-sm font-bold flex items-center gap-2 disabled:opacity-50">
+            <Icon name="mood" className="text-[18px]" /> {moodDiagLoading ? 'جاري الفحص...' : 'فحص المودات'}
           </button>
           <button onClick={run} className="px-4 py-2.5 rounded-full bg-surface-container border border-outline-variant/30 text-sm font-bold flex items-center gap-2">
             <Icon name="restaurant" className="text-[18px]" /> فحص الاقتراحات

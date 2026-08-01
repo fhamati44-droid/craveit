@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { getActiveSuggestionSets, getItemsForSet, trackEvent } from '@/lib/tamamApi';
+import { getMoodWithSuggestions, trackEvent, normalizePackage } from '@/lib/tamamApi';
 import { moodIconFor } from '@/lib/moodIcons';
 import { resolvePublicImage, handleImageError } from '@/lib/imageUtils';
 
@@ -14,29 +14,50 @@ export default function TamamSuggestions() {
   const navigate = useNavigate();
   const [mood, setMood] = useState(null);
   const [sets, setSets] = useState({ classic: [], mix: [], plus: [] });
+  const [itemsBySet, setItemsBySet] = useState({});
   const [idx, setIdx] = useState({ classic: 0, mix: 0, plus: 0 });
   const [tier, setTier] = useState('mix');
   const [meals, setMeals] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [moodNotFound, setMoodNotFound] = useState(false);
+  const [noSuggestions, setNoSuggestions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
   const load = async () => {
-    setLoading(true); setError(false);
+    setLoading(true); setError(false); setMoodNotFound(false); setNoSuggestions(false);
     try {
-      const moods = await base44.entities.TamamMood.list();
-      setMood((moods || []).find(m => m.id === moodId));
+      const { mood: m, sets: allSets, items: allItems } = await getMoodWithSuggestions(moodId);
+      if (!m) { setMoodNotFound(true); setLoading(false); return; }
+      setMood(m);
       trackEvent({ action: 'mood_selected', mood_id: moodId });
-      const all = await getActiveSuggestionSets(moodId);
       const grouped = { classic: [], mix: [], plus: [] };
-      all.forEach(s => { if (grouped[s.package_level]) grouped[s.package_level].push(s); });
+      allSets.forEach(s => {
+        const pkg = normalizePackage(s.package_level);
+        if (grouped[pkg]) grouped[pkg].push(s);
+      });
       Object.values(grouped).forEach(a => a.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
       setSets(grouped);
       if (!grouped.mix.length && grouped.classic.length) setTier('classic');
       else if (!grouped.mix.length && grouped.plus.length) setTier('plus');
+      const bySet = {};
+      (allItems || []).forEach(i => {
+        const sid = i.suggestion_set_id;
+        if (!bySet[sid]) bySet[sid] = [];
+        bySet[sid].push(i);
+      });
+      setItemsBySet(bySet);
+      if (allSets.length === 0) setNoSuggestions(true);
     } catch (e) {
-      console.error('TamamSuggestions load error', e);
+      console.error('PUBLIC_MOOD_DATA_LOAD_FAILED', {
+        moodId,
+        entityName: 'TamamMood',
+        errorName: e?.name,
+        errorMessage: e?.message,
+        status: e?.status,
+        code: e?.code,
+      });
       setError(true);
     } finally {
       setLoading(false);
@@ -50,15 +71,15 @@ export default function TamamSuggestions() {
     if (!current) { setMeals([]); setItems([]); return; }
     (async () => {
       try {
-        const its = await getItemsForSet(current.id);
-        setItems(its || []);
-        const ids = [...new Set((its || []).map(i => i.meal_id).filter(Boolean))];
+        const its = itemsBySet[current.id] || [];
+        setItems(its);
+        const ids = [...new Set(its.map(i => i.meal_id).filter(Boolean))];
         if (!ids.length) { setMeals([]); return; }
         const res = await base44.functions.invoke('supabaseProxy', { action: 'getMenuItemsByIds', payload: { ids } });
         setMeals((res?.data?.data || []));
       } catch { setMeals([]); }
     })();
-  }, [current?.id]);
+  }, [current?.id, itemsBySet]);
 
   const refresh = () => {
     const arr = sets[tier];
@@ -89,11 +110,24 @@ export default function TamamSuggestions() {
     </div>
   );
 
-  if (!mood) return (
+  if (moodNotFound || !mood) return (
     <div className="flex flex-col items-center justify-center py-32 text-center px-6">
       <p className="text-4xl mb-2">🤔</p>
-      <p className="text-on-surface-variant mb-4">المود غير موجود</p>
-      <button onClick={() => navigate('/tamam-game')} className="text-primary underline">العودة للعبة</button>
+      <p className="font-bold mb-2">المود غير موجود</p>
+      <p className="text-on-surface-variant text-sm mb-4">هاد المود مو متوفر أو تم حذفه.</p>
+      <button onClick={() => navigate('/tamam-game')} className="text-primary underline font-bold">العودة للعبة</button>
+    </div>
+  );
+
+  if (noSuggestions) return (
+    <div className="flex flex-col items-center justify-center py-32 text-center px-6">
+      <p className="text-4xl mb-2">🍽️</p>
+      <p className="font-bold mb-2">{mood.name_ar || mood.name}</p>
+      <p className="text-on-surface-variant text-sm mb-4">المود موجود، بس ما لقينا اقتراحات مرتبطة فيه.</p>
+      <div className="flex flex-col gap-3 w-full max-w-xs">
+        <button onClick={() => navigate('/tamam-suggestions?package=all')} className="h-12 bg-primary text-on-primary font-bold rounded-xl active:scale-95 transition-transform">شوف كل الاقتراحات</button>
+        <button onClick={() => navigate('/tamam-game')} className="h-12 bg-surface border border-outline-variant/30 font-bold rounded-xl active:scale-95 transition-transform">العودة للعبة</button>
+      </div>
     </div>
   );
 
