@@ -652,6 +652,87 @@ export default async function(req) {
       return Response.json({ data: { timeNow, tamamPicks, budget, family, lunch, quick, newDiscovery, mixPlus, desserts, completeOrder, homeKitchenBanner, lateNightBanner, browseRestaurantsBanner, shownMealIds: [...shown] } });
     }
 
+    // Public: hero suggestion carousel — real published TAMAM suggestions, prioritized by admin selection
+    if (action === 'getHeroSuggestions') {
+      const MAX_SLIDES = 6;
+      const heroSections = await base44.asServiceRole.entities.HomepageSection.filter({ section_key: 'hero' }).catch(() => []);
+      const heroSec = (heroSections || [])[0] || null;
+      let adminSelectedIds = [];
+      let heroSettings = {};
+      if (heroSec) {
+        heroSettings = parseJSON(heroSec.settings_json, {});
+        const heroItems = await base44.asServiceRole.entities.HomepageSectionItem.filter({ homepage_section_id: heroSec.id }).catch(() => []);
+        adminSelectedIds = (heroItems || [])
+          .filter((it) => it.item_type === 'suggestion' && it.suggestion_id)
+          .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+          .map((it) => it.suggestion_id);
+      }
+      const allSets = await base44.asServiceRole.entities.TamamSuggestionSet.filter({ is_active: true }, 'sort_order', 200).catch(() => []);
+      const sets = allSets || [];
+      const byId = {}; sets.forEach((s) => { byId[s.id] = s; });
+      const ordered = [];
+      const seen = new Set();
+      for (const id of adminSelectedIds) { if (byId[id] && !seen.has(id)) { ordered.push(byId[id]); seen.add(id); } }
+      for (const pkg of ['classic', 'mix', 'plus']) { const f = sets.find((s) => normalizePkg(s.package_level) === pkg && !seen.has(s.id)); if (f) { ordered.push(f); seen.add(f.id); } }
+      for (const s of sets) { if (!seen.has(s.id)) { ordered.push(s); seen.add(s.id); } }
+      const slidesRaw = ordered.slice(0, MAX_SLIDES);
+
+      const allItems = await base44.asServiceRole.entities.TamamSuggestionItem.list('sort_order', 1000).catch(() => []);
+      const mealIds = [...new Set((allItems || []).map((i) => i.meal_id).filter(Boolean))];
+      const restIds = [...new Set((allItems || []).map((i) => i.restaurant_id).filter(Boolean))];
+      const [mealsRes, restsRes] = await Promise.all([
+        mealIds.length ? base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getMenuItemsByIds', payload: { ids: mealIds } }).then((r) => r?.data?.data || []).catch(() => []) : [],
+        restIds.length ? base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getRestaurantsByIds', payload: { ids: restIds } }).then((r) => r?.data?.data || []).catch(() => []) : [],
+      ]);
+      const mealMap = {}; (mealsRes || []).forEach((m) => { mealMap[m.id] = m; });
+      const restMap = {}; (restsRes || []).forEach((r) => { restMap[r.id] = r; });
+
+      function srvResolve(v) {
+        if (!v) return null;
+        const text = String(v).trim();
+        if (!text) return null;
+        if (/drive\.google\.com|lh3\.googleusercontent/.test(text)) { const fid = extractDriveId(text); if (fid) return `https://lh3.googleusercontent.com/d/${fid}`; }
+        if (text.startsWith('http')) return text;
+        return null;
+      }
+      function resolveSetImage(set) {
+        const sItems = (allItems || []).filter((i) => i.suggestion_set_id === set.id);
+        for (const v of [set.hero_image_url, set.image_url, set.image, set.media]) { const r = srvResolve(v); if (r) return r; }
+        for (const it of sItems) { const r = srvResolve(it.image_url || it.image || it.media); if (r) return r; }
+        for (const it of sItems) { const m = mealMap[it.meal_id]; if (m) { const r = srvResolve(m.image_url || m.image); if (r) return r; } }
+        for (const it of sItems) { const rest = restMap[it.restaurant_id]; if (rest) { const r = srvResolve(rest.image_url || rest.cover_url || rest.image); if (r) return r; } }
+        return null;
+      }
+
+      const slides = slidesRaw.map((s) => {
+        const sItems = (allItems || []).filter((i) => i.suggestion_set_id === s.id);
+        const mealsForSet = sItems.map((it) => mealMap[it.meal_id]).filter(Boolean);
+        const mealPreview = mealsForSet.slice(0, 3).map((m) => m.name_ar || m.name).filter(Boolean);
+        const pkg = normalizePkg(s.package_level);
+        return {
+          id: String(s.id),
+          title: s.title_ar || 'اقتراح TAMAM',
+          package_level: pkg,
+          package_label: pkg === 'plus' ? 'بلس' : pkg === 'mix' ? 'ميكس' : 'كلاسيك',
+          displayImage: resolveSetImage(s),
+          display_price: s.display_price,
+          mealPreview,
+          route: `/tamam-order/${s.id}`,
+        };
+      }).filter((s) => s.displayImage);
+
+      return Response.json({ data: {
+        slides,
+        settings: {
+          autoplay: heroSettings.hero_autoplay !== false,
+          interval: Number(heroSettings.hero_interval) || 5000,
+          show_badge: heroSettings.hero_show_badge !== false,
+          show_price: heroSettings.hero_show_price !== false,
+          cta_label: heroSettings.hero_cta_label || 'شوف الاقتراح',
+        },
+      } });
+    }
+
     // Admin-only actions
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });

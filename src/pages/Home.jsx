@@ -5,7 +5,7 @@ import { listPublicDeals } from '@/lib/groupDealApi';
 import { ErrorState } from '@/components/tamam/customer/States';
 import { track } from '@/lib/analytics';
 import HomepageActiveOrderCard from '@/components/tamam/customer/HomepageActiveOrderCard';
-import HomeHero from '@/components/tamam/customer/HomeHero';
+import HomepageSuggestionHeroCarousel from '@/components/tamam/customer/HomepageSuggestionHeroCarousel';
 import PackageCards from '@/components/tamam/customer/PackageCards';
 import FeaturedRestaurants from '@/components/tamam/customer/FeaturedRestaurants';
 import HomeActiveDealBanner from '@/components/tamam/customer/HomeActiveDealBanner';
@@ -44,7 +44,7 @@ export default function Home() {
     <div className="flex flex-col pb-6">
       {/* Existing upper homepage — preserved */}
       <HomepageActiveOrderCard />
-      <HomeHero hero={data?.hero} />
+      <HomepageSuggestionHeroCarousel fallbackHero={data?.hero} />
       <PackageCards packages={data?.packages} />
       {dealView && (
         <section className="px-4 py-4">

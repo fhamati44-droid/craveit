@@ -54,6 +54,10 @@ export default function SectionEditor({ section, onClose, onSaved }) {
       let toSave = [];
       if (itemType === 'hero' || itemType === 'promo_banner' || itemType === 'editorial_banner') {
         if (settings.media_id) toSave.push({ item_type: 'media', media_id: settings.media_id, display_order: 0, enabled: true });
+        if (itemType === 'hero') {
+          const sugg = items.filter((it) => it.item_type === 'suggestion').map((it, i) => ({ item_type: 'suggestion', suggestion_id: it.suggestion_id, display_order: i, enabled: true }));
+          toSave = [...toSave, ...sugg];
+        }
       } else if (itemType === 'most_ordered' || itemType === 'popular_meals') {
         if (form.selection_mode === 'manual') {
           toSave = items.filter((it) => it.item_type === 'meal').map((it, i) => ({ item_type: 'meal', meal_id: it.meal_id, restaurant_id: it.restaurant_id, display_order: i, enabled: true }));
@@ -178,6 +182,18 @@ function renderTypeEditor(type, ctx) {
             </div>
           )}
           <div><label className="text-[11px] text-on-surface-variant block mb-1">قوة التعتيم (0-100)</label><input type="number" min="0" max="100" value={settings.overlay_strength ?? 40} onChange={(e) => setSettings({ overlay_strength: Number(e.target.value) })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30" /></div>
+          <div className="border-t border-outline-variant/20 pt-3 mt-3 space-y-3">
+            <p className="text-xs font-bold">كاروسيل اقتراحات الهوم</p>
+            <p className="text-[10px] text-on-surface-variant">اختر اقتراحات تظهر كشرائح تلقائية بالبانر. تُعرض أولًا، ثم تُكمّل تلقائيًا بواحد من كل باقة (كلاسيك/ميكس/بلس).</p>
+            <div><label className="text-[11px] text-on-surface-variant block mb-2">اقتراحات مختارة للكاروسيل</label><SuggestionSelector selectedIds={itemIds('suggestion')} onChange={(ids) => setItems((prev) => [...prev.filter((it) => it.item_type !== 'suggestion'), ...ids.map((id) => ({ item_type: 'suggestion', suggestion_id: id, display_order: 0, enabled: true }))])} /></div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => setSettings({ hero_autoplay: settings.hero_autoplay === false })} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${settings.hero_autoplay !== false ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-container border-outline-variant/30'}`}>تشغيل تلقائي</button>
+              <button onClick={() => setSettings({ hero_show_badge: settings.hero_show_badge === false })} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${settings.hero_show_badge !== false ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-container border-outline-variant/30'}`}>إظهار شارة الباقة</button>
+              <button onClick={() => setSettings({ hero_show_price: settings.hero_show_price === false })} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${settings.hero_show_price !== false ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-container border-outline-variant/30'}`}>إظهار السعر</button>
+            </div>
+            <div><label className="text-[11px] text-on-surface-variant block mb-1">فاصل التبديل (مللي ثانية)</label><input type="number" value={settings.hero_interval || 5000} onChange={(e) => setSettings({ hero_interval: Number(e.target.value) })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30" dir="ltr" /></div>
+            <div><label className="text-[11px] text-on-surface-variant block mb-1">نص زر الشريحة</label><input value={settings.hero_cta_label || ''} onChange={(e) => setSettings({ hero_cta_label: e.target.value })} placeholder="شوف الاقتراح" className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30" /></div>
+          </div>
         </div>
       );
     case 'active_order':
