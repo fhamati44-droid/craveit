@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getRestaurants, getDeals, getPopularMeals, getAllMenuCategories } from '@/lib/api';
+import { getRestaurants, getPopularMeals, getAllMenuCategories } from '@/lib/api';
 import { base44 } from '@/api/base44Client';
 import { restaurantToCard, suggestionToCard } from '@/lib/tamamAdapters';
+import { listPublicDeals } from '@/lib/groupDealApi';
 import { SkeletonCard, EmptyState, ErrorState } from '@/components/tamam/customer/States';
 import { track } from '@/lib/analytics';
 import { getSessionId } from '@/lib/tamamApi';
@@ -51,12 +52,12 @@ export default function Home() {
   const load = async () => {
     setLoading(true); setError(false);
     try {
-      const [rests, dealsList, moodList, popMeals, allCats] = await Promise.all([
-        getRestaurants(), getDeals(), base44.entities.TamamMood.list().catch(() => []),
+      const [rests, dealViews, moodList, popMeals, allCats] = await Promise.all([
+        getRestaurants(), listPublicDeals().catch(() => []), base44.entities.TamamMood.list().catch(() => []),
         getPopularMeals(12), getAllMenuCategories().catch(() => []),
       ]);
       setRestaurants(rests || []);
-      setDeals(dealsList || []);
+      setDeals(dealViews || []);
       setMoods((moodList || []).filter(m => m.is_active).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
       const mapped = (popMeals || []).map(pm => {
         const r = (rests || []).find(x => x.id === pm.kitchen_id || x.kitchen_id === pm.kitchen_id);
@@ -72,15 +73,8 @@ export default function Home() {
       Object.values(grouped).forEach(a => a.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
       setSets(grouped);
       try {
-        const phone = localStorage.getItem('user_phone');
-        const parts = phone
-          ? await base44.entities.DealParticipation.filter({ phone }).catch(() => [])
-          : await base44.entities.DealParticipation.filter({ session_id: getSessionId() }).catch(() => []);
-        const activeDeal = (dealsList || []).find(d => dealStatus(d) === 'active' && (parts || []).some(p => String(p.deal_id) === String(d.id)));
-        if (activeDeal) {
-          const partsCount = await base44.entities.DealParticipation.filter({ deal_id: Number(activeDeal.id) }).catch(() => []);
-          setJoinedDeal({ deal: activeDeal, participants: (partsCount || []).length });
-        }
+        const activeView = (dealViews || []).find(v => v.status === 'active' && v.my_participation);
+        if (activeView) setJoinedDeal({ deal: activeView.deal, thresholds: activeView.thresholds, participants: activeView.participants });
       } catch {}
       try { const ao = JSON.parse(localStorage.getItem('active_order') || 'null'); if (ao?.id) setActiveOrder(ao); } catch {}
     } catch (e) { console.error(e); setError(true); }
@@ -104,11 +98,11 @@ export default function Home() {
 
   if (error) return <ErrorState title="ما قدرنا نحمّل البيانات" onRetry={load} />;
 
-  const activeDeals = deals.filter(d => dealStatus(d) === 'active');
-  const upcomingDeals = deals.filter(d => dealStatus(d) === 'upcoming');
-  const primaryActive = activeDeals[0] || null;
-  const primaryUpcoming = upcomingDeals[0] || null;
-  const heroImg = deals[0]?.image_url || restaurants[0]?.cover_url || restaurants[0]?.image_url;
+  const activeViews = deals.filter(v => v.status === 'active').sort((a, b) => (b.deal.homepage_priority || 0) - (a.deal.homepage_priority || 0));
+  const upcomingViews = deals.filter(v => v.status === 'scheduled').sort((a, b) => String(a.deal.start_at || '').localeCompare(String(b.deal.start_at || '')));
+  const primaryActive = activeViews[0] || null;
+  const primaryUpcoming = upcomingViews[0] || null;
+  const heroImg = primaryActive?.deal?.hero_image || restaurants[0]?.cover_url || restaurants[0]?.image_url;
 
   return (
     <div className="flex flex-col">
@@ -160,7 +154,7 @@ export default function Home() {
       </section>
 
       {joinedDeal && (
-        <JoinedDealMiniBanner deal={joinedDeal.deal} participants={joinedDeal.participants} onOpen={() => { track('joined_deal_opened', { deal_id: joinedDeal.deal.id }); navigate(`/deals/${joinedDeal.deal.id}`); }} />
+        <JoinedDealMiniBanner deal={joinedDeal.deal} thresholds={joinedDeal.thresholds} participants={joinedDeal.participants} onOpen={() => { track('joined_deal_opened', { deal_id: joinedDeal.deal.id }); navigate(`/deals/${joinedDeal.deal.id}`); }} />
       )}
 
       <section className="px-4 py-8">
@@ -172,9 +166,9 @@ export default function Home() {
           <Link to="/deals" className="text-primary text-xs font-bold">شوف كل العروض</Link>
         </div>
         {loading ? <SkeletonCard kind="suggestion" /> : primaryActive ? (
-          <HomeActiveDealBanner deal={primaryActive} onOpen={() => { track('home_active_deal_opened', { deal_id: primaryActive.id }); navigate(`/deals/${primaryActive.id}`); }} />
+          <HomeActiveDealBanner deal={primaryActive.deal} thresholds={primaryActive.thresholds} participants={primaryActive.participants} onOpen={() => { track('home_active_deal_opened', { deal_id: primaryActive.deal.id }); navigate(`/deals/${primaryActive.deal.id}`); }} />
         ) : primaryUpcoming ? (
-          <HomeUpcomingDealBanner deal={primaryUpcoming} onOpen={() => { track('home_upcoming_deal_opened', { deal_id: primaryUpcoming.id }); navigate(`/deals/${primaryUpcoming.id}`); }} />
+          <HomeUpcomingDealBanner deal={primaryUpcoming.deal} onOpen={() => { track('home_upcoming_deal_opened', { deal_id: primaryUpcoming.deal.id }); navigate(`/deals/${primaryUpcoming.deal.id}`); }} />
         ) : (
           <div className="bg-surface-container border border-outline-variant/30 rounded-2xl p-6 text-center">
             <p className="text-on-surface-variant text-sm mb-3">ما في عروض جماعية شغالة هسا</p>

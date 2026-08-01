@@ -33,6 +33,10 @@ import TamamAdmin from '@/pages/TamamAdmin';
 import TamamOrder from '@/pages/TamamOrder';
 import CustomerDeals from '@/pages/CustomerDeals';
 import Rewards from '@/pages/Rewards';
+import AdminRoute from '@/components/admin/AdminRoute';
+import GroupDealsDashboard from '@/pages/admin/GroupDealsDashboard';
+import GroupDealWizard from '@/pages/admin/GroupDealWizard';
+import GroupDealDetail from '@/pages/admin/GroupDealDetail';
 
 function App() {
   return (
@@ -71,6 +75,12 @@ function App() {
             </Route>
             <Route path="/tamam-order/:suggestionSetId" element={<TamamOrder />} />
             <Route path="/tamam-admin" element={<TamamAdmin />} />
+            <Route element={<AdminRoute />}>
+              <Route path="/admin/group-deals" element={<GroupDealsDashboard />} />
+              <Route path="/admin/group-deals/new" element={<GroupDealWizard />} />
+              <Route path="/admin/group-deals/:dealId" element={<GroupDealDetail />} />
+              <Route path="/admin/group-deals/:dealId/edit" element={<GroupDealWizard />} />
+            </Route>
             <Route path="*" element={<PageNotFound />} />
           </Routes>
         </Router>

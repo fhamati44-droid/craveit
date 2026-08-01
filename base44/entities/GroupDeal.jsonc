@@ -1,0 +1,237 @@
+{
+  "name": "GroupDeal",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "title": "\u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0639\u0631\u0636"
+    },
+    "subtitle": {
+      "type": "string",
+      "title": "\u0639\u0646\u0648\u0627\u0646 \u0641\u0631\u0639\u064a"
+    },
+    "description": {
+      "type": "string",
+      "title": "\u0648\u0635\u0641 \u0627\u0644\u0639\u0631\u0636 \u0644\u0644\u0639\u0645\u064a\u0644"
+    },
+    "restaurant_id": {
+      "type": "number",
+      "title": "\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u0637\u0639\u0645 (Supabase)"
+    },
+    "restaurant_name_snapshot": {
+      "type": "string",
+      "title": "\u0627\u0633\u0645 \u0627\u0644\u0645\u0637\u0639\u0645 (\u0644\u0642\u0637\u0629)"
+    },
+    "hero_image": {
+      "type": "string",
+      "title": "\u0635\u0648\u0631\u0629 \u0627\u0644\u0639\u0631\u0636"
+    },
+    "reference_price": {
+      "type": "number",
+      "title": "\u0627\u0644\u0633\u0639\u0631 \u0627\u0644\u0645\u0631\u062c\u0639\u064a (\u0627\u0644\u0633\u0639\u0631 \u0627\u0644\u0623\u0635\u0644\u064a)"
+    },
+    "start_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "\u0648\u0642\u062a \u0628\u062f\u0627\u064a\u0629 \u0627\u0644\u0639\u0631\u0636"
+    },
+    "end_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "\u0648\u0642\u062a \u0627\u0646\u062a\u0647\u0627\u0621 \u0627\u0644\u0639\u0631\u0636"
+    },
+    "timezone": {
+      "type": "string",
+      "default": "Asia/Jerusalem",
+      "title": "\u0627\u0644\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0632\u0645\u0646\u064a\u0629"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "scheduled",
+        "active",
+        "paused",
+        "ended",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "default": "draft",
+      "title": "\u062d\u0627\u0644\u0629 \u0627\u0644\u0639\u0631\u0636"
+    },
+    "counting_method": {
+      "type": "string",
+      "enum": [
+        "participants",
+        "quantity",
+        "both"
+      ],
+      "default": "participants",
+      "title": "\u0637\u0631\u064a\u0642\u0629 \u0627\u062d\u062a\u0633\u0627\u0628 \u0627\u0644\u0645\u0633\u062a\u0648\u0649"
+    },
+    "payment_model": {
+      "type": "string",
+      "enum": [
+        "reserve",
+        "pay_current",
+        "join_only",
+        "cod"
+      ],
+      "default": "cod",
+      "title": "\u0637\u0631\u064a\u0642\u0629 \u0627\u0644\u062f\u0641\u0639"
+    },
+    "minimum_success_participants": {
+      "type": "number",
+      "default": 1,
+      "title": "\u0623\u062f\u0646\u0649 \u0639\u062f\u062f \u0645\u0634\u062a\u0631\u0643\u064a\u0646 \u0644\u0644\u0646\u062c\u0627\u062d"
+    },
+    "maximum_participants": {
+      "type": "number",
+      "title": "\u0623\u0642\u0635\u0649 \u0639\u062f\u062f \u0645\u0634\u062a\u0631\u0643\u064a\u0646"
+    },
+    "total_inventory": {
+      "type": "number",
+      "title": "\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u062e\u0632\u0648\u0646"
+    },
+    "minimum_quantity_per_customer": {
+      "type": "number",
+      "default": 1,
+      "title": "\u0623\u062f\u0646\u0649 \u0643\u0645\u064a\u0629 \u0644\u0644\u0639\u0645\u064a\u0644"
+    },
+    "maximum_quantity_per_customer": {
+      "type": "number",
+      "default": 1,
+      "title": "\u0623\u0642\u0635\u0649 \u0643\u0645\u064a\u0629 \u0644\u0644\u0639\u0645\u064a\u0644"
+    },
+    "one_participation_per_customer": {
+      "type": "boolean",
+      "default": true,
+      "title": "\u0645\u0634\u0627\u0631\u0643\u0629 \u0648\u0627\u062d\u062f\u0629 \u0644\u0643\u0644 \u0639\u0645\u064a\u0644"
+    },
+    "allow_customer_increase_quantity": {
+      "type": "boolean",
+      "default": false,
+      "title": "\u0627\u0644\u0633\u0645\u0627\u062d \u0628\u0632\u064a\u0627\u062f\u0629 \u0627\u0644\u0643\u0645\u064a\u0629"
+    },
+    "reservation_expiration_minutes": {
+      "type": "number",
+      "title": "\u0627\u0646\u062a\u0647\u0627\u0621 \u0627\u0644\u062d\u062c\u0632 (\u062f\u0642\u0627\u0626\u0642)"
+    },
+    "stop_when_inventory_exhausted": {
+      "type": "boolean",
+      "default": true,
+      "title": "\u0625\u064a\u0642\u0627\u0641 \u0639\u0646\u062f \u0646\u0641\u0627\u062f \u0627\u0644\u0645\u062e\u0632\u0648\u0646"
+    },
+    "homepage_featured": {
+      "type": "boolean",
+      "default": false,
+      "title": "\u0645\u0645\u064a\u0632 \u0628\u0627\u0644\u0635\u0641\u062d\u0629 \u0627\u0644\u0631\u0626\u064a\u0633\u064a\u0629"
+    },
+    "homepage_priority": {
+      "type": "number",
+      "default": 0,
+      "title": "\u0623\u0648\u0644\u0648\u064a\u0629 \u0627\u0644\u0638\u0647\u0648\u0631"
+    },
+    "homepage_banner_enabled": {
+      "type": "boolean",
+      "default": false,
+      "title": "\u0639\u0631\u0636 \u0641\u064a \u0628\u0627\u0646\u0631 \u0627\u0644\u0635\u0641\u062d\u0629 \u0627\u0644\u0631\u0626\u064a\u0633\u064a\u0629"
+    },
+    "banner_start_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "banner_end_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "banner_headline": {
+      "type": "string"
+    },
+    "banner_supporting_text": {
+      "type": "string"
+    },
+    "banner_cta": {
+      "type": "string",
+      "default": "\u0634\u0648\u0641 \u0627\u0644\u0639\u0631\u0636"
+    },
+    "show_upcoming_banner": {
+      "type": "boolean",
+      "default": true,
+      "title": "\u0625\u0638\u0647\u0627\u0631 \u0628\u0627\u0646\u0631 \u0627\u0644\u0639\u0631\u0636 \u0627\u0644\u0642\u0627\u062f\u0645"
+    },
+    "upcoming_banner_start_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "show_in_ending_soon": {
+      "type": "boolean",
+      "default": true,
+      "title": "\u0625\u0638\u0647\u0627\u0631 \u0641\u064a \u00ab\u064a\u0646\u062a\u0647\u064a \u0642\u0631\u064a\u0628\u064b\u0627\u00bb"
+    },
+    "highlight_badge": {
+      "type": "string",
+      "title": "\u0634\u0627\u0631\u0629 \u062a\u0645\u064a\u064a\u0632"
+    },
+    "terms_summary": {
+      "type": "string",
+      "title": "\u0645\u0644\u062e\u0635 \u0627\u0644\u0634\u0631\u0648\u0637 \u0648\u0627\u0644\u0625\u0644\u063a\u0627\u0621"
+    },
+    "customer_explanation": {
+      "type": "string",
+      "title": "\u0634\u0631\u062d \u0645\u062e\u0635\u0635 \u0644\u0644\u0639\u0645\u064a\u0644"
+    },
+    "auto_close_at_end": {
+      "type": "boolean",
+      "default": true,
+      "title": "\u0625\u063a\u0644\u0627\u0642 \u062a\u0644\u0642\u0627\u0626\u064a \u0639\u0646\u062f \u0627\u0646\u062a\u0647\u0627\u0621 \u0627\u0644\u0648\u0642\u062a"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finalized": {
+      "type": "boolean",
+      "default": false,
+      "title": "\u062a\u0645 \u0627\u0644\u062a\u062b\u0628\u064a\u062a"
+    },
+    "final_status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "failed"
+      ],
+      "title": "\u0646\u062a\u064a\u062c\u0629 \u0627\u0644\u062a\u062b\u0628\u064a\u062a"
+    }
+  },
+  "required": [
+    "title",
+    "restaurant_id",
+    "reference_price",
+    "start_at",
+    "end_at"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
