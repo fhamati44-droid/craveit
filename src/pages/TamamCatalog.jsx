@@ -8,6 +8,7 @@ import { useCart } from '@/lib/CartContext';
 import SuggestionListCard from '@/components/tamam/customer/SuggestionListCard';
 import FilterSheet from '@/components/tamam/customer/FilterSheet';
 import { SkeletonCard, EmptyState, ErrorState } from '@/components/tamam/customer/States';
+import { getSuggestionDisplayImage, suggestionFallback } from '@/lib/suggestionImage';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 const PAGE_SIZE = 12;
@@ -62,6 +63,7 @@ export default function TamamCatalog() {
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [sheet, setSheet] = useState(null); // 'people' | 'price' | 'food' | 'sort' | 'moods'
   const [replace, setReplace] = useState({}); // originalId -> replacementId
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q), 350);
@@ -133,6 +135,7 @@ export default function TamamCatalog() {
           return {
             ...s,
             package_level: normalizePackage(s.package_level),
+            restaurant: rests[0] || null,
             mood: moodMap[s.mood_id] || null,
             items: sItems,
             mealNames,
@@ -153,6 +156,8 @@ export default function TamamCatalog() {
       finally { setLoading(false); }
     })();
   }, []);
+
+  useEffect(() => { base44.auth.me().then(u => setIsAdmin(u?.role === 'admin')).catch(() => {}); }, []);
 
   const filtered = useMemo(() => {
     let list = suggestions.slice();
@@ -316,6 +321,30 @@ export default function TamamCatalog() {
             <span className="flex items-center gap-1 font-semibold text-sm">عرض السلة <Icon name="arrow_back" className="text-[18px]" /></span>
           </button>
         </div>
+      )}
+
+      {/* Admin-only debug: suggestion image diagnostics */}
+      {isAdmin && !loading && shown.length > 0 && (
+        <details className="mx-4 mt-6 mb-4 bg-surface-container-low border border-outline-variant/30 rounded-xl p-3 text-[10px] text-on-surface-variant">
+          <summary className="cursor-pointer font-bold text-on-surface">Debug: صور الاقتراحات ({shown.length})</summary>
+          <div className="mt-2 space-y-2">
+            {shown.map(s => {
+              const orig = s.hero_image_url;
+              const fb = suggestionFallback(s.package_level);
+              const resolved = getSuggestionDisplayImage({ suggestion: s, meals: s.meals, restaurant: s.restaurant, fallback: fb });
+              const mealIds = (s.items || []).map(i => i.meal_id).filter(Boolean);
+              return (
+                <div key={s.id} className="border-t border-outline-variant/20 pt-2 leading-relaxed">
+                  <div><b>ID:</b> {s.id} · <b>pkg:</b> {s.package_level}</div>
+                  <div><b>orig:</b> {orig ? String(orig).slice(0, 90) : '—'} <span className="opacity-60">({typeof orig})</span></div>
+                  <div><b>resolved:</b> {resolved ? String(resolved).slice(0, 90) : '—'}</div>
+                  <div><b>mealIds:</b> {mealIds.join(',') || '—'}</div>
+                  <div><b>fallback:</b> {fb ? String(fb).slice(0, 60) : '—'}</div>
+                </div>
+              );
+            })}
+          </div>
+        </details>
       )}
 
       {/* Filter sheets */}

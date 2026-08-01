@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { PACKAGE_LABEL, packageBadge } from '@/lib/packageUtils';
+import PublicImage from '@/components/shared/PublicImage';
+import { getSuggestionDisplayImage, suggestionFallback } from '@/lib/suggestionImage';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 
@@ -12,6 +14,8 @@ export default function SuggestionListCard({ s, onChoose, onDetails, onSimilar }
   const extra = Math.max(0, meals.length - preview.length);
   const people = s.peopleCount ? (s.peopleCount === 1 ? 'شخص واحد' : s.peopleCount >= 7 ? '7+ أشخاص' : `${s.peopleCount} أشخاص`) : null;
   const prep = s.prepEstimate || '30–40 دقيقة';
+  const fallbackImg = suggestionFallback(pkg);
+  const displayImage = getSuggestionDisplayImage({ suggestion: s, meals: s.meals, restaurant: s.restaurant, fallback: fallbackImg });
 
   const handleChoose = () => {
     const ok = onChoose && onChoose(s);
@@ -21,7 +25,7 @@ export default function SuggestionListCard({ s, onChoose, onDetails, onSimilar }
   return (
     <div className="bg-surface-container rounded-2xl overflow-hidden shadow-xl border border-primary/5 active:scale-[0.98] transition-transform">
       <div className="relative h-56 w-full">
-        {s.hero_image_url ? <img alt={s.title_ar} className="w-full h-full object-cover" src={s.hero_image_url} /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-5xl">🍽️</div>}
+        <PublicImage source={displayImage} fallback={fallbackImg} alt={s.title_ar || 'اقتراح TAMAM'} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-surface-container-highest via-transparent to-transparent" />
         <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
           <span className={`px-3 py-1 rounded-full font-label-sm shadow-lg flex items-center gap-1 ${badge.tone === 'tertiary' ? 'bg-tertiary text-on-tertiary' : badge.tone === 'primary' ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary'}`}>
