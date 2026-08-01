@@ -1,0 +1,41 @@
+{
+  "name": "DealParticipation",
+  "type": "object",
+  "properties": {
+    "deal_id": {
+      "type": "number",
+      "title": "Deal ID (Supabase deals)"
+    },
+    "name": {
+      "type": "string",
+      "title": "Full name"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Phone"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1,
+      "title": "Quantity"
+    },
+    "method": {
+      "type": "string",
+      "enum": [
+        "delivery",
+        "pickup"
+      ],
+      "default": "delivery",
+      "title": "Fulfillment method"
+    },
+    "session_id": {
+      "type": "string",
+      "title": "Session ID"
+    }
+  },
+  "required": [
+    "deal_id",
+    "name",
+    "phone"
+  ]
+}

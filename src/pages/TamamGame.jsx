@@ -1,109 +1,96 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Menu, User, Zap } from 'lucide-react';
-import { motion } from 'framer-motion';
-import MoodWheel from '@/components/tamam/MoodWheel';
-import { getActiveMoods, trackEvent } from '@/lib/tamamApi';
+import { useNavigate } from 'react-router-dom';
+import { getActiveMoods } from '@/lib/tamamApi';
+import { trackEvent } from '@/lib/tamamApi';
+import { moodIconFor } from '@/lib/moodIcons';
+
+const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 
 export default function TamamGame() {
   const navigate = useNavigate();
   const [moods, setMoods] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
+  const [selecting, setSelecting] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  useEffect(() => {
-    getActiveMoods()
-      .then(list => {
-        setMoods(list);
-        if (list.length) setSelected(list[0]);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  useEffect(() => { getActiveMoods().then(m => { setMoods(m || []); }).finally(() => setLoading(false)); }, []);
 
-  const handleStart = () => {
-    if (!selected) return;
-    trackEvent({ action: 'mood_selected', mood_id: selected.id });
-    navigate(`/tamam-suggestions/${selected.id}`);
+  const go = (mood) => {
+    trackEvent({ action: 'mood_selected', mood_id: mood?.id });
+    navigate(`/tamam-suggestions/${mood.id}`);
+  };
+  const startRandom = () => {
+    if (!moods.length || selecting) return;
+    setSelecting(true); setProgress(0);
+    const start = Date.now();
+    const tick = () => {
+      const p = Math.min(100, (Date.now() - start) / 12);
+      setProgress(p);
+      if (p < 100) requestAnimationFrame(tick);
+      else {
+        const mood = moods[Math.floor(Math.random() * moods.length)];
+        trackEvent({ action: 'mood_selected', mood_id: mood?.id, source: 'tamam_random' });
+        navigate(`/tamam-suggestions/${mood.id}`);
+      }
+    };
+    requestAnimationFrame(tick);
   };
 
+  const n = moods.length;
+  const R = 132;
+
   return (
-    <div className="min-h-screen text-white relative overflow-hidden"
-      style={{ background: 'radial-gradient(circle at 50% 40%, #0f2e2b 0%, #051614 60%, #020a0a 100%)' }}>
-      {/* particles */}
-      <div className="absolute inset-0 pointer-events-none opacity-30">
-        {Array.from({ length: 18 }).map((_, i) => (
-          <div key={i} className="absolute rounded-full bg-[#3DEB8B]"
-            style={{
-              width: 2, height: 2,
-              left: `${(i * 53) % 100}%`, top: `${(i * 37) % 100}%`,
-              opacity: 0.4 + (i % 3) * 0.2,
-            }} />
-        ))}
+    <div className="relative min-h-[calc(100dvh-56px)] flex flex-col items-center overflow-hidden pt-6 pb-10">
+      {/* ambient */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute -top-1/4 -right-1/4 w-[150%] h-[150%] bg-[radial-gradient(circle_at_center,rgba(137,219,120,0.08)_0%,transparent_70%)]" />
+        <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-[#071312] to-transparent" />
       </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-12 pb-4 relative z-10">
-        <button><Menu size={22} /></button>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xl font-extrabold tracking-wider">TAMAM</span>
-          <span className="text-[#3DEB8B]">▲</span>
+      <div className="relative z-10 w-full flex flex-col items-center flex-1 justify-center px-4">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold mb-2 text-white">شو مودك هسا؟</h1>
+          <p className="text-on-surface-variant text-sm">اختار أو اضغط انطلق لنفاجئك بالخيار الأنسب</p>
         </div>
-        <Link to="/profile"><User size={20} /></Link>
-      </div>
 
-      {/* Score bar */}
-      <div className="flex items-center justify-between px-5 pb-2 relative z-10 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="px-1.5 py-0.5 rounded-md bg-[#3DEB8B]/10 border border-[#3DEB8B]/40 font-bold">12</span>
-          <span className="text-white/50">2,450 / 5,000</span>
-        </div>
-        <div className="flex items-center gap-1 text-[#FFD166]">
-          <span>🪙</span> <span className="font-bold">8,350</span>
-        </div>
-      </div>
-
-      {/* Title */}
-      <div className="text-center mt-6 mb-4 relative z-10 px-6">
-        <h1 className="text-2xl font-extrabold">جاهز تنطلق؟</h1>
-        <p className="text-white/60 text-sm mt-1">اختار مودك ونعطيك 3 اقتراحات جاهزة</p>
-      </div>
-
-      {/* Wheel */}
-      <div className="relative z-10 mt-2 pb-32">
         {loading ? (
-          <div className="w-[300px] h-[300px] mx-auto skeleton rounded-full" />
-        ) : moods.length === 0 ? (
-          <div className="text-center text-white/60 py-20">
-            <p className="text-3xl mb-2">🚧</p>
-            <p>لا توجد مودات حاليًا</p>
-            <Link to="/" className="text-[#3DEB8B] underline text-sm mt-2 inline-block">العودة للرئيسية</Link>
-          </div>
+          <div className="w-16 h-16 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         ) : (
-          <MoodWheel
-            moods={moods}
-            selectedId={selected?.id}
-            onSelect={m => setSelected(m)}
-            onStart={handleStart}
-          />
+          <div className="relative w-full aspect-square max-w-[320px] flex items-center justify-center">
+            <div className="absolute inset-0 border border-primary/20 rounded-full" />
+            <div className="absolute inset-0 border border-primary/10 rounded-full scale-[0.6]" />
+            {moods.map((m, i) => {
+              const angle = (360 / n) * i;
+              const rad = (angle - 90) * Math.PI / 180;
+              const x = 50 + (R / 160) * 50 * Math.cos(rad);
+              const y = 50 + (R / 160) * 50 * Math.sin(rad);
+              return (
+                <button key={m.id} onClick={() => go(m)}
+                  className="absolute w-20 h-20 -translate-x-1/2 -translate-y-1/2 group"
+                  style={{ left: `${x}%`, top: `${y}%` }}>
+                  <div className="w-20 h-20 bg-surface-container-high border-2 border-outline/30 rounded-full flex flex-col items-center justify-center p-2 text-center group-hover:border-primary/60 group-active:scale-95 transition-all">
+                    <Icon name={moodIconFor(m)} className="text-primary text-2xl mb-1" />
+                    <span className="text-[10px] font-medium leading-tight">{m.name_ar}</span>
+                  </div>
+                </button>
+              );
+            })}
+            <button onClick={startRandom} disabled={selecting}
+              className="relative z-40 w-32 h-32 rounded-full bg-primary flex flex-col items-center justify-center text-on-primary shadow-[0_0_40px_rgba(137,219,120,0.3)] active:scale-95 transition-all disabled:opacity-80">
+              <span className="text-xl font-bold">{selecting ? 'لحظة...' : 'انطلق'}</span>
+              <span className="text-[10px] opacity-70">{selecting ? 'بنختار المود' : 'اضغط هنا'}</span>
+            </button>
+          </div>
         )}
-      </div>
 
-      {/* Bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 p-4"
-        style={{ background: 'linear-gradient(to top, #020a0a, transparent)' }}>
-        <Link to="/" className="block text-center text-white/40 text-xs mb-2">تصفّح المطاعم عادي →</Link>
-        <button
-          onClick={handleStart}
-          disabled={!selected}
-          className="w-full max-w-lg mx-auto flex items-center justify-center gap-2 py-4 rounded-full font-extrabold text-black disabled:opacity-40"
-          style={{
-            background: 'linear-gradient(90deg, #3DEB8B, #16a34a)',
-            boxShadow: '0 0 30px rgba(61,235,139,0.6)',
-          }}
-        >
-          <Zap size={18} /> اعطيني اقتراح TAMAM
-        </button>
+        {selecting && (
+          <div className="mt-10 text-center">
+            <p className="text-primary font-medium mb-3">جاري اختيار المود المناسب...</p>
+            <div className="h-1 w-24 bg-primary/20 mx-auto rounded-full overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

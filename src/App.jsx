@@ -15,6 +15,12 @@ import OrderTracking from '@/pages/OrderTracking';
 import Profile from '@/pages/Profile';
 import Search from '@/pages/Search';
 import Restaurants from '@/pages/Restaurants';
+import TamamCatalog from '@/pages/TamamCatalog';
+import Deals from '@/pages/Deals';
+import DealDetail from '@/pages/DealDetail';
+import DealJoin from '@/pages/DealJoin';
+import DealJoined from '@/pages/DealJoined';
+import Cart from '@/pages/Cart';
 import TamamGame from '@/pages/TamamGame';
 import TamamSuggestions from '@/pages/TamamSuggestions';
 import TamamAdmin from '@/pages/TamamAdmin';
@@ -30,6 +36,14 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/restaurants" element={<Restaurants />} />
               <Route path="/restaurant/:slug" element={<Restaurant />} />
+              <Route path="/tamam-game" element={<TamamGame />} />
+              <Route path="/tamam-suggestions" element={<TamamCatalog />} />
+              <Route path="/tamam-suggestions/:moodId" element={<TamamSuggestions />} />
+              <Route path="/deals" element={<Deals />} />
+              <Route path="/deals/:dealId" element={<DealDetail />} />
+              <Route path="/deals/:dealId/join" element={<DealJoin />} />
+              <Route path="/deals/:dealId/confirmed" element={<DealJoined />} />
+              <Route path="/cart" element={<Cart />} />
             </Route>
             <Route element={<AppLayout />}>
               <Route path="/search" element={<Search />} />
@@ -38,8 +52,6 @@ function App() {
               <Route path="/orders" element={<OrderTracking />} />
               <Route path="/profile" element={<Profile />} />
             </Route>
-            <Route path="/tamam-game" element={<TamamGame />} />
-            <Route path="/tamam-suggestions/:moodId" element={<TamamSuggestions />} />
             <Route path="/tamam-order/:suggestionSetId" element={<TamamOrder />} />
             <Route path="/tamam-admin" element={<TamamAdmin />} />
             <Route path="*" element={<PageNotFound />} />

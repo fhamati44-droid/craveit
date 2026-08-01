@@ -1,37 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ChevronRight, ArrowLeft } from 'lucide-react';
-import { motion } from 'framer-motion';
-import SuggestionCard from '@/components/tamam/SuggestionCard';
-import { getActiveSuggestionSets, getItemsForSets, trackEvent } from '@/lib/tamamApi';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { getActiveSuggestionSets, getItemsForSet, trackEvent } from '@/lib/tamamApi';
+import { moodIconFor } from '@/lib/moodIcons';
 
-const WA_NUMBER = '972544616474';
-const LEVELS = ['classic', 'mix', 'plus'];
-
-async function fetchMealsForItems(items) {
-  if (!items?.length) return { meals: [], byItem: {} };
-  const mealIds = [...new Set(items.map(i => i.meal_id).filter(Boolean))];
-  if (!mealIds.length) return { meals: [], byItem: {} };
-  const res = await base44.functions.invoke('supabaseProxy', { action: 'getMenuItemsByIds', payload: { ids: mealIds } });
-  const all = res?.data?.data || [];
-  const byId = {};
-  all.forEach(m => { byId[m.id] = m; });
-  const byItem = {};
-  items.forEach(i => { byItem[i.id] = byId[i.meal_id] ? { ...byId[i.meal_id], _qty: i.quantity } : null; });
-  return { meals: all, byItem };
-}
+const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
+const TIER_LABEL = { classic: 'كلاسيك', mix: 'ميكس', plus: 'بلس' };
+const TIERS = ['classic', 'mix', 'plus'];
 
 export default function TamamSuggestions() {
   const { moodId } = useParams();
   const navigate = useNavigate();
   const [mood, setMood] = useState(null);
-  const [setsByLevel, setSetsByLevel] = useState({ classic: [], mix: [], plus: [] });
-  const [indexByLevel, setIndexByLevel] = useState({ classic: 0, mix: 0, plus: 0 });
-  const [itemsBySet, setItemsBySet] = useState({});
-  const [mealsBySet, setMealsBySet] = useState({});
+  const [sets, setSets] = useState({ classic: [], mix: [], plus: [] });
+  const [idx, setIdx] = useState({ classic: 0, mix: 0, plus: 0 });
+  const [tier, setTier] = useState('mix');
+  const [meals, setMeals] = useState([]);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -39,125 +26,153 @@ export default function TamamSuggestions() {
       try {
         const moods = await base44.entities.TamamMood.list();
         setMood((moods || []).find(m => m.id === moodId));
-        const sets = await getActiveSuggestionSets(moodId);
-        const grouped = { classic: [], mix: [], plus: [] };
-        sets.forEach(s => { if (grouped[s.package_level]) grouped[s.package_level].push(s); });
-        grouped.classic.sort((a, b) => a.sort_order - b.sort_order);
-        grouped.mix.sort((a, b) => a.sort_order - b.sort_order);
-        grouped.plus.sort((a, b) => a.sort_order - b.sort_order);
-        setSetsByLevel(grouped);
         trackEvent({ action: 'mood_selected', mood_id: moodId });
-
-        const allSetIds = sets.map(s => s.id);
-        const items = await getItemsForSets(allSetIds);
-        const itemsMap = {};
-        items.forEach(it => {
-          if (!itemsMap[it.suggestion_set_id]) itemsMap[it.suggestion_set_id] = [];
-          itemsMap[it.suggestion_set_id].push(it);
-        });
-        setItemsBySet(itemsMap);
-
-        const mealsMap = {};
-        await Promise.all(allSetIds.map(async sid => {
-          const { byItem } = await fetchMealsForItems(itemsMap[sid] || []);
-          mealsMap[sid] = (itemsMap[sid] || []).map(it => byItem[it.id]).filter(Boolean);
-        }));
-        setMealsBySet(mealsMap);
+        const all = await getActiveSuggestionSets(moodId);
+        const grouped = { classic: [], mix: [], plus: [] };
+        all.forEach(s => { if (grouped[s.package_level]) grouped[s.package_level].push(s); });
+        Object.values(grouped).forEach(a => a.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
+        setSets(grouped);
+        if (!grouped.mix.length && grouped.classic.length) setTier('classic');
+        else if (!grouped.mix.length && grouped.plus.length) setTier('plus');
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
   }, [moodId]);
 
-  const currentSet = useCallback((level) => {
-    const arr = setsByLevel[level];
-    if (!arr.length) return null;
-    return arr[indexByLevel[level] % arr.length];
-  }, [setsByLevel, indexByLevel]);
+  const current = sets[tier]?.[idx[tier] % Math.max(1, sets[tier].length)] || null;
 
-  const handleRefresh = (level) => {
-    setRefreshing(true);
-    const arr = setsByLevel[level];
-    if (arr.length) {
-      setIndexByLevel(p => ({ ...p, [level]: (p[level] + 1) % arr.length }));
-      trackEvent({ action: 'suggestion_refreshed', mood_id: moodId, package_level: level });
-    }
-    setTimeout(() => setRefreshing(false), 400);
+  useEffect(() => {
+    if (!current) { setMeals([]); setItems([]); return; }
+    (async () => {
+      try {
+        const its = await getItemsForSet(current.id);
+        setItems(its || []);
+        const ids = [...new Set((its || []).map(i => i.meal_id).filter(Boolean))];
+        if (!ids.length) { setMeals([]); return; }
+        const res = await base44.functions.invoke('supabaseProxy', { action: 'getMenuItemsByIds', payload: { ids } });
+        setMeals((res?.data?.data || []));
+      } catch { setMeals([]); }
+    })();
+  }, [current?.id]);
+
+  const refresh = () => {
+    const arr = sets[tier];
+    if (arr.length > 1) setIdx(p => ({ ...p, [tier]: (p[tier] + 1) % arr.length }));
+    trackEvent({ action: 'suggestion_refreshed', mood_id: moodId, package_level: tier });
+  };
+  const choose = () => {
+    trackEvent({ action: 'package_selected', suggestion_set_id: current?.id, package_level: tier });
+    trackEvent({ action: 'order_started', suggestion_set_id: current?.id, package_level: tier });
+    navigate(`/tamam-order/${current.id}`);
   };
 
-  const handleChoose = (level, set) => {
-    trackEvent({ action: 'package_selected', mood_id: moodId, suggestion_set_id: set?.id, package_level: level });
-    trackEvent({ action: 'order_started', mood_id: moodId, suggestion_set_id: set?.id, package_level: level });
-    navigate(`/tamam-order/${set.id}`);
-  };
+  if (loading) return <div className="flex items-center justify-center py-32"><div className="w-12 h-12 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#051614] flex items-center justify-center text-white">
-        <div className="text-center">
-          <div className="w-12 h-12 border-2 border-[#3DEB8B] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-white/60 text-sm">نحضّر اقتراحاتك...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!mood) {
-    return (
-      <div className="min-h-screen bg-[#051614] flex items-center justify-center text-white text-center px-6">
-        <div>
-          <p className="text-3xl mb-2">🤔</p>
-          <p className="text-white/70 mb-4">المود غير موجود</p>
-          <Link to="/tamam-game" className="text-[#3DEB8B] underline">العودة للعبة</Link>
-        </div>
-      </div>
-    );
-  }
+  if (!mood) return (
+    <div className="flex flex-col items-center justify-center py-32 text-center px-6">
+      <p className="text-4xl mb-2">🤔</p>
+      <p className="text-on-surface-variant mb-4">المود غير موجود</p>
+      <button onClick={() => navigate('/tamam-game')} className="text-primary underline">العودة للعبة</button>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen text-white pb-12"
-      style={{ background: 'radial-gradient(circle at 50% 0%, #0f2e2b 0%, #051614 70%)' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-12 pb-3">
-        <button onClick={() => navigate('/tamam-game')} className="flex items-center gap-1 text-white/70">
-          <ArrowLeft size={18} /> غير المود
-        </button>
-        <span className="text-lg font-extrabold">TAMAM <span className="text-[#3DEB8B]">▲</span></span>
-        <Link to="/" className="text-white/50 text-xs">تصفّح →</Link>
-      </div>
-
-      <div className="text-center px-4 mb-4">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#3DEB8B]/15 border border-[#3DEB8B]/40">
-          <span>{mood.icon || '✨'}</span>
-          <span className="font-bold text-[#3DEB8B] text-sm">{mood.name_ar}</span>
+    <div className="pb-32">
+      {/* Mood summary */}
+      <section className="px-4 py-4 bg-surface-container/50 border-b border-white/5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center"><Icon name={moodIconFor(mood)} className="text-primary text-xl" /></div>
+            <div>
+              <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">المود المختار</p>
+              <h2 className="text-sm font-bold">{mood.name_ar}</h2>
+            </div>
+          </div>
+          <button onClick={() => navigate('/tamam-game')} className="text-[10px] font-bold text-primary border border-primary/30 px-3 py-1.5 rounded-full active:bg-primary/10">غيّر المود</button>
         </div>
-        <h1 className="text-xl font-extrabold mt-3">اخترنا لك حسب مودك</h1>
-        <p className="text-white/50 text-xs mt-1">3 اقتراحات جاهزة • اختار اللي بيناسبك</p>
-      </div>
+      </section>
 
-      <div className="space-y-4 px-3">
-        {LEVELS.map(level => {
-          const set = currentSet(level);
-          const meals = set ? mealsBySet[set.id] || [] : [];
-          return (
-            <SuggestionCard
-              key={level}
-              level={level}
-              suggestion={set}
-              meals={meals}
-              loading={refreshing}
-              onChoose={() => set && handleChoose(level, set)}
-              onRefresh={() => handleRefresh(level)}
-            />
-          );
-        })}
-        {LEVELS.every(l => !currentSet(l)) && (
-          <div className="text-center text-white/60 py-10">
-            <p className="text-3xl mb-2">🛠️</p>
-            <p>لا توجد اقتراحات لهذا المود بعد</p>
-            <Link to="/tamam-game" className="text-[#3DEB8B] underline text-sm mt-2 inline-block">جرّب مود آخر</Link>
+      <section className="pt-6">
+        <div className="px-4 mb-6">
+          <h1 className="text-2xl font-bold text-white mb-1">اخترنا لك</h1>
+          <p className="text-sm text-on-surface-variant">اختار الباقة اللي بتناسبك</p>
+        </div>
+        <div className="sticky top-14 z-50 bg-surface/95 backdrop-blur-md border-b border-white/5">
+          <div className="flex items-center justify-around">
+            {TIERS.map(t => (
+              <button key={t} onClick={() => setTier(t)}
+                className={`flex-1 py-4 text-sm border-b-2 relative ${tier === t ? 'font-bold border-primary' : 'font-medium text-on-surface-variant border-transparent'}`}>
+                {TIER_LABEL[t]}
+                {t === 'mix' && <span className="absolute top-1 left-1/2 -translate-x-1/2 -translate-y-full text-[8px] bg-primary text-on-primary px-1.5 rounded-full py-0.5">الأنسب</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 mt-8">
+        {current ? (
+          <div className="bg-surface-container-high rounded-3xl overflow-hidden shadow-2xl border border-white/5">
+            <div className="relative aspect-[4/3] w-full">
+              {current.hero_image_url ? <img alt={current.title_ar} className="w-full h-full object-cover" src={current.hero_image_url} /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-5xl">🍽️</div>}
+              <div className="absolute inset-0 bg-gradient-to-t from-surface-container-high via-transparent to-transparent" />
+              {current.restaurant_name && (
+                <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
+                  <Icon name="store" className="text-primary text-sm" /><span className="text-[11px] font-medium text-white">{current.restaurant_name}</span>
+                </div>
+              )}
+            </div>
+            <div className="p-5">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-xl font-bold text-white">{current.title_ar || 'اقتراح TAMAM'}</h3>
+                {current.display_price != null && <div className="text-primary font-bold text-xl">₪{Math.round(current.display_price)}</div>}
+              </div>
+              {current.description_ar && <p className="text-sm text-on-surface-variant mb-4">{current.description_ar}</p>}
+              {meals.length > 0 && (
+                <div className="space-y-2 mb-6">
+                  {meals.map(m => (
+                    <div key={m.id} className="flex items-center gap-2 text-sm text-on-surface">
+                      <Icon name="check_circle" className="text-primary text-lg" /><span>{m.name}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2 text-sm text-on-surface"><Icon name="group" className="text-primary text-lg" /><span>مناسب لـ {current.people_count || '2–3'} أشخاص</span></div>
+                </div>
+              )}
+              <div className="flex flex-col gap-3">
+                <button onClick={choose} className="w-full bg-primary text-on-primary h-14 rounded-2xl flex items-center justify-center font-bold text-lg active:scale-[0.98] transition-transform">اختار هذا</button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={refresh} className="h-12 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-sm font-medium active:bg-white/5"><Icon name="refresh" className="text-sm" />اقتراح آخر</button>
+                  <button onClick={() => setShowDetails(true)} className="h-12 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-sm font-medium active:bg-white/5"><Icon name="info" className="text-sm" />شوف التفاصيل</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-16 text-on-surface-variant">
+            <p className="text-4xl mb-2">🛠️</p>
+            <p>لا توجد اقتراحات بهذه الباقة لهذا المود</p>
           </div>
         )}
-      </div>
+      </section>
+
+      {showDetails && (
+        <div className="fixed inset-0 z-[100]" onClick={() => setShowDetails(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="absolute bottom-0 left-0 w-full bg-surface-container-high rounded-t-[32px] p-6 max-w-[480px] mx-auto" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
+            <h3 className="text-xl font-bold mb-4">تفاصيل الوجبة</h3>
+            <div className="space-y-4 mb-8 max-h-[50vh] overflow-auto">
+              {meals.length ? meals.map(m => (
+                <div key={m.id} className="flex justify-between items-center py-3 border-b border-white/5">
+                  <span className="text-on-surface-variant">{m.name}</span>
+                  <span className="font-medium text-white">{m.price != null ? `₪${m.price}` : '—'}</span>
+                </div>
+              )) : <p className="text-on-surface-variant text-sm">لا توجد تفاصيل إضافية</p>}
+            </div>
+            <button onClick={() => setShowDetails(false)} className="w-full bg-primary text-on-primary h-14 rounded-2xl flex items-center justify-center font-bold">إغلاق</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

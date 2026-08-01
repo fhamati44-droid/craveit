@@ -1,11 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, UtensilsCrossed, Sparkles, ClipboardList, User } from 'lucide-react';
+import { Home, UtensilsCrossed, Sparkles, Tag, User } from 'lucide-react';
 
 const ITEMS = [
   { to: '/', label: 'الرئيسية', icon: Home },
   { to: '/restaurants', label: 'المطاعم', icon: UtensilsCrossed },
   { to: '/tamam-game', label: 'اقتراح TAMAM', icon: Sparkles, highlight: true },
-  { to: '/orders', label: 'طلباتي', icon: ClipboardList },
+  { to: '/deals', label: 'العروض', icon: Tag },
   { to: '/profile', label: 'حسابي', icon: User },
 ];
 
