@@ -17,6 +17,8 @@ import PaymentTrustStrip from '@/components/tamam/customer/PaymentTrustStrip';
 import PurchaseJourneyTrustSection from '@/components/tamam/customer/PurchaseJourneyTrustSection';
 import LoyaltyBalanceCard from '@/components/tamam/customer/LoyaltyBalanceCard';
 import AssuranceSection from '@/components/tamam/customer/AssuranceSection';
+import { getPublishedConfig } from '@/lib/homepageApi';
+import HomepageSectionRenderer from '@/components/homepage/HomepageSectionRenderer';
 
 const PKG = [
   { id: 'all', label: 'الكل' },
@@ -48,10 +50,12 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [activeOrder, setActiveOrder] = useState(null);
+  const [publishedConfig, setPublishedConfig] = useState(null);
 
   const load = async () => {
     setLoading(true); setError(false);
     try {
+      getPublishedConfig().catch(() => null).then(setPublishedConfig);
       const [rests, dealViews, moodList, popMeals, allCats] = await Promise.all([
         getRestaurants(), listPublicDeals().catch(() => []), base44.entities.TamamMood.list().catch(() => []),
         getPopularMeals(12), getAllMenuCategories().catch(() => []),
@@ -97,6 +101,18 @@ export default function Home() {
   }, [currentSet?.id]);
 
   if (error) return <ErrorState title="ما قدرنا نحمّل البيانات" onRetry={load} />;
+
+  if (publishedConfig?.sections?.length) {
+    const orderedSections = publishedConfig.sections.slice().sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    return (
+      <div className="flex flex-col">
+        {orderedSections.map((s) => (
+          <HomepageSectionRenderer key={s.id} section={s} items={publishedConfig.items || []} />
+        ))}
+        <AssuranceSection />
+      </div>
+    );
+  }
 
   const activeViews = deals.filter(v => v.status === 'active').sort((a, b) => (b.deal.homepage_priority || 0) - (a.deal.homepage_priority || 0));
   const upcomingViews = deals.filter(v => v.status === 'scheduled').sort((a, b) => String(a.deal.start_at || '').localeCompare(String(b.deal.start_at || '')));

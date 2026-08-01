@@ -1,0 +1,128 @@
+{
+  "name": "HomepageSection",
+  "type": "object",
+  "properties": {
+    "section_key": {
+      "type": "string",
+      "title": "\u0645\u0641\u062a\u0627\u062d \u0627\u0644\u0642\u0633\u0645 (hero, most_ordered, popular_meals, ...)"
+    },
+    "section_type": {
+      "type": "string",
+      "enum": [
+        "hero",
+        "active_order",
+        "game_promo",
+        "suggestions",
+        "active_deal",
+        "upcoming_deal",
+        "most_ordered",
+        "popular_meals",
+        "popular_categories",
+        "featured_restaurants",
+        "recommended_suggestions",
+        "trust_payments",
+        "tracking_trust",
+        "rewards",
+        "support",
+        "promo_banner",
+        "editorial"
+      ],
+      "title": "\u0646\u0648\u0639 \u0627\u0644\u0642\u0633\u0645"
+    },
+    "title": {
+      "type": "string",
+      "title": "\u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0642\u0633\u0645 \u0644\u0644\u0632\u0628\u0648\u0646"
+    },
+    "subtitle": {
+      "type": "string",
+      "title": "\u0646\u0635 \u0645\u0633\u0627\u0639\u062f"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "title": "\u0645\u0641\u0639\u0651\u0644"
+    },
+    "display_order": {
+      "type": "number",
+      "default": 0,
+      "title": "\u062a\u0631\u062a\u064a\u0628 \u0627\u0644\u0639\u0631\u0636"
+    },
+    "selection_mode": {
+      "type": "string",
+      "enum": [
+        "automatic",
+        "manual",
+        "mixed"
+      ],
+      "default": "manual",
+      "title": "\u0648\u0636\u0639 \u0627\u0644\u0627\u062e\u062a\u064a\u0627\u0631"
+    },
+    "max_items": {
+      "type": "number",
+      "default": 8,
+      "title": "\u0623\u0642\u0635\u0649 \u0639\u062f\u062f \u0639\u0646\u0627\u0635\u0631"
+    },
+    "starts_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "\u0628\u062f\u0627\u064a\u0629 \u0627\u0644\u0639\u0631\u0636"
+    },
+    "ends_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "\u0646\u0647\u0627\u064a\u0629 \u0627\u0644\u0639\u0631\u0636"
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "all",
+        "logged_in",
+        "guests"
+      ],
+      "default": "all",
+      "title": "\u0627\u0644\u062c\u0645\u0647\u0648\u0631"
+    },
+    "location_filter": {
+      "type": "string",
+      "title": "\u0641\u0644\u062a\u0631 \u0627\u0644\u0645\u0646\u0637\u0642\u0629/\u0627\u0644\u0645\u062f\u064a\u0646\u0629"
+    },
+    "view_all_label": {
+      "type": "string",
+      "title": "\u0646\u0635 \u0632\u0631 \u0639\u0631\u0636 \u0627\u0644\u0643\u0644"
+    },
+    "view_all_route": {
+      "type": "string",
+      "title": "\u0648\u062c\u0647\u0629 \u0632\u0631 \u0639\u0631\u0636 \u0627\u0644\u0643\u0644"
+    },
+    "settings_json": {
+      "type": "string",
+      "title": "\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0625\u0636\u0627\u0641\u064a\u0629 (JSON)"
+    }
+  },
+  "required": [
+    "section_key",
+    "section_type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -107,6 +107,43 @@ Deno.serve(async (req) => {
         result = await supaFetch('/orders?select=*&limit=1');
         break;
 
+      case 'getMostOrderedMeals': {
+        const days = Number(payload?.days) || 30;
+        const limit = Number(payload?.limit) || 8;
+        const since = new Date(Date.now() - days * 86400000).toISOString();
+        const orders = await supaFetch(`/orders?select=kitchen_id,order_items,status,created_at&created_at=gte.${since}&order=created_at.desc&limit=500`);
+        const counts = {};
+        (orders || []).forEach((o) => {
+          (o.order_items || []).forEach((it) => {
+            const name = (it.name || '').trim();
+            if (!name) return;
+            const key = `${o.kitchen_id}:${name}`;
+            if (!counts[key]) counts[key] = { name, count: 0, price: it.price || 0, kitchen_id: o.kitchen_id };
+            counts[key].count += (it.quantity || 1);
+            if (!counts[key].price && it.price) counts[key].price = it.price;
+          });
+        });
+        const ranked = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, limit);
+        // Resolve meal records by name+restaurant
+        if (ranked.length) {
+          const restaurants = await supaFetch('/restaurants?select=*&active=eq.true');
+          const restMap = {};
+          (restaurants || []).forEach((r) => { restMap[r.id] = r; });
+          const names = ranked.map((r) => r.name).map((n) => `'${n.replace(/'/g, "''")}'`).join(',');
+          const meals = await supaFetch(`/menu_items?select=id,name,name_ar,price,image_url,category_id,restaurant_id,is_available&name=in.(${names})`);
+          const mealMap = {};
+          (meals || []).forEach((m) => { mealMap[`${m.restaurant_id}:${m.name}`] = m; });
+          ranked.forEach((r) => {
+            const meal = mealMap[`${r.kitchen_id}:${r.name}`];
+            r.meal_id = meal?.id || null;
+            r.meal = meal || null;
+            r.restaurant = restMap[r.kitchen_id] || null;
+          });
+        }
+        result = ranked.filter((r) => r.meal_id && r.restaurant);
+        break;
+      }
+
       case 'createOrder':
         result = await supaFetch('/orders', {
           method: 'POST',

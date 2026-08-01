@@ -1,0 +1,93 @@
+{
+  "name": "HomepageMedia",
+  "type": "object",
+  "properties": {
+    "media_type": {
+      "type": "string",
+      "enum": [
+        "image",
+        "video"
+      ],
+      "title": "\u0646\u0648\u0639 \u0627\u0644\u0648\u0633\u0627\u0626\u0637"
+    },
+    "internal_name": {
+      "type": "string",
+      "title": "\u0627\u0633\u0645 \u062f\u0627\u062e\u0644\u064a \u0644\u0644\u0625\u062f\u0627\u0631\u0629"
+    },
+    "file_url": {
+      "type": "string",
+      "title": "\u0631\u0627\u0628\u0637 \u0627\u0644\u0645\u0644\u0641"
+    },
+    "mobile_file_url": {
+      "type": "string",
+      "title": "\u0631\u0627\u0628\u0637 \u0646\u0633\u062e\u0629 \u0627\u0644\u062c\u0648\u0627\u0644"
+    },
+    "desktop_file_url": {
+      "type": "string",
+      "title": "\u0631\u0627\u0628\u0637 \u0646\u0633\u062e\u0629 \u0633\u0637\u062d \u0627\u0644\u0645\u0643\u062a\u0628"
+    },
+    "poster_image_url": {
+      "type": "string",
+      "title": "\u0635\u0648\u0631\u0629 \u0627\u0644\u063a\u0644\u0627\u0641 (\u0644\u0644\u0641\u064a\u062f\u064a\u0648)"
+    },
+    "alt_text": {
+      "type": "string",
+      "title": "\u0646\u0635 \u0628\u062f\u064a\u0644 (Alt)"
+    },
+    "file_size": {
+      "type": "number",
+      "title": "\u062d\u062c\u0645 \u0627\u0644\u0645\u0644\u0641 (\u0628\u0627\u064a\u062a)"
+    },
+    "width": {
+      "type": "number",
+      "title": "\u0627\u0644\u0639\u0631\u0636 (\u0628\u0643\u0633\u0644)"
+    },
+    "height": {
+      "type": "number",
+      "title": "\u0627\u0644\u0627\u0631\u062a\u0641\u0627\u0639 (\u0628\u0643\u0633\u0644)"
+    },
+    "duration": {
+      "type": "number",
+      "title": "\u0645\u062f\u0629 \u0627\u0644\u0641\u064a\u062f\u064a\u0648 (\u062b\u0627\u0646\u064a\u0629)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "archived"
+      ],
+      "default": "active",
+      "title": "\u0627\u0644\u062d\u0627\u0644\u0629"
+    },
+    "usage_notes": {
+      "type": "string",
+      "title": "\u0645\u0643\u0627\u0646 \u0627\u0644\u0627\u0633\u062a\u062e\u062f\u0627\u0645"
+    }
+  },
+  "required": [
+    "media_type",
+    "file_url"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

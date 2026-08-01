@@ -37,6 +37,9 @@ import AdminRoute from '@/components/admin/AdminRoute';
 import GroupDealsDashboard from '@/pages/admin/GroupDealsDashboard';
 import GroupDealWizard from '@/pages/admin/GroupDealWizard';
 import GroupDealDetail from '@/pages/admin/GroupDealDetail';
+import HomepageAdmin from '@/pages/admin/HomepageAdmin';
+import HomepagePreview from '@/pages/admin/HomepagePreview';
+import HomepageMedia from '@/pages/admin/HomepageMedia';
 
 function App() {
   return (
@@ -80,6 +83,9 @@ function App() {
               <Route path="/admin/group-deals/new" element={<GroupDealWizard />} />
               <Route path="/admin/group-deals/:dealId" element={<GroupDealDetail />} />
               <Route path="/admin/group-deals/:dealId/edit" element={<GroupDealWizard />} />
+              <Route path="/admin/homepage" element={<HomepageAdmin />} />
+              <Route path="/admin/homepage/preview" element={<HomepagePreview />} />
+              <Route path="/admin/homepage/media" element={<HomepageMedia />} />
             </Route>
             <Route path="*" element={<PageNotFound />} />
           </Routes>
