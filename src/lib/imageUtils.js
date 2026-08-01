@@ -32,6 +32,21 @@ export function resolvePublicImage(value, fallback = null) {
     return url.replace('http://', 'https://');
   }
 
+  // Google Drive file viewer URLs are not direct image links — convert to thumbnail.
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveMatch) {
+    return `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1000`;
+  }
+  // Google Drive open?id= URLs
+  const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if (openMatch) {
+    return `https://drive.google.com/thumbnail?id=${openMatch[1]}&sz=w1000`;
+  }
+  // Google Drive uc?export=view URLs are already direct
+  if (url.includes('drive.google.com/uc?') && !url.includes('export=view')) {
+    return url + '&export=view';
+  }
+
   return url;
 }
 

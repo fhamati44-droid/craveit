@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { getRestaurants } from '@/lib/api';
 import { autoRankMostOrdered } from '@/lib/homepageApi';
+import { fetchDealProgress, listPublicDeals } from '@/lib/groupDealApi';
+import { resolvePublicImage, handleImageError } from '@/lib/imageUtils';
 import { resolveRoute } from '@/components/admin/homepage/selectors/InternalRouteSelector';
 import HomepageActiveOrderCard from '@/components/tamam/customer/HomepageActiveOrderCard';
 import PaymentTrustStrip from '@/components/tamam/customer/PaymentTrustStrip';
@@ -60,9 +62,9 @@ export default function HomepageSectionRenderer({ section, items = [], draft = f
     case 'recommended_suggestions':
       return wrap(<SuggestionsSection section={section} settings={settings} items={sectionItems} />);
     case 'active_deal':
-      return wrap(<ActiveDealSection section={section} settings={settings} items={sectionItems} />);
+      return wrap(<ActiveDealSection section={section} settings={settings} items={sectionItems} navigate={navigate} />);
     case 'upcoming_deal':
-      return wrap(<UpcomingDealSection section={section} settings={settings} items={sectionItems} />);
+      return wrap(<UpcomingDealSection section={section} settings={settings} items={sectionItems} navigate={navigate} />);
     case 'most_ordered':
       return wrap(<MostOrderedSection section={section} settings={settings} items={sectionItems} data={data} navigate={navigate} />);
     case 'popular_meals':
@@ -120,9 +122,9 @@ function HeroSection({ settings, mediaItem }) {
   return (
     <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
       {isVideo && mediaUrl ? (
-        <video src={mediaUrl} poster={posterUrl || undefined} autoPlay={settings.autoplay} muted={settings.muted ?? true} loop={settings.loop} controls={settings.controls} playsInline className="w-full h-full object-cover" />
+        <video src={resolvePublicImage(mediaUrl)} poster={resolvePublicImage(posterUrl) || undefined} autoPlay={settings.autoplay} muted={settings.muted ?? true} loop={settings.loop} controls={settings.controls} playsInline className="w-full h-full object-cover" />
       ) : mediaUrl ? (
-        <img src={mediaUrl} alt={settings.headline || ''} className="w-full h-full object-cover" />
+        <img src={resolvePublicImage(mediaUrl)} alt={settings.headline || ''} className="w-full h-full object-cover" onError={handleImageError} />
       ) : (
         <div className="w-full h-full bg-surface-container-high flex items-center justify-center"><Icon name="image" className="text-on-surface-variant text-4xl" /></div>
       )}
@@ -153,7 +155,7 @@ function SuggestionsSection({ section, settings, items }) {
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         {sets.slice(0, section.max_items || 8).map((s) => (
           <Link key={s.id} to={`/tamam-order/${s.id}`} className="flex-none w-40 bg-surface-container border border-outline-variant/30 rounded-2xl overflow-hidden">
-            <div className="h-24 bg-surface-container-high">{s.hero_image_url ? <img src={s.hero_image_url} alt={s.title_ar} className="w-full h-full object-cover" /> : null}</div>
+            <div className="h-24 bg-surface-container-high">{s.hero_image_url ? <img src={resolvePublicImage(s.hero_image_url)} alt={s.title_ar} className="w-full h-full object-cover" onError={handleImageError} /> : null}</div>
             <div className="p-2"><p className="text-sm font-bold truncate">{s.title_ar || s.package_level}</p>{s.display_price != null && <p className="text-primary text-xs font-bold">₪{round(s.display_price)}</p>}</div>
           </Link>
         ))}
@@ -162,38 +164,38 @@ function SuggestionsSection({ section, settings, items }) {
   );
 }
 
-function ActiveDealSection({ section, settings, items }) {
+function ActiveDealSection({ section, settings, items, navigate }) {
   const [view, setView] = useState(null);
   useEffect(() => {
     if (section.selection_mode === 'manual' && items.length) {
       const dealId = items.find((it) => it.item_type === 'deal')?.deal_id;
-      if (dealId) base44.entities.GroupDeal.get(dealId).then((d) => setView({ deal: d, thresholds: [], participants: 0 })).catch(() => {});
+      if (dealId) fetchDealProgress(dealId).then((p) => setView({ deal: p.deal, thresholds: p.thresholds, participants: p.participants })).catch(() => {});
     } else {
-      import('@/lib/groupDealApi').then(({ listPublicDeals }) => listPublicDeals().then((deals) => {
+      listPublicDeals().then((deals) => {
         const active = (deals || []).find((v) => v.status === 'active');
         if (active) setView({ deal: active.deal, thresholds: active.thresholds, participants: active.participants });
-      }));
+      }).catch(() => {});
     }
   }, [section.id, section.selection_mode]);
-  if (!view) return <div className="bg-surface-container rounded-xl p-4 text-center text-sm text-on-surface-variant">لا يوجد عرض نشط حاليًا</div>;
-  return <HomeActiveDealBanner deal={view.deal} thresholds={view.thresholds} participants={view.participants} onOpen={() => {}} />;
+  if (!view?.deal) return <div className="bg-surface-container rounded-xl p-4 text-center text-sm text-on-surface-variant">لا يوجد عرض نشط حاليًا</div>;
+  return <HomeActiveDealBanner deal={view.deal} thresholds={view.thresholds} participants={view.participants} onOpen={() => navigate(`/deals/${view.deal.id}`)} />;
 }
 
-function UpcomingDealSection({ section, settings, items }) {
+function UpcomingDealSection({ section, settings, items, navigate }) {
   const [deal, setDeal] = useState(null);
   useEffect(() => {
     if (section.selection_mode === 'manual' && items.length) {
       const dealId = items.find((it) => it.item_type === 'deal')?.deal_id;
-      if (dealId) base44.entities.GroupDeal.get(dealId).then(setDeal).catch(() => {});
+      if (dealId) fetchDealProgress(dealId).then((p) => setDeal(p.deal)).catch(() => {});
     } else {
-      import('@/lib/groupDealApi').then(({ listPublicDeals }) => listPublicDeals().then((deals) => {
+      listPublicDeals().then((deals) => {
         const upcoming = (deals || []).find((v) => v.status === 'scheduled');
         if (upcoming) setDeal(upcoming.deal);
-      }));
+      }).catch(() => {});
     }
   }, [section.id, section.selection_mode]);
   if (!deal) return null;
-  return <HomeUpcomingDealBanner deal={deal} onOpen={() => {}} />;
+  return <HomeUpcomingDealBanner deal={deal} onOpen={() => navigate(`/deals/${deal.id}`)} />;
 }
 
 function MostOrderedSection({ section, settings, items, data, navigate }) {
@@ -311,7 +313,7 @@ function FeaturedRestaurantsSection({ section, items, settings, navigate }) {
       <div className="grid grid-cols-2 gap-3">
         {rests.map((r) => (
           <button key={r.id} onClick={() => navigate(`/restaurants/${r.id}`)} className="text-right bg-surface-container border border-outline-variant/30 rounded-2xl overflow-hidden">
-            <div className="h-24">{r.image_url || r.cover_url ? <img src={r.image_url || r.cover_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-2xl">🏪</div>}</div>
+            <div className="h-24">{r.image_url || r.cover_url ? <img src={resolvePublicImage(r.image_url || r.cover_url)} alt="" className="w-full h-full object-cover" onError={handleImageError} /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-2xl">🏪</div>}</div>
             <div className="p-2.5"><h3 className="font-bold text-sm truncate">{r.name_ar || r.name}</h3><p className="text-[11px] text-on-surface-variant truncate">{r.category || r.cuisine}</p></div>
           </button>
         ))}
@@ -328,7 +330,7 @@ function PromoBannerSection({ settings, section }) {
   }, [settings.media_id]);
   return (
     <div className="relative rounded-2xl overflow-hidden">
-      {mediaUrl ? <img src={mediaUrl} alt={settings.headline || ''} className="w-full h-40 object-cover" /> : <div className="w-full h-40 bg-surface-container-high" />}
+      {mediaUrl ? <img src={resolvePublicImage(mediaUrl)} alt={settings.headline || ''} className="w-full h-40 object-cover" onError={handleImageError} /> : <div className="w-full h-40 bg-surface-container-high" />}
       <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
       <div className="absolute bottom-3 right-3 left-3 space-y-1">
         {settings.headline && <h3 className="font-bold text-base text-on-surface">{settings.headline}</h3>}

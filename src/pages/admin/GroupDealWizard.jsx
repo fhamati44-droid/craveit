@@ -144,9 +144,19 @@ export default function GroupDealWizard() {
         {step === 3 && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="وقت بداية العرض"><input type="datetime-local" value={toLocal(deal.start_at)} onChange={(e) => set('start_at', fromLocal(e.target.value))} className="input" /></Field>
-              <Field label="وقت انتهاء العرض"><input type="datetime-local" value={toLocal(deal.end_at)} onChange={(e) => set('end_at', fromLocal(e.target.value))} className="input" /></Field>
+              <Field label="تاريخ ووقت بداية العرض"><input type="datetime-local" value={toLocal(deal.start_at)} onChange={(e) => set('start_at', fromLocal(e.target.value))} className="input" /></Field>
+              <Field label="تاريخ ووقت انتهاء العرض"><input type="datetime-local" value={toLocal(deal.end_at)} onChange={(e) => set('end_at', fromLocal(e.target.value))} className="input" /></Field>
             </div>
+            {(() => {
+              const errs = [];
+              if (!deal.start_at) errs.push('حدد وقت بداية العرض.');
+              if (!deal.end_at) errs.push('حدد وقت انتهاء العرض.');
+              if (deal.start_at && deal.end_at && new Date(deal.end_at) <= new Date(deal.start_at)) errs.push('وقت انتهاء العرض لازم يكون بعد وقت البداية.');
+              if (deal.start_at && Number.isNaN(new Date(deal.start_at).getTime())) errs.push('تاريخ العرض غير صالح.');
+              if (deal.end_at && Number.isNaN(new Date(deal.end_at).getTime())) errs.push('تاريخ العرض غير صالح.');
+              if (!errs.length) return null;
+              return <div className="bg-error/10 border border-error/30 rounded-xl p-3"><ul className="text-sm text-error list-disc pr-4 space-y-0.5">{errs.map((e, i) => <li key={i}>{e}</li>)}</ul></div>;
+            })()}
             <Toggle label="إغلاق تلقائي عند انتهاء الوقت" value={deal.auto_close_at_end} onChange={(v) => set('auto_close_at_end', v)} />
             <Toggle label="إظهار بانر «عرض قادم» قبل البداية" value={deal.show_upcoming_banner} onChange={(v) => set('show_upcoming_banner', v)} />
             {deal.show_upcoming_banner && <Field label="وقت بدء بانر العرض القادم"><input type="datetime-local" value={toLocal(deal.upcoming_banner_start_at)} onChange={(e) => set('upcoming_banner_start_at', fromLocal(e.target.value))} className="input" /></Field>}

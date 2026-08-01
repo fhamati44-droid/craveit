@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchDealProgress, joinGroupDeal, currentTier, nextTier, sortTiers, countdown, pad, tierProgress, PAYMENT_MODEL_LABELS } from '@/lib/groupDealApi';
 import { track } from '@/lib/analytics';
+import { resolvePublicImage, handleImageError } from '@/lib/imageUtils';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 const PAYMENT_TEXT = {
@@ -85,7 +86,7 @@ export default function DealDetail() {
     <div className="pb-40">
       <section className="relative w-full aspect-[4/3] overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10" />
-        {deal.hero_image ? <img className="w-full h-full object-cover" src={deal.hero_image} alt={deal.title} /> : <div className="w-full h-full bg-surface-container-high" />}
+        {deal.hero_image ? <img className="w-full h-full object-cover" src={resolvePublicImage(deal.hero_image)} alt={deal.title} onError={handleImageError} /> : <div className="w-full h-full bg-surface-container-high" />}
         <button onClick={() => navigate(-1)} aria-label="رجوع" className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-surface/40 backdrop-blur-md text-on-surface z-20"><Icon name="arrow_forward" /></button>
         <div className="absolute bottom-0 inset-x-0 p-4 z-20">
           {deal.restaurant_name_snapshot && <div className="inline-flex items-center gap-1 bg-primary/20 backdrop-blur-md px-2 py-1 rounded-full mb-2"><Icon name="restaurant" className="text-primary text-[16px]" /><span className="text-primary text-xs">{deal.restaurant_name_snapshot}</span></div>}
@@ -158,7 +159,7 @@ export default function DealDetail() {
           <div className="grid grid-cols-2 gap-2">
             {items.map((it, i) => (
               <div key={i} className="flex items-center gap-3 bg-surface-container/50 p-3 rounded-xl">
-                {it.image_snapshot ? <img src={it.image_snapshot} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" /> : <Icon name="lunch_dining" className="text-tertiary" />}
+                {it.image_snapshot ? <img src={resolvePublicImage(it.image_snapshot)} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" onError={handleImageError} /> : <Icon name="lunch_dining" className="text-tertiary" />}
                 <div><span className="text-sm block">{it.meal_name_snapshot}</span><span className="text-[11px] text-on-surface-variant">×{it.quantity_included}</span></div>
               </div>
             ))}

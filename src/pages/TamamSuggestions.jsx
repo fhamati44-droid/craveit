@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { getActiveSuggestionSets, getItemsForSet, trackEvent } from '@/lib/tamamApi';
 import { moodIconFor } from '@/lib/moodIcons';
+import { resolvePublicImage, handleImageError } from '@/lib/imageUtils';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 const TIER_LABEL = { classic: 'كلاسيك', mix: 'ميكس', plus: 'بلس' };
@@ -18,26 +19,30 @@ export default function TamamSuggestions() {
   const [meals, setMeals] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const moods = await base44.entities.TamamMood.list();
-        setMood((moods || []).find(m => m.id === moodId));
-        trackEvent({ action: 'mood_selected', mood_id: moodId });
-        const all = await getActiveSuggestionSets(moodId);
-        const grouped = { classic: [], mix: [], plus: [] };
-        all.forEach(s => { if (grouped[s.package_level]) grouped[s.package_level].push(s); });
-        Object.values(grouped).forEach(a => a.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
-        setSets(grouped);
-        if (!grouped.mix.length && grouped.classic.length) setTier('classic');
-        else if (!grouped.mix.length && grouped.plus.length) setTier('plus');
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
-    })();
-  }, [moodId]);
+  const load = async () => {
+    setLoading(true); setError(false);
+    try {
+      const moods = await base44.entities.TamamMood.list();
+      setMood((moods || []).find(m => m.id === moodId));
+      trackEvent({ action: 'mood_selected', mood_id: moodId });
+      const all = await getActiveSuggestionSets(moodId);
+      const grouped = { classic: [], mix: [], plus: [] };
+      all.forEach(s => { if (grouped[s.package_level]) grouped[s.package_level].push(s); });
+      Object.values(grouped).forEach(a => a.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
+      setSets(grouped);
+      if (!grouped.mix.length && grouped.classic.length) setTier('classic');
+      else if (!grouped.mix.length && grouped.plus.length) setTier('plus');
+    } catch (e) {
+      console.error('TamamSuggestions load error', e);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [moodId]);
 
   const current = sets[tier]?.[idx[tier] % Math.max(1, sets[tier].length)] || null;
 
@@ -66,7 +71,23 @@ export default function TamamSuggestions() {
     navigate(`/tamam-order/${current.id}`);
   };
 
-  if (loading) return <div className="flex items-center justify-center py-32"><div className="w-12 h-12 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-32 space-y-4">
+      <div className="w-12 h-12 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-on-surface-variant text-sm">عم نجهّز اقتراحاتك...</p>
+    </div>
+  );
+
+  if (error) return (
+    <div className="flex flex-col items-center justify-center py-32 text-center px-6">
+      <div className="text-4xl mb-3">⚠️</div>
+      <p className="font-bold mb-2">ما قدرنا نحمّل اقتراحات المود.</p>
+      <div className="flex flex-col gap-3 mt-4 w-full max-w-xs">
+        <button onClick={load} className="h-12 bg-primary text-on-primary font-bold rounded-xl active:scale-95 transition-transform">حاول مرة ثانية</button>
+        <button onClick={() => navigate('/tamam-suggestions?package=all')} className="h-12 bg-surface border border-outline-variant/30 font-bold rounded-xl active:scale-95 transition-transform">شوف كل الاقتراحات</button>
+      </div>
+    </div>
+  );
 
   if (!mood) return (
     <div className="flex flex-col items-center justify-center py-32 text-center px-6">
@@ -114,7 +135,7 @@ export default function TamamSuggestions() {
         {current ? (
           <div className="bg-surface-container-high rounded-3xl overflow-hidden shadow-2xl border border-white/5">
             <div className="relative aspect-[4/3] w-full">
-              {current.hero_image_url ? <img alt={current.title_ar} className="w-full h-full object-cover" src={current.hero_image_url} /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-5xl">🍽️</div>}
+              {current.hero_image_url ? <img alt={current.title_ar} className="w-full h-full object-cover" src={resolvePublicImage(current.hero_image_url)} onError={handleImageError} /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-5xl">🍽️</div>}
               <div className="absolute inset-0 bg-gradient-to-t from-surface-container-high via-transparent to-transparent" />
               {current.restaurant_name && (
                 <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
@@ -150,7 +171,15 @@ export default function TamamSuggestions() {
         ) : (
           <div className="text-center py-16 text-on-surface-variant">
             <p className="text-4xl mb-2">🛠️</p>
-            <p>لا توجد اقتراحات بهذه الباقة لهذا المود</p>
+            <p className="mb-4">ما في اقتراح متاح لهاي الباقة هسا.</p>
+            <div className="flex gap-2 justify-center">
+              {TIERS.filter(t => t !== tier && sets[t]?.length > 0).map(t => (
+                <button key={t} onClick={() => setTier(t)} className="px-4 py-2 bg-primary/10 border border-primary/30 text-primary rounded-full text-sm font-bold">{TIER_LABEL[t]}</button>
+              ))}
+              {TIERS.filter(t => t !== tier && sets[t]?.length > 0).length === 0 && (
+                <button onClick={() => navigate('/tamam-suggestions?package=all')} className="px-4 py-2 bg-primary text-on-primary rounded-full text-sm font-bold">شوف كل الاقتراحات</button>
+              )}
+            </div>
           </div>
         )}
       </section>
