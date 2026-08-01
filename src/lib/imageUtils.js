@@ -3,8 +3,12 @@
  * Strips blob:, localhost, and HTTP-mixed-content URLs.
  * Resolves object-shaped values (e.g. { public_url, file_url }) to a string.
  */
-export function resolvePublicImage(value, fallback = null) {
+export function resolvePublicMedia(value, fallback = null) {
   if (!value) return fallback;
+
+  if (Array.isArray(value)) {
+    return resolvePublicMedia(value[0], fallback);
+  }
 
   if (typeof value === 'object') {
     const objectUrl =
@@ -14,7 +18,7 @@ export function resolvePublicImage(value, fallback = null) {
       value.file_url ||
       value.fileUrl ||
       value.image_url;
-    return resolvePublicImage(objectUrl, fallback);
+    return resolvePublicMedia(objectUrl, fallback);
   }
 
   const url = String(value).trim();
@@ -49,6 +53,9 @@ export function resolvePublicImage(value, fallback = null) {
 
   return url;
 }
+
+// Alias for backward compatibility
+export const resolvePublicImage = resolvePublicMedia;
 
 /**
  * Inline SVG placeholder so it always renders without a network request.

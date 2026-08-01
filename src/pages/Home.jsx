@@ -19,6 +19,7 @@ import LoyaltyBalanceCard from '@/components/tamam/customer/LoyaltyBalanceCard';
 import AssuranceSection from '@/components/tamam/customer/AssuranceSection';
 import { getPublishedConfig } from '@/lib/homepageApi';
 import HomepageSectionRenderer from '@/components/homepage/HomepageSectionRenderer';
+import HomepagePrimaryActions from '@/components/tamam/customer/HomepagePrimaryActions';
 import { resolvePublicImage, handleImageError } from '@/lib/imageUtils';
 
 const PKG = [
@@ -103,10 +104,14 @@ export default function Home() {
 
   if (error) return <ErrorState title="ما قدرنا نحمّل البيانات" onRetry={load} />;
 
-  if (publishedConfig?.sections?.length) {
-    const orderedSections = publishedConfig.sections.slice().sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+  // Always render primary actions (game, restaurants, suggestions) — never hidden by CMS
+  const orderedSections = (publishedConfig?.sections || []).slice().sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+  const hasCmsContent = orderedSections.length > 0;
+
+  if (hasCmsContent) {
     return (
       <div className="flex flex-col">
+        <HomepagePrimaryActions />
         {orderedSections.map((s) => (
           <HomepageSectionRenderer key={s.id} section={s} items={publishedConfig.items || []} />
         ))}

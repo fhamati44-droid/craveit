@@ -14,6 +14,7 @@ import AssuranceSection from '@/components/tamam/customer/AssuranceSection';
 import HomeActiveDealBanner from '@/components/tamam/customer/HomeActiveDealBanner';
 import HomeUpcomingDealBanner from '@/components/tamam/customer/HomeUpcomingDealBanner';
 import PopularMealCard from '@/components/tamam/customer/PopularMealCard';
+import HomepageHeroVideo from '@/components/tamam/customer/HomepageHeroVideo';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 const pjson = (s, f = {}) => { try { return JSON.parse(s) || f; } catch { return f; } };
@@ -122,7 +123,15 @@ function HeroSection({ settings, mediaItem }) {
   return (
     <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
       {isVideo && mediaUrl ? (
-        <video src={resolvePublicImage(mediaUrl)} poster={resolvePublicImage(posterUrl) || undefined} autoPlay={settings.autoplay} muted={settings.muted ?? true} loop={settings.loop} controls={settings.controls} playsInline className="w-full h-full object-cover" />
+        <HomepageHeroVideo
+          videoUrl={mediaUrl}
+          posterUrl={posterUrl}
+          autoPlay={settings.autoplay}
+          loop={settings.loop}
+          muted={settings.muted ?? true}
+          controls={settings.controls}
+          className="w-full h-full object-cover"
+        />
       ) : mediaUrl ? (
         <img src={resolvePublicImage(mediaUrl)} alt={settings.headline || ''} className="w-full h-full object-cover" onError={handleImageError} />
       ) : (
