@@ -283,25 +283,32 @@ function PopularMealsSection({ section, items, navigate }) {
 }
 
 function PopularCategoriesSection({ section, items, navigate }) {
-  const [counts, setCounts] = useState({});
+  const [cats, setCats] = useState([]);
+  const perCat = section.max_items || 6;
   useEffect(() => {
-    base44.functions.invoke('supabaseProxy', { action: 'getAllMenuCategories' }).then((r) => {
-      const c = {}; (r?.data?.data || []).forEach((cat) => { const n = (cat.name_ar || cat.name || '').trim(); if (n) c[n] = (c[n] || 0) + 1; });
-      setCounts(c);
-    }).catch(() => {});
-  }, []);
+    const names = items.filter((it) => it.item_type === 'category').map((it) => it.category_id).filter(Boolean);
+    if (!names.length) { setCats([]); return; }
+    base44.functions.invoke('supabaseProxy', { action: 'getMealsByCategoryNames', payload: { names, perCategory: perCat } })
+      .then((r) => setCats((r?.data?.data || r?.data) || []))
+      .catch(() => setCats([]));
+  }, [items.length, perCat]);
+  if (!cats.length) return <div className="text-sm text-on-surface-variant">أضف تصنيفات لعرض الوجبات تحتها.</div>;
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       <h2 className="text-headline-md font-bold">{section.title || 'تصنيفات شعبية'}</h2>
-      <div className="flex gap-3 overflow-x-auto no-scrollbar">
-        {items.filter((it) => it.item_type === 'category').map((it, i) => (
-          <button key={i} onClick={() => navigate(`/restaurants?category=${encodeURIComponent(it.category_id)}`)} className="flex-none w-32 bg-surface-container border border-outline-variant/30 rounded-2xl p-4 text-right">
-            <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center mb-2"><Icon name="restaurant" className="text-primary" /></div>
-            <h3 className="font-bold text-sm">{it.category_id}</h3>
-            <p className="text-[11px] text-on-surface-variant">{counts[it.category_id] || 0} مطاعم</p>
-          </button>
-        ))}
-      </div>
+      {cats.map((c, idx) => (
+        <div key={idx} className="space-y-2">
+          <div className="flex justify-between items-center">
+            <h3 className="text-headline-sm font-bold">{c.name}</h3>
+            <button onClick={() => navigate(`/restaurants?category=${encodeURIComponent(c.name)}`)} className="text-primary text-xs font-bold">شوف الكل</button>
+          </div>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar">
+            {c.meals.map((m) => (
+              <PopularMealCard key={m.id} meal={{ ...m, name: m.name_ar || m.name, restaurantName: m.restaurant_name, restaurantId: m.restaurant_id, image_url: m.image_url, price: m.price }} onOpen={() => navigate(`/restaurants/${m.restaurant_id}?meal=${m.id}`)} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

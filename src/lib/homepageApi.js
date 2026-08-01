@@ -4,6 +4,7 @@ const engine = (action, payload = {}) =>
   base44.functions.invoke('homepageEngine', { action, payload }).then((r) => r.data?.data ?? r.data);
 
 export const getPublishedConfig = () => engine('getPublishedConfig');
+export const getPublishedHomepage = () => engine('getPublishedHomepage');
 export const getDraftConfig = () => engine('getDraftConfig');
 export const validatePublish = () => engine('validatePublish');
 export const publishDraft = (label, changeSummary) => engine('publishDraft', { label, changeSummary });

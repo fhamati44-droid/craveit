@@ -161,6 +161,37 @@ Deno.serve(async (req) => {
         result = await supaFetch(`/orders?select=*&phone=eq.${encodeURIComponent(payload.phone)}&order=created_at.desc`);
         break;
 
+      case 'getMealsByCategoryNames': {
+        const names = (payload?.names || []).map((n) => String(n).trim()).filter(Boolean);
+        const perCategory = Number(payload?.perCategory) || 6;
+        if (!names.length) { result = []; break; }
+        const allCats = await supaFetch('/menu_categories?select=id,restaurant_id,name,name_ar');
+        const nameSet = new Set(names);
+        const matched = (allCats || []).filter((c) => nameSet.has((c.name_ar || '').trim()) || nameSet.has((c.name || '').trim()));
+        const catIds = matched.map((c) => c.id);
+        let meals = [];
+        if (catIds.length) {
+          meals = await supaFetch(`/menu_items?select=id,name,name_ar,price,image_url,category_id,restaurant_id,is_available&category_id=in.(${catIds.join(',')})&is_available=eq.true`);
+        }
+        const byCat = {};
+        (meals || []).forEach((m) => { (byCat[m.category_id] = byCat[m.category_id] || []).push(m); });
+        const catName = {};
+        matched.forEach((c) => { catName[c.id] = (c.name_ar || c.name || '').trim(); });
+        const restIds = [...new Set((meals || []).map((m) => m.restaurant_id))];
+        let restMap = {};
+        if (restIds.length) {
+          const rests = await supaFetch('/restaurants?select=id,name,name_ar,active&active=eq.true');
+          (rests || []).forEach((r) => { restMap[r.id] = r; });
+        }
+        result = matched.map((c) => ({
+          id: c.id,
+          name: catName[c.id],
+          meals: (byCat[c.id] || []).slice(0, perCategory).map((m) => ({
+            ...m, restaurant_name: restMap[m.restaurant_id]?.name_ar || restMap[m.restaurant_id]?.name || '',
+          })).filter((m) => restMap[m.restaurant_id]),
+        })).filter((c) => c.meals.length > 0);
+        break;
+      }
       default:
         return Response.json({ error: 'Unknown action' }, { status: 400 });
     }

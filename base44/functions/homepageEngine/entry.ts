@@ -27,6 +27,167 @@ const DRIVE_ENTITIES = [
   { entity: 'GroupDeal', field: 'hero_image', label: 'عرض جماعي' },
 ];
 
+const ROUTE_MAP = {
+  tamam_game: '/tamam-game',
+  suggestions_all: '/tamam-suggestions?package=all',
+  suggestions_classic: '/tamam-suggestions?package=classic',
+  suggestions_mix: '/tamam-suggestions?package=mix',
+  suggestions_plus: '/tamam-suggestions?package=plus',
+  restaurants_all: '/restaurants',
+  deals_all: '/deals',
+  orders: '/orders',
+  rewards: '/account/rewards',
+};
+
+function resolveRouteString(key, params) {
+  if (key && ROUTE_MAP[key]) return ROUTE_MAP[key];
+  if (key === 'custom' && params) {
+    if (typeof params === 'string') { try { const p = JSON.parse(params); return p.path || params; } catch { return params; } }
+    if (typeof params === 'object' && params.path) return params.path;
+  }
+  return '/tamam-game';
+}
+
+function normalizePkg(value) {
+  const n = String(value || '').trim().toLowerCase();
+  if (n === 'classic' || n === 'كلاسيك') return 'classic';
+  if (n === 'mix' || n === 'ميكس') return 'mix';
+  if (['plus', 'بلس', 'max', 'ماكس', 'premium'].includes(n)) return 'plus';
+  return 'all';
+}
+
+async function buildPublishedHomepage(base44) {
+  const PKGS = ['classic', 'mix', 'plus'];
+  const PKG_LABEL = { classic: 'كلاسيك', mix: 'ميكس', plus: 'بلس' };
+  const PKG_EXPLAIN = { classic: 'وجبة مناسبة ليوم عادي', mix: 'تشكيلة أكبر لمزاجك', plus: 'خيار فخم لمناسباتك' };
+
+  const versions = await base44.asServiceRole.entities.HomepageVersion.filter({ is_active: true });
+  const active = (versions && versions[0]) || null;
+  const snapshot = active ? parseJSON(active.snapshot_json, null) : null;
+  const sections = snapshot ? (snapshot.sections || []) : [];
+  const allItems = snapshot ? (snapshot.items || []) : [];
+  const now = Date.now();
+  const vis = (s) => s && s.enabled && (!s.starts_at || new Date(s.starts_at).getTime() <= now) && (!s.ends_at || new Date(s.ends_at).getTime() >= now);
+  const sectionByKey = (key) => sections.find((s) => s.section_key === key && vis(s));
+  const sectionByType = (type) => sections.find((s) => s.section_type === type && vis(s));
+  const itemsFor = (sid) => (sid ? allItems.filter((it) => it.homepage_section_id === sid && it.enabled !== false) : []);
+
+  // Resolve media map (service role — avoids 403 for public)
+  const mediaIds = [...new Set(allItems.map((it) => it.media_id).filter(Boolean))];
+  const mediaMap = {};
+  if (mediaIds.length) {
+    try { const all = await base44.asServiceRole.entities.HomepageMedia.list('-created_date', 500); (all || []).forEach((m) => { mediaMap[m.id] = m; }); } catch (e) { console.error('media map error', e); }
+  }
+
+  // HERO
+  let hero = null;
+  const heroSection = sectionByKey('hero') || sectionByType('hero');
+  if (heroSection) {
+    const settings = parseJSON(heroSection.settings_json, {});
+    const mediaItem = itemsFor(heroSection.id).find((it) => it.item_type === 'media');
+    const media = mediaItem && mediaItem.media_id ? mediaMap[mediaItem.media_id] : null;
+    const poster = settings.poster_media_id ? mediaMap[settings.poster_media_id] : null;
+    hero = {
+      media_kind: settings.media_kind || 'image',
+      file_url: media ? media.file_url : null,
+      poster_url: poster ? (poster.file_url || poster.poster_image_url) : null,
+      headline: settings.headline || heroSection.title || 'محتار شو تاكل اليوم؟',
+      supporting_text: settings.supporting_text || heroSection.subtitle || 'خلّي TAMAM يساعدك تختار حسب مودك.',
+      cta_label: settings.cta_label || 'ساعدني أختار',
+      cta_route: resolveRouteString(settings.cta_route_key, settings.cta_route_params),
+    };
+  }
+
+  // Active suggestion sets grouped by package
+  let activeSets = [];
+  try { activeSets = await base44.asServiceRole.entities.TamamSuggestionSet.filter({ is_active: true }, 'sort_order', 500); } catch (e) { console.error('sets error', e); }
+  const setsByPkg = {};
+  (activeSets || []).forEach((s) => { const p = normalizePkg(s.package_level); if (p !== 'all') (setsByPkg[p] = setsByPkg[p] || []).push(s); });
+
+  // PACKAGE CARDS
+  const pkgSection = sectionByKey('suggestions') || sectionByType('suggestions');
+  const pkgSettings = pkgSection ? parseJSON(pkgSection.settings_json, {}) : {};
+  const packages = PKGS.map((p) => {
+    const featuredSet = (setsByPkg[p] || [])[0] || null;
+    return {
+      key: p,
+      label: PKG_LABEL[p],
+      image_url: pkgSettings[`package_image_${p}`] || (featuredSet && featuredSet.hero_image_url) || null,
+      display_price: featuredSet ? featuredSet.display_price : null,
+      explanation: pkgSettings[`package_explanation_${p}`] || PKG_EXPLAIN[p],
+      route: `/tamam-suggestions?package=${p}`,
+    };
+  });
+
+  // MOST ORDERED
+  const moSection = sectionByKey('most_ordered') || sectionByType('most_ordered');
+  const moSettings = moSection ? parseJSON(moSection.settings_json, {}) : {};
+  let mostOrdered = [];
+  try {
+    if (moSection && moSection.selection_mode === 'manual') {
+      const mealIds = itemsFor(moSection.id).filter((it) => it.item_type === 'meal').map((it) => it.meal_id).filter(Boolean);
+      if (mealIds.length) {
+        const res = await base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getMenuItemsByIds', payload: { ids: mealIds } });
+        const meals = (res && (res.data?.data || res.data)) || [];
+        const restIds = [...new Set(meals.map((m) => m.restaurant_id).filter(Boolean))];
+        const restMap = {};
+        if (restIds.length) { const r2 = await base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getRestaurantsByIds', payload: { ids: restIds } }); (r2?.data?.data || []).forEach((r) => { restMap[r.id] = r; }); }
+        mostOrdered = meals.map((m) => ({
+          meal_id: m.id, name: m.name_ar || m.name, image_url: m.image_url, price: m.price,
+          restaurant_id: m.restaurant_id, restaurant_name: restMap[m.restaurant_id]?.name_ar || restMap[m.restaurant_id]?.name || '',
+          is_available: m.is_available !== false,
+        })).filter((m) => m.restaurant_name);
+      }
+    } else {
+      const days = moSettings.report_days || 30;
+      const limit = (moSection && moSection.max_items) || 8;
+      const res = await base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getMostOrderedMeals', payload: { days, limit } });
+      const ranked = (res && (res.data?.data || res.data)) || [];
+      mostOrdered = ranked.map((r) => ({
+        meal_id: r.meal_id, name: r.meal?.name_ar || r.meal?.name || r.name, image_url: r.meal?.image_url, price: r.meal?.price || r.price,
+        restaurant_id: r.kitchen_id, restaurant_name: r.restaurant?.name_ar || r.restaurant?.name || '',
+        count: r.count, is_available: r.meal ? r.meal.is_available !== false : true,
+      })).filter((m) => m.meal_id && m.restaurant_name);
+    }
+  } catch (e) { console.error('mostOrdered error', e); }
+
+  // POPULAR CATEGORIES with real meals underneath
+  const pcSection = sectionByKey('popular_categories') || sectionByType('popular_categories') || sectionByKey('popular_meals') || sectionByType('popular_meals');
+  let popularCategories = [];
+  try {
+    if (pcSection) {
+      const catNames = itemsFor(pcSection.id).filter((it) => it.item_type === 'category').map((it) => it.category_id).filter(Boolean);
+      if (catNames.length) {
+        const perCat = pcSection.max_items || 6;
+        const res = await base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getMealsByCategoryNames', payload: { names: catNames, perCategory: perCat } });
+        const cats = (res && (res.data?.data || res.data)) || [];
+        popularCategories = cats.map((c) => ({
+          name: c.name,
+          meals: c.meals.map((m) => ({
+            meal_id: m.id, name: m.name_ar || m.name, image_url: m.image_url, price: m.price,
+            restaurant_id: m.restaurant_id, restaurant_name: m.restaurant_name, is_available: m.is_available !== false,
+          })),
+        })).filter((c) => c.meals.length > 0);
+      }
+    }
+  } catch (e) { console.error('popularCategories error', e); }
+
+  // FEATURED RESTAURANTS
+  const frSection = sectionByKey('featured_restaurants') || sectionByType('featured_restaurants');
+  let featuredRestaurants = [];
+  try {
+    if (frSection && frSection.selection_mode === 'manual') {
+      const restIds = itemsFor(frSection.id).filter((it) => it.item_type === 'restaurant').map((it) => it.restaurant_id).filter(Boolean);
+      if (restIds.length) { const res = await base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getRestaurantsByIds', payload: { ids: restIds } }); featuredRestaurants = (res?.data?.data || []).slice(0, frSection.max_items || 6); }
+    } else {
+      const res = await base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getRestaurants' });
+      featuredRestaurants = ((res?.data?.data) || []).slice(0, (frSection && frSection.max_items) || 6);
+    }
+  } catch (e) { console.error('featuredRestaurants error', e); }
+
+  return { hasVersion: !!active, hero, packages, mostOrdered, popularCategories, featuredRestaurants };
+}
+
 // Section metadata for validation and defaults
 const SECTION_META = {
   hero: { label: 'البانر الرئيسي', requiresMedia: true },
@@ -173,6 +334,11 @@ export default async function(req) {
       let mood = null;
       if (set.mood_id) mood = await base44.asServiceRole.entities.TamamMood.get(set.mood_id).catch(() => null);
       return Response.json({ data: { set, items: items || [], mood } });
+    }
+
+    // Public: fully-resolved published homepage (hero media, packages, most-ordered, popular categories with meals, featured restaurants)
+    if (action === 'getPublishedHomepage') {
+      return Response.json({ data: await buildPublishedHomepage(base44) });
     }
 
     // Admin-only actions

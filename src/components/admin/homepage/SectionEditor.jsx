@@ -183,6 +183,12 @@ function renderTypeEditor(type, ctx) {
       return (
         <div className="space-y-3">
           <div><label className="text-[11px] text-on-surface-variant block mb-1">فلتر الحزمة (للعرض التلقائي)</label><select value={settings.package_filter || 'all'} onChange={(e) => setSettings({ package_filter: e.target.value })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30"><option value="all">كل الحزم</option><option value="classic">كلاسيك</option><option value="mix">ميكس</option><option value="plus">بلس</option></select></div>
+          <div className="space-y-2">
+            <label className="text-[11px] text-on-surface-variant block">صور الباقات (تظهر في كروت كلاسيك/ميكس/بلس بالصفحة الرئيسية)</label>
+            {[['classic', 'كلاسيك'], ['mix', 'ميكس'], ['plus', 'بلس']].map(([k, l]) => (
+              <div key={k}><label className="text-[10px] text-on-surface-variant block mb-0.5">{l}</label><MediaSelector value={settings[`package_image_${k}`] || ''} onChange={(id) => setSettings({ [`package_image_${k}`]: id })} /></div>
+            ))}
+          </div>
           <div><label className="text-[11px] text-on-surface-variant block mb-2">اقتراحات محددة (اختياري)</label><SuggestionSelector selectedIds={itemIds('suggestion')} onChange={(ids) => setItems((prev) => [...prev.filter((it) => it.item_type !== 'suggestion'), ...ids.map((id) => ({ item_type: 'suggestion', suggestion_id: id, display_order: 0, enabled: true }))])} /></div>
         </div>
       );
