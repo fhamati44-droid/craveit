@@ -169,7 +169,7 @@ export default function Home() {
             <p className="text-xs text-on-surface-variant">انضم للعرض، وكل ما نوصل للهدف السعر بنزل.</p>
           </div>
           <div className="space-y-4">
-            {deals.slice(0, 3).map(d => <GroupDealBlock key={d.id} deal={dealToCard(d)} restaurant={restaurants.find(r => r.id === d.restaurant_id)} onJoin={() => navigate(`/restaurant/${(restaurants.find(r => r.id === d.restaurant_id) || {}).slug || ''}`)} />)}
+            {deals.slice(0, 3).map(d => <GroupDealBlock key={d.id} deal={dealToCard(d)} restaurant={restaurants.find(r => r.id === d.restaurant_id)} onJoin={() => navigate(d.restaurant_id ? `/restaurants/${d.restaurant_id}` : '/restaurants')} />)}
           </div>
         </section>
       )}
@@ -184,7 +184,7 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-3">{[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}</div>
         ) : restaurants.length ? (
           <div className="grid grid-cols-2 gap-3">
-            {restaurants.slice(0, 6).map(r => <NearbyCard key={r.id} r={r} onOpen={() => navigate(`/restaurant/${r.slug || r.id}`)} />)}
+            {restaurants.slice(0, 6).map(r => <NearbyCard key={r.id} r={r} onOpen={() => navigate(`/restaurants/${r.id}`)} />)}
           </div>
         ) : <EmptyState icon="🏪" title="ما لقينا مطاعم بهالمنطقة" />}
       </section>

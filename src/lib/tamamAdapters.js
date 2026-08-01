@@ -7,12 +7,16 @@ export function restaurantToCard(r) {
   if (!r) return null;
   return {
     id: r.id,
-    name: r.name || r.name_ar || r.restaurant_name || 'مطعم',
-    coverUrl: r.image_url || r.cover_image_url || r.logo_url || null,
+    name: r.name_ar || r.name || r.restaurant_name || 'مطعم',
+    coverUrl: r.cover_url || r.image_url || r.cover_image_url || null,
+    logoUrl: r.logo_url || r.image_url || null,
     categories: [r.category, r.cuisine_type].filter(Boolean),
+    description: r.description_ar || r.description || null,
     rating: r.rating ?? null,
+    reviewCount: r.review_count ?? r.reviews_count ?? r.ratings_count ?? null,
     deliveryMin: r.delivery_time ?? r.estimated_delivery_time ?? null,
     deliveryFee: r.delivery_fee ?? null,
+    minOrder: r.min_order ?? r.minimum_order ?? null,
     isOpen: r.is_open ?? r.active ?? true,
   };
 }

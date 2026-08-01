@@ -10,6 +10,10 @@ export const getRestaurants = () => call('getRestaurants');
 
 export const getRestaurantBySlug = (slug) => call('getRestaurantBySlug', { slug });
 
+export const getRestaurantById = (id) => call('getRestaurantById', { id });
+
+export const getAllMenuCategories = () => call('getAllMenuCategories');
+
 // Menu
 export const getMenuCategories = (restaurantId) => call('getMenuCategories', { restaurantId });
 

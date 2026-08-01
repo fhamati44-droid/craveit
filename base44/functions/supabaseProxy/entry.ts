@@ -39,12 +39,21 @@ Deno.serve(async (req) => {
         result = Array.isArray(result) ? result[0] : result;
         break;
 
+      case 'getRestaurantById':
+        result = await supaFetch(`/restaurants?select=*&id=eq.${payload.id}`);
+        result = Array.isArray(result) ? result[0] : result;
+        break;
+
       case 'getMenuCategories':
         result = await supaFetch(`/menu_categories?select=*&restaurant_id=eq.${payload.restaurantId}&order=sort_order.asc`);
         break;
 
       case 'getMenuItems':
         result = await supaFetch(`/menu_items?select=*&category_id=eq.${payload.categoryId}&order=sort_order.asc`);
+        break;
+
+      case 'getAllMenuCategories':
+        result = await supaFetch('/menu_categories?select=id,restaurant_id,name,name_ar');
         break;
 
       case 'getMenuItemsByIds': {

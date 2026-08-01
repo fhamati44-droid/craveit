@@ -41,6 +41,7 @@ function App() {
             <Route element={<CustomerMobileLayout />}>
               <Route path="/" element={<Home />} />
               <Route path="/restaurants" element={<Restaurants />} />
+              <Route path="/restaurants/:restaurantId" element={<Restaurant />} />
               <Route path="/restaurant/:slug" element={<Restaurant />} />
               <Route path="/tamam-game" element={<TamamGame />} />
               <Route path="/tamam-suggestions" element={<TamamCatalog />} />
