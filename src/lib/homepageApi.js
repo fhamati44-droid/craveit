@@ -13,6 +13,7 @@ export const rollbackToVersion = (version_id) => engine('rollbackToVersion', { v
 export const autoRankMostOrdered = (days, limit) => engine('autoRankMostOrdered', { days, limit });
 export const diagnoseMoods = () => engine('diagnoseMoods');
 export const seedDefaults = () => engine('seedDefaults');
+export const addMissingCuratedSections = () => engine('addMissingCuratedSections');
 
 // Section CRUD (admin role via SDK)
 export const listSections = () => base44.entities.HomepageSection.list('-display_order', 200);
@@ -50,8 +51,15 @@ export const SECTION_LABELS = {
   most_ordered: 'الأكثر طلبًا',
   popular_meals: 'الأكلات الشعبية',
   popular_categories: 'تصنيفات شعبية',
-  featured_restaurants: 'مطاعم مميزة',
+  featured_restaurants: 'مطاعم بنرشحها',
   recommended_suggestions: 'اقتراحات موصى بها',
+  tamam_picks: 'اختيارات TAMAM',
+  budget_meals: 'على قد ميزانيتك',
+  family_meals: 'للعيلة واللّمات',
+  quick_meals: 'سريع وخفيف',
+  home_style_meals: 'أكل بيتي',
+  new_meals: 'جرّب إشي جديد',
+  desserts_snacks: 'حلويات وتسالي',
   trust_payments: 'الدفع والثقة',
   tracking_trust: 'تتبع الطلب والثقة',
   rewards: 'النقاط والكوبونات',

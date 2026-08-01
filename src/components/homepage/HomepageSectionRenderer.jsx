@@ -99,6 +99,15 @@ export default function HomepageSectionRenderer({ section, items = [], draft = f
           {settings.content && <p className="text-sm text-on-surface-variant leading-relaxed whitespace-pre-line">{settings.content}</p>}
         </div>
       );
+    case 'tamam_picks':
+    case 'family_meals':
+    case 'quick_meals':
+    case 'home_style_meals':
+    case 'new_meals':
+    case 'desserts_snacks':
+      return wrap(<CuratedMealsPreview section={section} settings={settings} items={sectionItems} navigate={navigate} />);
+    case 'budget_meals':
+      return wrap(<BudgetPreview section={section} settings={settings} navigate={navigate} />);
     default:
       return wrap(<div><h2 className="text-headline-md font-bold">{section.title || section.section_key}</h2></div>);
   }
@@ -353,6 +362,53 @@ function PromoBannerSection({ settings, section }) {
         {settings.supporting_text && <p className="text-xs text-on-surface-variant">{settings.supporting_text}</p>}
         {settings.cta_label && ctaRoute && <Link to={ctaRoute} className="inline-block bg-primary text-on-primary px-3 py-1.5 rounded-lg text-xs font-bold">{settings.cta_label}</Link>}
       </div>
+    </div>
+  );
+}
+
+function CuratedMealsPreview({ section, settings, items, navigate }) {
+  const [meals, setMeals] = useState([]);
+  useEffect(() => {
+    const manualMeals = items.filter((it) => it.item_type === 'meal' && it.meal_id);
+    if (section.selection_mode === 'manual' && manualMeals.length) {
+      base44.functions.invoke('supabaseProxy', { action: 'getMealsByIdsResolved', payload: { ids: manualMeals.map((it) => it.meal_id) } }).then((r) => setMeals(r?.data?.data || [])).catch(() => setMeals([]));
+    } else {
+      const autoMode = settings.auto_mode || 'category';
+      if (autoMode === 'category') {
+        base44.functions.invoke('supabaseProxy', { action: 'getMealsByCategoryNamesFlat', payload: { names: settings.category_names || [], limit: section.max_items || 8 } }).then((r) => setMeals(r?.data?.data || [])).catch(() => setMeals([]));
+      } else if (autoMode === 'new') {
+        base44.functions.invoke('supabaseProxy', { action: 'getNewMeals', payload: { days: settings.new_days || 30, limit: section.max_items || 8 } }).then((r) => setMeals(r?.data?.data || [])).catch(() => setMeals([]));
+      } else if (autoMode === 'random') {
+        base44.functions.invoke('supabaseProxy', { action: 'getRandomMeals', payload: { limit: section.max_items || 8 } }).then((r) => setMeals(r?.data?.data || [])).catch(() => setMeals([]));
+      }
+    }
+  }, [section.id, section.selection_mode, settings.auto_mode, settings.new_days, items.length]);
+  if (!meals.length) return <div className="bg-surface-container rounded-xl p-4 text-center text-sm text-on-surface-variant">لا توجد وجبات — اضبط الاختيار وأضف وجبات لعرضها هنا.</div>;
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center"><h2 className="text-headline-md font-bold">{section.title}</h2>{section.view_all_route && <Link to={section.view_all_route} className="text-primary text-xs font-bold">{section.view_all_label || 'شوف الكل'}</Link>}</div>
+      <div className="flex gap-3 overflow-x-auto no-scrollbar">
+        {meals.map((m) => <PopularMealCard key={m.id} meal={{ ...m, name: m.name_ar || m.name, restaurantName: m.restaurant_name, restaurantId: m.restaurant_id, image_url: m.image_url, price: m.price }} onOpen={() => navigate(`/restaurants/${m.restaurant_id}?meal=${m.id}`)} />)}
+      </div>
+    </div>
+  );
+}
+
+function BudgetPreview({ section, settings, navigate }) {
+  const [meals, setMeals] = useState([]);
+  const ranges = settings.price_ranges || [];
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const r = ranges[idx] || ranges[0];
+    if (!r) return;
+    base44.functions.invoke('supabaseProxy', { action: 'getMealsByPriceRange', payload: { min: r.min, max: r.max, limit: 8 } }).then((res) => setMeals(res?.data?.data || [])).catch(() => setMeals([]));
+  }, [idx, ranges.length]);
+  if (!ranges.length) return <div className="text-sm text-on-surface-variant">أضف نطاقات أسعار في إعدادات القسم.</div>;
+  return (
+    <div className="space-y-3">
+      <h2 className="text-headline-md font-bold">{section.title}</h2>
+      <div className="flex gap-2 overflow-x-auto no-scrollbar">{ranges.map((r, i) => <button key={i} onClick={() => setIdx(i)} className={`flex-none px-3 py-1.5 rounded-full text-xs font-bold border ${i === idx ? 'bg-primary text-on-primary border-primary' : 'bg-surface-container border-outline-variant/30'}`}>{r.label}</button>)}</div>
+      <div className="flex gap-3 overflow-x-auto no-scrollbar">{meals.map((m) => <PopularMealCard key={m.id} meal={{ ...m, name: m.name_ar || m.name, restaurantName: m.restaurant_name, restaurantId: m.restaurant_id, image_url: m.image_url, price: m.price }} onOpen={() => navigate(`/restaurants/${m.restaurant_id}?meal=${m.id}`)} />)}</div>
     </div>
   );
 }

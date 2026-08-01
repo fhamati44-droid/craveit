@@ -25,7 +25,14 @@
         "rewards",
         "support",
         "promo_banner",
-        "editorial"
+        "editorial",
+        "tamam_picks",
+        "budget_meals",
+        "family_meals",
+        "quick_meals",
+        "home_style_meals",
+        "new_meals",
+        "desserts_snacks"
       ],
       "title": "\u0646\u0648\u0639 \u0627\u0644\u0642\u0633\u0645"
     },

@@ -70,6 +70,12 @@ export default function SectionEditor({ section, onClose, onSaved }) {
         toSave = items.filter((it) => it.item_type === 'suggestion').map((it, i) => ({ item_type: 'suggestion', suggestion_id: it.suggestion_id, display_order: i, enabled: true }));
       } else if (itemType === 'active_deal' || itemType === 'upcoming_deal') {
         if (form.selection_mode === 'manual') toSave = items.filter((it) => it.item_type === 'deal').map((it, i) => ({ item_type: 'deal', deal_id: it.deal_id, display_order: i, enabled: true }));
+      } else if (['tamam_picks', 'family_meals', 'quick_meals', 'home_style_meals', 'new_meals', 'desserts_snacks'].includes(itemType)) {
+        if (form.selection_mode === 'manual') {
+          toSave = items.filter((it) => it.item_type === 'meal').map((it, i) => ({ item_type: 'meal', meal_id: it.meal_id, restaurant_id: it.restaurant_id, display_order: i, enabled: true }));
+        }
+      } else if (itemType === 'budget_meals') {
+        // config stored entirely in settings_json
       } else if (itemType === 'trust_payments' || itemType === 'tracking_trust') {
         toSave = items.filter((it) => it.item_type === 'trust_item').map((it, i) => ({ item_type: 'trust_item', category_id: it.category_id, display_order: i, enabled: true }));
       }
@@ -279,6 +285,15 @@ function renderTypeEditor(type, ctx) {
       );
     case 'editorial':
       return <div><label className="text-[11px] text-on-surface-variant block mb-1">محتوى تحريري</label><textarea value={settings.content || ''} onChange={(e) => setSettings({ content: e.target.value })} rows={4} className="w-full bg-surface-container rounded-xl p-3 text-sm outline-none border border-outline-variant/30 resize-none" /></div>;
+    case 'tamam_picks':
+    case 'family_meals':
+    case 'quick_meals':
+    case 'home_style_meals':
+    case 'new_meals':
+    case 'desserts_snacks':
+      return <CuratedMealsEditor form={form} set={set} settings={settings} setSettings={setSettings} items={items} setItems={setItems} itemIds={itemIds} isTamamPicks={type === 'tamam_picks'} />;
+    case 'budget_meals':
+      return <BudgetEditor settings={settings} setSettings={setSettings} />;
     default:
       return null;
   }
@@ -332,6 +347,88 @@ function RestaurantMultiPicker({ items, setItems, itemIds }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function CuratedMealsEditor({ form, set, settings, setSettings, items, setItems, itemIds, isTamamPicks }) {
+  const autoMode = settings.auto_mode || 'manual';
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        {[['automatic', 'اختيار تلقائي'], ['manual', 'اختيار يدوي']].map(([k, l]) => (
+          <button key={k} onClick={() => set('selection_mode', k)} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border ${form.selection_mode === k ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-container border-outline-variant/30'}`}>{l}</button>
+        ))}
+      </div>
+      {form.selection_mode === 'automatic' && (
+        <div className="space-y-3">
+          <div><label className="text-[11px] text-on-surface-variant block mb-1">نوع الاختيار التلقائي</label>
+            <select value={autoMode} onChange={(e) => setSettings({ auto_mode: e.target.value })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30">
+              <option value="category">حسب التصنيف</option>
+              <option value="new">وجبات جديدة</option>
+              <option value="random">تدوير عشوائي</option>
+            </select>
+          </div>
+          {autoMode === 'category' && (
+            <div><label className="text-[11px] text-on-surface-variant block mb-2">التصنيفات</label><FoodCategorySelector selectedIds={settings.category_names || []} onChange={(ids) => setSettings({ category_names: ids })} /></div>
+          )}
+          {autoMode === 'new' && (
+            <div><label className="text-[11px] text-on-surface-variant block mb-1">آخر (أيام)</label>
+              <select value={settings.new_days || 30} onChange={(e) => setSettings({ new_days: Number(e.target.value) })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30">
+                <option value={7}>7 أيام</option><option value={30}>30 يوم</option><option value={60}>60 يوم</option>
+              </select>
+            </div>
+          )}
+          <div><label className="text-[11px] text-on-surface-variant block mb-1">شارة (اختياري)</label><input value={settings.badge || ''} onChange={(e) => setSettings({ badge: e.target.value })} placeholder="اختيار TAMAM / جديد" className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30" /></div>
+        </div>
+      )}
+      {form.selection_mode === 'manual' && <ManualMealPicker items={items} setItems={setItems} itemIds={itemIds} />}
+      {form.selection_mode === 'manual' && items.filter((it) => it.item_type === 'meal').length > 0 && items.every((it) => it.item_type !== 'meal' || it.meal_id) && (
+        <p className="text-[11px] text-amber-500 bg-amber-500/10 rounded-lg p-2">تأكد من توفّر كل الوجبات المختارة. إذا كانت كلها غير متاحة سيُخفى القسم.</p>
+      )}
+      {isTamamPicks && <MostOrderedThresholdEditor settings={settings} setSettings={setSettings} />}
+    </div>
+  );
+}
+
+function MostOrderedThresholdEditor({ settings, setSettings }) {
+  const th = settings.most_ordered_threshold || { enabled: false, min_orders: 100, period_days: 30, min_customers: 20 };
+  const setTh = (patch) => setSettings({ most_ordered_threshold: { ...th, ...patch } });
+  return (
+    <div className="bg-surface-container rounded-xl p-3 space-y-2 border border-outline-variant/30">
+      <p className="text-xs font-bold">تفعيل «الأكثر طلبًا» عند توفّر بيانات كافية</p>
+      <button onClick={() => setTh({ enabled: !th.enabled })} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${th.enabled ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-high border-outline-variant/30'}`}>{th.enabled ? 'مفعّل' : 'غير مفعّل'}</button>
+      {th.enabled && (
+        <div className="grid grid-cols-3 gap-2">
+          <div><label className="text-[10px] text-on-surface-variant block mb-0.5">أدنى عدد طلبات</label><input type="number" value={th.min_orders} onChange={(e) => setTh({ min_orders: Number(e.target.value) })} className="w-full bg-surface-high rounded-lg p-2 text-sm outline-none" /></div>
+          <div><label className="text-[10px] text-on-surface-variant block mb-0.5">أدنى زبائن فريدين</label><input type="number" value={th.min_customers} onChange={(e) => setTh({ min_customers: Number(e.target.value) })} className="w-full bg-surface-high rounded-lg p-2 text-sm outline-none" /></div>
+          <div><label className="text-[10px] text-on-surface-variant block mb-0.5">الفترة</label><select value={th.period_days} onChange={(e) => setTh({ period_days: Number(e.target.value) })} className="w-full bg-surface-high rounded-lg p-2 text-sm outline-none"><option value={7}>7 أيام</option><option value={30}>30 يوم</option><option value={90}>90 يوم</option></select></div>
+        </div>
+      )}
+      <p className="text-[10px] text-on-surface-variant">حتى الوصول للحد الأدنى، يظهر القسم كـ «اختيارات TAMAM».</p>
+    </div>
+  );
+}
+
+function BudgetEditor({ settings, setSettings }) {
+  const ranges = settings.price_ranges || [];
+  const update = (i, patch) => setSettings({ price_ranges: ranges.map((r, idx) => idx === i ? { ...r, ...patch } : r) });
+  const add = () => setSettings({ price_ranges: [...ranges, { label: '', min: 0, max: null }] });
+  const remove = (i) => setSettings({ price_ranges: ranges.filter((_, idx) => idx !== i) });
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-on-surface-variant">حدد نطاقات الأسعار. تُحمّل الوجبات حسب السعر الحقيقي عند تفاعل الزبون.</p>
+      {ranges.map((r, i) => (
+        <div key={i} className="bg-surface-container rounded-xl p-2 space-y-2 border border-outline-variant/30">
+          <div><label className="text-[10px] text-on-surface-variant block mb-0.5">النص الظاهر</label><input value={r.label || ''} onChange={(e) => update(i, { label: e.target.value })} placeholder="لحد ₪40" className="w-full bg-surface-high rounded-lg p-2 text-sm outline-none" /></div>
+          <div className="grid grid-cols-2 gap-2">
+            <div><label className="text-[10px] text-on-surface-variant block mb-0.5">أدنى سعر</label><input type="number" value={r.min ?? 0} onChange={(e) => update(i, { min: Number(e.target.value) })} className="w-full bg-surface-high rounded-lg p-2 text-sm outline-none" /></div>
+            <div><label className="text-[10px] text-on-surface-variant block mb-0.5">أقصى سعر (فارغ = مفتوح)</label><input type="number" value={r.max ?? ''} onChange={(e) => update(i, { max: e.target.value === '' ? null : Number(e.target.value) })} className="w-full bg-surface-high rounded-lg p-2 text-sm outline-none" /></div>
+          </div>
+          <button onClick={() => remove(i)} className="text-error text-xs flex items-center gap-1"><Icon name="delete" className="text-base" /> حذف النطاق</button>
+        </div>
+      ))}
+      <button onClick={add} className="w-full h-10 bg-surface-high rounded-xl text-sm font-bold flex items-center justify-center gap-1"><Icon name="add" /> إضافة نطاق سعر</button>
     </div>
   );
 }
