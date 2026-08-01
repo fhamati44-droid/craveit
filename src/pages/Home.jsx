@@ -7,7 +7,7 @@ import { track } from '@/lib/analytics';
 import HomepageActiveOrderCard from '@/components/tamam/customer/HomepageActiveOrderCard';
 import HomeHero from '@/components/tamam/customer/HomeHero';
 import PackageCards from '@/components/tamam/customer/PackageCards';
-import CuratedMealsSection from '@/components/tamam/customer/CuratedMealsSection';
+import HomepageMealCarousel from '@/components/tamam/customer/HomepageMealCarousel';
 import BudgetMealsSection from '@/components/tamam/customer/BudgetMealsSection';
 import HomepageEditorialBanner from '@/components/tamam/customer/HomepageEditorialBanner';
 import FeaturedRestaurants from '@/components/tamam/customer/FeaturedRestaurants';
@@ -45,28 +45,32 @@ export default function Home() {
 
   return (
     <div className="flex flex-col pb-6">
-      {/* 2 — Active order card */}
+      {/* Active order */}
       <HomepageActiveOrderCard />
 
-      {/* 3 — Main hero */}
+      {/* Hero */}
       <HomeHero hero={data?.hero} />
 
-      {/* 4 — Classic / Mix / Plus */}
+      {/* Classic / Mix / Plus */}
       <PackageCards packages={data?.packages} />
 
-      {/* 5 — اختيارات اليوم */}
-      {data?.tamamPicks && <CuratedMealsSection section={data.tamamPicks} loading={loading} />}
+      {/* Carousel 1 — شو بناسبك هسا؟ */}
+      <LazySection>
+        <HomepageMealCarousel carousel={data?.timeNow} loading={loading} background="bg-surface-container-low/40" />
+      </LazySection>
 
-      {/* 6 — Banner: مطبخ البيت مسكّر؟ */}
+      {/* Carousel 2 — اختيارات تستاهل التجربة */}
+      <LazySection>
+        <HomepageMealCarousel carousel={data?.tamamPicks} loading={loading} />
+      </LazySection>
+
+      {/* Small banner after carousel 2 */}
       <LazySection><HomepageEditorialBanner banner={data?.homeKitchenBanner} /></LazySection>
 
-      {/* 7 — على قد ميزانيتك */}
+      {/* Carousel 3 — خيارات بسعر مريح */}
       <LazySection><BudgetMealsSection budget={data?.budget} excludeIds={excludeIds} /></LazySection>
 
-      {/* 8 — للعيلة واللّمات */}
-      <LazySection>{data?.family && <CuratedMealsSection section={data.family} loading={false} />}</LazySection>
-
-      {/* 9 — Active group-deal banner */}
+      {/* Active group deal */}
       {dealView && (
         <section className="px-4 py-4">
           <HomeActiveDealBanner deal={dealView.deal} thresholds={dealView.thresholds} participants={dealView.participants}
@@ -74,34 +78,26 @@ export default function Home() {
         </section>
       )}
 
-      {/* 10 — غدا اليوم */}
-      <LazySection>{data?.lunch && <CuratedMealsSection section={data.lunch} loading={false} />}</LazySection>
+      {/* Carousel 4 — جديد على TAMAM */}
+      <LazySection>
+        <HomepageMealCarousel carousel={data?.newDiscovery} loading={loading} background="bg-surface-container-low/40" />
+      </LazySection>
 
-      {/* 11 — سريع وخفيف */}
-      <LazySection>{data?.quick && <CuratedMealsSection section={data.quick} loading={false} />}</LazySection>
-
-      {/* 12 — Banner: آخر الليل؟ */}
+      {/* Small banner after carousel 4 */}
       <LazySection><HomepageEditorialBanner banner={data?.lateNightBanner} /></LazySection>
 
-      {/* 13 — جديد على TAMAM */}
-      <LazySection>{data?.newDiscovery && <CuratedMealsSection section={data.newDiscovery} loading={false} />}</LazySection>
+      {/* Carousel 5 — Mix وPlus وأفكار أكثر */}
+      <LazySection>
+        <HomepageMealCarousel carousel={data?.mixPlus} loading={loading} />
+      </LazySection>
 
-      {/* 14 — أكل بيتي */}
-      <LazySection>{data?.homeStyle && <CuratedMealsSection section={data.homeStyle} loading={false} />}</LazySection>
-
-      {/* 15 — حلويات وتسالي */}
-      <LazySection>{data?.desserts && <CuratedMealsSection section={data.desserts} loading={false} />}</LazySection>
-
-      {/* 16 — كمّل طلبك */}
-      <LazySection>{data?.completeOrder && <CuratedMealsSection section={data.completeOrder} loading={false} />}</LazySection>
-
-      {/* 17 — Featured restaurants */}
+      {/* Featured restaurants */}
       <LazySection><FeaturedRestaurants restaurants={data?.featuredRestaurants} loading={loading} title="مطاعم بنرشحها" /></LazySection>
 
-      {/* 18 — Browse-all-restaurants banner */}
+      {/* Browse-all-restaurants banner */}
       <LazySection><HomepageEditorialBanner banner={data?.browseRestaurantsBanner} /></LazySection>
 
-      {/* 19 — Payment, tracking, support and rewards trust section */}
+      {/* Trust, rewards, support */}
       <PaymentTrustStrip />
       <PurchaseJourneyTrustSection />
       <LoyaltyBalanceCard />

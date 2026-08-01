@@ -108,6 +108,10 @@ export default function HomepageSectionRenderer({ section, items = [], draft = f
     case 'lunch_meals':
     case 'complete_order':
       return wrap(<CuratedMealsPreview section={section} settings={settings} items={sectionItems} navigate={navigate} />);
+    case 'time_now':
+      return wrap(<CuratedMealsPreview section={section} settings={settings} items={sectionItems} navigate={navigate} />);
+    case 'mix_plus_ideas':
+      return wrap(<MixPlusPreview section={section} settings={settings} items={sectionItems} navigate={navigate} />);
     case 'editorial_banner':
       return wrap(<EditorialBannerPreview section={section} settings={settings} items={sectionItems} navigate={navigate} />);
     case 'budget_meals':
@@ -394,6 +398,26 @@ function CuratedMealsPreview({ section, settings, items, navigate }) {
       <div className="flex gap-3 overflow-x-auto no-scrollbar">
         {meals.map((m) => <PopularMealCard key={m.id} meal={{ ...m, name: m.name_ar || m.name, restaurantName: m.restaurant_name, restaurantId: m.restaurant_id, image_url: m.image_url, price: m.price }} onOpen={() => navigate(`/restaurants/${m.restaurant_id}?meal=${m.id}`)} />)}
       </div>
+    </div>
+  );
+}
+
+function MixPlusPreview({ section, settings, items, navigate }) {
+  const ids = items.filter((it) => it.item_type === 'suggestion').map((it) => it.suggestion_id).filter(Boolean);
+  const [sets, setSets] = useState([]);
+  useEffect(() => {
+    if (!ids.length) { setSets([]); return; }
+    base44.entities.TamamSuggestionSet.list('sort_order', 50).then((all) => setSets((all || []).filter((s) => ids.includes(s.id)))).catch(() => null);
+  }, [ids.join(',')]);
+  return (
+    <div className="space-y-2">
+      <h2 className="text-headline-md font-bold">{section.title}</h2>
+      {section.subtitle && <p className="text-xs text-on-surface-variant">{section.subtitle}</p>}
+      {sets.length ? sets.slice(0, 6).map((s) => (
+        <button key={s.id} onClick={() => navigate(`/tamam-order/${s.id}`)} className="w-full flex gap-2 bg-surface-container rounded-xl p-2 text-right border border-outline-variant/30">
+          <div className="flex-1"><p className="text-sm font-bold">{s.title_ar}</p><p className="text-[10px] text-on-surface-variant">{s.package_level} · ₪{s.display_price ?? '—'}</p></div>
+        </button>
+      )) : <p className="text-xs text-on-surface-variant">الوضع التلقائي يعرض اقتراحات ميكس وبلس.</p>}
     </div>
   );
 }

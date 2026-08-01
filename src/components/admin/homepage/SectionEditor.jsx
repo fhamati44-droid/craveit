@@ -66,11 +66,11 @@ export default function SectionEditor({ section, onClose, onSaved }) {
         toSave = items.filter((it) => it.item_type === 'category').map((it, i) => ({ item_type: 'category', category_id: it.category_id, display_order: i, enabled: true }));
       } else if (itemType === 'featured_restaurants') {
         if (form.selection_mode === 'manual') toSave = items.filter((it) => it.item_type === 'restaurant').map((it, i) => ({ item_type: 'restaurant', restaurant_id: it.restaurant_id, display_order: i, enabled: true }));
-      } else if (itemType === 'suggestions' || itemType === 'recommended_suggestions') {
+      } else if (itemType === 'suggestions' || itemType === 'recommended_suggestions' || itemType === 'mix_plus_ideas') {
         toSave = items.filter((it) => it.item_type === 'suggestion').map((it, i) => ({ item_type: 'suggestion', suggestion_id: it.suggestion_id, display_order: i, enabled: true }));
       } else if (itemType === 'active_deal' || itemType === 'upcoming_deal') {
         if (form.selection_mode === 'manual') toSave = items.filter((it) => it.item_type === 'deal').map((it, i) => ({ item_type: 'deal', deal_id: it.deal_id, display_order: i, enabled: true }));
-      } else if (['tamam_picks', 'family_meals', 'quick_meals', 'home_style_meals', 'new_meals', 'desserts_snacks', 'lunch_meals', 'complete_order'].includes(itemType)) {
+      } else if (['tamam_picks', 'family_meals', 'quick_meals', 'home_style_meals', 'new_meals', 'desserts_snacks', 'lunch_meals', 'complete_order', 'time_now'].includes(itemType)) {
         if (form.selection_mode === 'manual') {
           toSave = items.filter((it) => it.item_type === 'meal').map((it, i) => ({ item_type: 'meal', meal_id: it.meal_id, restaurant_id: it.restaurant_id, display_order: i, enabled: true }));
         }
@@ -294,6 +294,10 @@ function renderTypeEditor(type, ctx) {
     case 'lunch_meals':
     case 'complete_order':
       return <CuratedMealsEditor form={form} set={set} settings={settings} setSettings={setSettings} items={items} setItems={setItems} itemIds={itemIds} isTamamPicks={type === 'tamam_picks'} isLunch={type === 'lunch_meals'} />;
+    case 'time_now':
+      return <TimeNowEditor form={form} set={set} settings={settings} setSettings={setSettings} items={items} setItems={setItems} itemIds={itemIds} />;
+    case 'mix_plus_ideas':
+      return <MixPlusEditor form={form} set={set} settings={settings} setSettings={setSettings} items={items} setItems={setItems} itemIds={itemIds} />;
     case 'editorial_banner':
       return <EditorialBannerEditor form={form} set={set} settings={settings} setSettings={setSettings} />;
     case 'budget_meals':
@@ -458,6 +462,51 @@ function BudgetEditor({ settings, setSettings }) {
         </div>
       ))}
       <button onClick={add} className="w-full h-10 bg-surface-high rounded-xl text-sm font-bold flex items-center justify-center gap-1"><Icon name="add" /> إضافة نطاق سعر</button>
+    </div>
+  );
+}
+
+function TimeNowEditor({ form, set, settings, setSettings, items, setItems, itemIds }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        {[['automatic', 'تلقائي حسب الوقت'], ['manual', 'اختيار يدوي']].map(([k, l]) => (
+          <button key={k} onClick={() => set('selection_mode', k)} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border ${form.selection_mode === k ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-container border-outline-variant/30'}`}>{l}</button>
+        ))}
+      </div>
+      {form.selection_mode === 'manual' ? <ManualMealPicker items={items} setItems={setItems} itemIds={itemIds} /> : (
+        <div className="space-y-3">
+          <div className="bg-surface-container rounded-xl p-3 border border-outline-variant/30">
+            <p className="text-xs text-on-surface-variant">بدون تحديد تصنيفات، يختار القسم وجبات تلقائيًا حسب وقت اليوم (فطور / غدا / عشا / آخر الليل) حسب توقيت آسيا/القدس.</p>
+          </div>
+          <div><label className="text-[11px] text-on-surface-variant block mb-2">تصنيفات تتجاوز الاختيار الزمني (اختياري)</label><FoodCategorySelector selectedIds={settings.category_names || []} onChange={(ids) => setSettings({ category_names: ids })} /></div>
+          <div className="bg-surface-container rounded-xl p-3 space-y-2 border border-outline-variant/30">
+            <p className="text-xs font-bold">ساعات العرض (اختياري)</p>
+            <div><label className="text-[10px] text-on-surface-variant block mb-0.5">ساعات النشاط (HH:MM-HH:MM)</label><input value={settings.active_hours || ''} onChange={(e) => setSettings({ active_hours: e.target.value })} placeholder="اتركه فارغ دائمًا" dir="ltr" className="w-full bg-surface-high rounded-lg p-2 text-sm outline-none" /></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MixPlusEditor({ form, set, settings, setSettings, items, setItems, itemIds }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        {[['automatic', 'تلقائي (ميكس+بلس)'], ['manual', 'اختيار يدوي']].map(([k, l]) => (
+          <button key={k} onClick={() => set('selection_mode', k)} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border ${form.selection_mode === k ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-container border-outline-variant/30'}`}>{l}</button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => setSettings({ include_classic: !settings.include_classic })} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${settings.include_classic ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-container border-outline-variant/30'}`}>تضمين كلاسيك</button>
+        <button onClick={() => setSettings({ include_group_deals: !settings.include_group_deals })} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${settings.include_group_deals ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-container border-outline-variant/30'}`}>تضمين عروض جماعية مميزة</button>
+      </div>
+      {form.selection_mode === 'manual' && <div><label className="text-[11px] text-on-surface-variant block mb-2">اقتراحات محددة</label><SuggestionSelector selectedIds={itemIds('suggestion')} onChange={(ids) => setItems((prev) => [...prev.filter((it) => it.item_type !== 'suggestion'), ...ids.map((id) => ({ item_type: 'suggestion', suggestion_id: id, display_order: 0, enabled: true }))])} /></div>}
+      <div className="bg-surface-container rounded-xl p-3 space-y-2 border border-outline-variant/30">
+        <p className="text-xs font-bold">ساعات العرض (اختياري)</p>
+        <div><label className="text-[10px] text-on-surface-variant block mb-0.5">ساعات النشاط (HH:MM-HH:MM)</label><input value={settings.active_hours || ''} onChange={(e) => setSettings({ active_hours: e.target.value })} placeholder="اتركه فارغ دائمًا" dir="ltr" className="w-full bg-surface-high rounded-lg p-2 text-sm outline-none" /></div>
+      </div>
     </div>
   );
 }

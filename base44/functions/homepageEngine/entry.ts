@@ -188,16 +188,16 @@ async function buildPublishedHomepage(base44) {
   // ---- Curated meal sections (manual or automatic) with duplicate exclusion ----
   const shownMealIds = new Set();
   const CURATED_DEFAULTS = {
-    tamam_picks: { title: 'اختيارات TAMAM', subtitle: 'وجبات اخترناها عشان نسهّل عليك القرار.', badge: 'اختيار TAMAM', route: '/restaurants' },
+    tamam_picks: { title: 'اختيارات تستاهل التجربة', subtitle: 'وجبات اخترناها بعناية من منيوهات TAMAM.', badge: 'اختيار TAMAM', route: '/restaurants' },
     family: { title: 'للعيلة واللّمات', subtitle: 'وجبات بتكفي الكل بدون ما تحتار.', badge: null, route: '/restaurants' },
     quick: { title: 'سريع وخفيف', subtitle: 'للجوع السريع أو لما بدك إشي خفيف.', badge: null, route: '/restaurants' },
     home_style: { title: 'أكل بيتي', subtitle: 'لما نفسك بأكلة بتذكّرك بالبيت.', badge: null, route: '/restaurants' },
-    new: { title: 'جرّب إشي جديد', subtitle: 'اقتراحات مختلفة يمكن تصير طلبك المفضل.', badge: 'جديد', route: '/restaurants' },
+    new: { title: 'جديد على TAMAM', subtitle: 'وجبات انضافت جديد وتستاهل تنجرّب.', badge: 'جديد', route: '/restaurants' },
     desserts: { title: 'حلويات وتسالي', subtitle: 'كمّل الطلب بإشي حلو أو تسالي للجلسة.', badge: null, route: '/restaurants' },
     lunch: { title: 'غدا اليوم', subtitle: 'وجبات مشبعة للغدا بدون ما تضيع وقت بالاختيار.', badge: null, route: '/restaurants' },
     complete_order: { title: 'كمّل طلبك', subtitle: 'مشروب، تحلاية أو إضافة صغيرة بتكمّل الوجبة.', badge: null, route: '/restaurants' },
   };
-  const CARD_VARIANT = { tamam_picks: 'feature', lunch: 'feature', desserts: 'compact', complete_order: 'compact' };
+  const CARD_VARIANT = { tamam_picks: 'feature', lunch: 'feature', desserts: 'compact', complete_order: 'compact', new: 'compact' };
 
   function withinActiveHours(cfg) {
     const ah = cfg && cfg.active_hours;
@@ -258,31 +258,96 @@ async function buildPublishedHomepage(base44) {
     };
   }
 
-  // Most-ordered threshold (future): only switch label if real data meets configured minimums
-  let tamamPicks = await resolveCurated('tamam_picks');
-  if (tamamPicks) {
-    const tpSection = sectionByKey('tamam_picks');
-    const tpCfg = tpSection ? parseJSON(tpSection.settings_json, {}) : {};
-    const th = tpCfg.most_ordered_threshold;
-    if (th && th.enabled) {
-      try {
-        const stats = await base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getCompletedOrderStats', payload: { days: th.period_days || 30 } });
-        const s = stats?.data?.data || stats?.data || {};
-        if ((s.total_orders || 0) >= (th.min_orders || 0) && (s.unique_customers || 0) >= (th.min_customers || 0)) {
-          tamamPicks.is_most_ordered = true;
-          tamamPicks.title = tpSection.title || 'الأكثر طلبًا';
-        }
-      } catch (e) { console.error('threshold error', e); }
-    }
+  // Carousel 1 — time-of-day based "شو بناسبك هسا؟"
+  async function resolveTimeNowCarousel() {
+    const sec = sectionByKey('time_now');
+    if (!sec) return null;
+    const cfg = parseJSON(sec.settings_json, {});
+    if (!withinActiveHours(cfg)) return null;
+    const max = sec.max_items || 8;
+    const manualMealItems = itemsFor(sec.id).filter((it) => it.item_type === 'meal' && it.meal_id);
+    let meals = [];
+    try {
+      if (sec.selection_mode === 'manual' && manualMealItems.length) {
+        const res = await base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getMealsByIdsResolved', payload: { ids: manualMealItems.map((it) => it.meal_id) } });
+        meals = (res?.data?.data || []).filter((m) => m.is_available);
+        meals.forEach((m) => shownMealIds.add(m.id)); // manual = pinned
+      } else {
+        const hourStr = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Jerusalem', hour12: false, hour: '2-digit' });
+        const hour = parseInt(hourStr, 10);
+        let defaultCats = [];
+        if (hour >= 5 && hour < 11) defaultCats = ['فطور', 'معجنات', 'سندويشات', 'مشروبات'];
+        else if (hour >= 11 && hour < 16) defaultCats = ['وجبات رئيسية', 'أكل بيتي', 'دجاج', 'لحوم'];
+        else if (hour >= 16 && hour < 23) defaultCats = ['بيتزا', 'برجر', 'عائلية', 'مشاوي'];
+        else defaultCats = ['سريع', 'سندويشات', 'حلويات', 'تسالي'];
+        const names = (cfg.category_names && cfg.category_names.length) ? cfg.category_names : defaultCats;
+        const exclude = [...shownMealIds];
+        const res = await base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getMealsByCategoryNamesFlat', payload: { names, limit: max, excludeIds: exclude } });
+        meals = res?.data?.data || [];
+        meals.forEach((m) => shownMealIds.add(m.id));
+      }
+    } catch (e) { console.error('timeNow error', e); }
+    meals = meals.slice(0, max);
+    if (meals.length < 2) return null;
+    return {
+      key: 'time_now', title: sec.title || 'شو بناسبك هسا؟', subtitle: sec.subtitle || 'اقتراحات حسب الوقت والمود.',
+      card_variant: 'feature', view_all_route: sec.view_all_route || '/restaurants', view_all_label: sec.view_all_label || 'شوف الكل', meals,
+    };
   }
 
-  const family = await resolveCurated('family');
-  const quick = await resolveCurated('quick');
-  const homeStyle = await resolveCurated('home_style');
+  // Carousel 5 — Mix + Plus suggestions, family packages, group-deal meals
+  async function resolveMixPlusCarousel() {
+    const sec = sectionByKey('mix_plus_ideas');
+    if (!sec) return null;
+    const cfg = parseJSON(sec.settings_json, {});
+    if (!withinActiveHours(cfg)) return null;
+    const max = sec.max_items || 8;
+    const manualSuggItems = itemsFor(sec.id).filter((it) => it.item_type === 'suggestion' && it.suggestion_id);
+    let setIds = [];
+    if (sec.selection_mode === 'manual' && manualSuggItems.length) {
+      setIds = manualSuggItems.map((it) => it.suggestion_id);
+    } else {
+      const wantedLevels = cfg.include_classic ? ['classic', 'mix', 'plus'] : ['mix', 'plus'];
+      setIds = (activeSets || []).filter((s) => wantedLevels.includes(normalizePkg(s.package_level))).map((s) => s.id);
+    }
+    if (!setIds.length) return null;
+    let countsMap = {};
+    try {
+      const allItems = await base44.asServiceRole.entities.TamamSuggestionItem.list('sort_order', 1000);
+      (allItems || []).forEach((it) => { if (setIds.includes(it.suggestion_set_id)) countsMap[it.suggestion_set_id] = (countsMap[it.suggestion_set_id] || 0) + 1; });
+    } catch (e) { console.error('mixPlus counts error', e); }
+    const sets = (activeSets || []).filter((s) => setIds.includes(s.id));
+    let cards = sets.slice(0, max).map((s) => {
+      const pkg = normalizePkg(s.package_level);
+      const label = pkg === 'plus' ? 'بلس' : pkg === 'mix' ? 'ميكس' : 'كلاسيك';
+      return {
+        type: 'suggestion', id: s.id, title: s.title_ar || 'اقتراح TAMAM', image_url: s.hero_image_url,
+        display_price: s.display_price, package_level: pkg, package_label: label,
+        included_count: countsMap[s.id] || 0, badge: s.badge_text_ar || (pkg === 'plus' ? 'بلس' : pkg === 'mix' ? 'ميكس' : null),
+        route: `/tamam-order/${s.id}`,
+      };
+    });
+    if (cfg.include_group_deals) {
+      try {
+        const deals = await base44.asServiceRole.entities.GroupDeal.filter({ status: 'active', homepage_featured: true }, 'homepage_priority', 10);
+        (deals || []).slice(0, 3).forEach((d) => {
+          if (cards.length >= max) return;
+          cards.push({ type: 'deal', id: d.id, title: d.title, image_url: d.hero_image, display_price: d.reference_price, badge: d.highlight_badge || 'عرض', route: `/deals/${d.id}` });
+        });
+      } catch (e) { console.error('mixPlus deals error', e); }
+    }
+    if (cards.length < 2) return null;
+    return {
+      key: 'mix_plus_ideas', title: sec.title || 'Mix وPlus وأفكار أكثر', subtitle: sec.subtitle || 'مقترحات جاهزة، وجبات للعيلة، وتجميعات مختلفة.',
+      card_variant: 'compact', view_all_route: sec.view_all_route || '/tamam-suggestions?package=all', view_all_label: sec.view_all_label || 'شوف الكل', cards,
+    };
+  }
+
+  // Carousels (1 & 2 & 4 & 5) — resolved below in order for meal duplicate-prevention
+  let timeNow = await resolveTimeNowCarousel();
+  let tamamPicks = await resolveCurated('tamam_picks');
   const newDiscovery = await resolveCurated('new');
-  const desserts = await resolveCurated('desserts');
-  const lunch = await resolveCurated('lunch');
-  const completeOrder = await resolveCurated('complete_order');
+  let mixPlus = await resolveMixPlusCarousel();
 
   // Budget section: returns config only; meals are fetched per-range on interaction
   let budget = null;
@@ -296,8 +361,8 @@ async function buildPublishedHomepage(base44) {
       { label: '₪100 وفوق', min: 100, max: null },
     ];
     budget = {
-      title: budgetSection.title || 'على قد ميزانيتك',
-      subtitle: budgetSection.subtitle || 'اختار السعر اللي بناسبك وشوف شو في إلك.',
+      title: budgetSection.title || 'خيارات بسعر مريح',
+      subtitle: budgetSection.subtitle || 'وجبات ومقترحات تناسب ميزانيات مختلفة.',
       ranges,
       view_all_route: budgetSection.view_all_route || '/restaurants',
       view_all_label: budgetSection.view_all_label || 'شوف الكل',
@@ -335,7 +400,7 @@ async function buildPublishedHomepage(base44) {
   const lateNightBanner = resolveEditorialBanner('late_night_banner', 'جعان آخر الليل؟', 'في إشياء سريعة بتوصل لحد عندك.', '/tamam-suggestions');
   const browseRestaurantsBanner = resolveEditorialBanner('browse_restaurants_banner', 'بدك تختار المطعم بنفسك؟', 'كل المطاعم والمنيوات بمكان واحد.', '/restaurants');
 
-  return { hasVersion: !!active, hero, packages, tamamPicks, budget, family, quick, homeStyle, newDiscovery, desserts, lunch, completeOrder, homeKitchenBanner, lateNightBanner, browseRestaurantsBanner, featuredRestaurants, shownMealIds: [...shownMealIds] };
+  return { hasVersion: !!active, hero, packages, timeNow, tamamPicks, budget, newDiscovery, mixPlus, homeKitchenBanner, lateNightBanner, browseRestaurantsBanner, featuredRestaurants, shownMealIds: [...shownMealIds] };
 }
 
 // Section metadata for validation and defaults
@@ -360,6 +425,8 @@ const SECTION_META = {
   editorial_banner: { label: 'بانر تحريري' },
   lunch_meals: { label: 'غدا اليوم' },
   complete_order: { label: 'كمّل طلبك' },
+  time_now: { label: 'شو بناسبك هسا؟' },
+  mix_plus_ideas: { label: 'Mix وPlus وأفكار أكثر' },
 };
 
 async function buildSnapshot(base44) {
@@ -705,18 +772,20 @@ export default async function(req) {
         const existing = await base44.asServiceRole.entities.HomepageSection.list('-display_order', 200);
         const haveKeys = new Set((existing || []).map((s) => s.section_key));
         const curatedDefs = [
-          { section_key: 'tamam_picks', section_type: 'tamam_picks', title: 'اختيارات TAMAM', subtitle: 'وجبات اخترناها عشان نسهّل عليك القرار.', display_order: 20, selection_mode: 'manual', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'manual', badge: 'اختيار TAMAM', most_ordered_threshold: { enabled: false, min_orders: 100, period_days: 30, min_customers: 20 } }) },
-          { section_key: 'budget', section_type: 'budget_meals', title: 'على قد ميزانيتك', subtitle: 'اختار السعر اللي بناسبك وشوف شو في إلك.', display_order: 21, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ price_ranges: [{ label: 'لحد ₪40', min: 0, max: 40 }, { label: '₪40–₪70', min: 40, max: 70 }, { label: '₪70–₪100', min: 70, max: 100 }, { label: '₪100 وفوق', min: 100, max: null }] }) },
+          { section_key: 'tamam_picks', section_type: 'tamam_picks', title: 'اختيارات تستاهل التجربة', subtitle: 'وجبات اخترناها بعناية من منيوهات TAMAM.', display_order: 20, selection_mode: 'manual', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'manual', badge: 'اختيار TAMAM', most_ordered_threshold: { enabled: false, min_orders: 100, period_days: 30, min_customers: 20 } }) },
+          { section_key: 'budget', section_type: 'budget_meals', title: 'خيارات بسعر مريح', subtitle: 'وجبات ومقترحات تناسب ميزانيات مختلفة.', display_order: 21, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ price_ranges: [{ label: 'لحد ₪40', min: 0, max: 40 }, { label: '₪40–₪70', min: 40, max: 70 }, { label: '₪70–₪100', min: 70, max: 100 }, { label: '₪100 وفوق', min: 100, max: null }] }) },
           { section_key: 'family', section_type: 'family_meals', title: 'للعيلة واللّمات', subtitle: 'وجبات بتكفي الكل بدون ما تحتار.', display_order: 22, selection_mode: 'manual', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'manual' }) },
           { section_key: 'quick', section_type: 'quick_meals', title: 'سريع وخفيف', subtitle: 'للجوع السريع أو لما بدك إشي خفيف.', display_order: 23, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category' }) },
           { section_key: 'home_style', section_type: 'home_style_meals', title: 'أكل بيتي', subtitle: 'لما نفسك بأكلة بتذكّرك بالبيت.', display_order: 24, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category' }) },
-          { section_key: 'new', section_type: 'new_meals', title: 'جرّب إشي جديد', subtitle: 'اقتراحات مختلفة يمكن تصير طلبك المفضل.', display_order: 25, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'new', new_days: 30, badge: 'جديد' }) },
+          { section_key: 'new', section_type: 'new_meals', title: 'جديد على TAMAM', subtitle: 'وجبات انضافت جديد وتستاهل تنجرّب.', display_order: 25, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'new', new_days: 30, badge: 'جديد' }) },
           { section_key: 'desserts', section_type: 'desserts_snacks', title: 'حلويات وتسالي', subtitle: 'كمّل الطلب بإشي حلو أو تسالي للجلسة.', display_order: 26, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category' }) },
           { section_key: 'lunch', section_type: 'lunch_meals', title: 'غدا اليوم', subtitle: 'وجبات مشبعة للغدا بدون ما تضيع وقت بالاختيار.', display_order: 27, selection_mode: 'manual', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category', active_hours: '' }) },
           { section_key: 'complete_order', section_type: 'complete_order', title: 'كمّل طلبك', subtitle: 'مشروب، تحلاية أو إضافة صغيرة بتكمّل الوجبة.', display_order: 28, selection_mode: 'automatic', max_items: 10, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category' }) },
           { section_key: 'home_kitchen_banner', section_type: 'editorial_banner', title: 'مطبخ البيت مسكّر؟', subtitle: 'لقينا لك وجبات جاهزة للعيلة.', display_order: 29, selection_mode: 'automatic', view_all_route: '/restaurants', settings_json: JSON.stringify({ layout: 'large', media_kind: 'image', headline: 'مطبخ البيت مسكّر؟', subtitle: 'لقينا لك وجبات جاهزة للعيلة.', cta_label: 'شوف الوجبات' }) },
           { section_key: 'late_night_banner', section_type: 'editorial_banner', title: 'جعان آخر الليل؟', subtitle: 'في إشياء سريعة بتوصل لحد عندك.', display_order: 30, selection_mode: 'automatic', view_all_route: '/tamam-suggestions', settings_json: JSON.stringify({ layout: 'large', media_kind: 'image', headline: 'جعان آخر الليل؟', subtitle: 'في إشياء سريعة بتوصل لحد عندك.', cta_label: 'شوف اقتراحات آخر الليل' }) },
           { section_key: 'browse_restaurants_banner', section_type: 'editorial_banner', title: 'بدك تختار المطعم بنفسك؟', subtitle: 'كل المطاعم والمنيوات بمكان واحد.', display_order: 31, selection_mode: 'automatic', view_all_route: '/restaurants', settings_json: JSON.stringify({ layout: 'large', media_kind: 'image', headline: 'بدك تختار المطعم بنفسك؟', subtitle: 'كل المطاعم والمنيوات بمكان واحد.', cta_label: 'تصفح كل المطاعم' }) },
+          { section_key: 'time_now', section_type: 'time_now', title: 'شو بناسبك هسا؟', subtitle: 'اقتراحات حسب الوقت والمود.', display_order: 15, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'time', active_hours: '' }) },
+          { section_key: 'mix_plus_ideas', section_type: 'mix_plus_ideas', title: 'Mix وPlus وأفكار أكثر', subtitle: 'مقترحات جاهزة، وجبات للعيلة، وتجميعات مختلفة.', display_order: 35, selection_mode: 'automatic', max_items: 8, view_all_route: '/tamam-suggestions?package=all', settings_json: JSON.stringify({ include_classic: false, include_group_deals: true, active_hours: '' }) },
         ];
         const missing = curatedDefs.filter((d) => !haveKeys.has(d.section_key));
         if (missing.length) await base44.asServiceRole.entities.HomepageSection.bulkCreate(missing);
@@ -736,12 +805,12 @@ export default async function(req) {
           { section_key: 'most_ordered', section_type: 'most_ordered', title: 'الأكثر طلبًا', display_order: 7, selection_mode: 'automatic', max_items: 8, enabled: false, settings_json: JSON.stringify({ most_ordered_threshold: { enabled: false, min_orders: 100, period_days: 30, min_customers: 20 } }) },
           { section_key: 'popular_meals', section_type: 'popular_meals', title: 'الأكلات الشعبية', display_order: 8, selection_mode: 'manual', max_items: 8, enabled: false },
           { section_key: 'popular_categories', section_type: 'popular_categories', title: 'تصنيفات شعبية', display_order: 9, selection_mode: 'automatic', max_items: 8, enabled: false },
-          { section_key: 'tamam_picks', section_type: 'tamam_picks', title: 'اختيارات TAMAM', subtitle: 'وجبات اخترناها عشان نسهّل عليك القرار.', display_order: 20, selection_mode: 'manual', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'manual', badge: 'اختيار TAMAM' }) },
-          { section_key: 'budget', section_type: 'budget_meals', title: 'على قد ميزانيتك', subtitle: 'اختار السعر اللي بناسبك وشوف شو في إلك.', display_order: 21, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ price_ranges: [{ label: 'لحد ₪40', min: 0, max: 40 }, { label: '₪40–₪70', min: 40, max: 70 }, { label: '₪70–₪100', min: 70, max: 100 }, { label: '₪100 وفوق', min: 100, max: null }] }) },
+          { section_key: 'tamam_picks', section_type: 'tamam_picks', title: 'اختيارات تستاهل التجربة', subtitle: 'وجبات اخترناها بعناية من منيوهات TAMAM.', display_order: 20, selection_mode: 'manual', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'manual', badge: 'اختيار TAMAM' }) },
+          { section_key: 'budget', section_type: 'budget_meals', title: 'خيارات بسعر مريح', subtitle: 'وجبات ومقترحات تناسب ميزانيات مختلفة.', display_order: 21, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ price_ranges: [{ label: 'لحد ₪40', min: 0, max: 40 }, { label: '₪40–₪70', min: 40, max: 70 }, { label: '₪70–₪100', min: 70, max: 100 }, { label: '₪100 وفوق', min: 100, max: null }] }) },
           { section_key: 'family', section_type: 'family_meals', title: 'للعيلة واللّمات', subtitle: 'وجبات بتكفي الكل بدون ما تحتار.', display_order: 22, selection_mode: 'manual', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'manual' }) },
           { section_key: 'quick', section_type: 'quick_meals', title: 'سريع وخفيف', subtitle: 'للجوع السريع أو لما بدك إشي خفيف.', display_order: 23, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category' }) },
           { section_key: 'home_style', section_type: 'home_style_meals', title: 'أكل بيتي', subtitle: 'لما نفسك بأكلة بتذكّرك بالبيت.', display_order: 24, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category' }) },
-          { section_key: 'new', section_type: 'new_meals', title: 'جرّب إشي جديد', subtitle: 'اقتراحات مختلفة يمكن تصير طلبك المفضل.', display_order: 25, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'new', new_days: 30, badge: 'جديد' }) },
+          { section_key: 'new', section_type: 'new_meals', title: 'جديد على TAMAM', subtitle: 'وجبات انضافت جديد وتستاهل تنجرّب.', display_order: 25, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'new', new_days: 30, badge: 'جديد' }) },
           { section_key: 'desserts', section_type: 'desserts_snacks', title: 'حلويات وتسالي', subtitle: 'كمّل الطلب بإشي حلو أو تسالي للجلسة.', display_order: 26, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category' }) },
           { section_key: 'featured_restaurants', section_type: 'featured_restaurants', title: 'مطاعم بنرشحها', display_order: 30, selection_mode: 'automatic', max_items: 6 },
           { section_key: 'trust_payments', section_type: 'trust_payments', title: 'الدفع والثقة', display_order: 11, subtitle: 'طلبك معنا من أول كبسة لحد باب البيت', settings_json: JSON.stringify({ items: ['visa', 'googlepay', 'cash', 'secure', 'tracking'] }) },
