@@ -87,6 +87,22 @@ Deno.serve(async (req) => {
         result = await supaFetch('/deals?select=*&active=eq.true&order=sort_order.asc');
         break;
 
+      case 'getPopularMeals': {
+        const orders = await supaFetch('/orders?select=kitchen_id,order_items,status&order=created_at.desc&limit=200');
+        const counts = {};
+        (orders || []).forEach(o => {
+          (o.order_items || []).forEach(it => {
+            const name = (it.name || '').trim();
+            if (!name) return;
+            if (!counts[name]) counts[name] = { name, count: 0, price: it.price || 0, kitchen_id: o.kitchen_id };
+            counts[name].count += (it.quantity || 1);
+            if (!counts[name].price && it.price) counts[name].price = it.price;
+          });
+        });
+        result = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, payload?.limit || 10);
+        break;
+      }
+
       case 'inspectOrders':
         result = await supaFetch('/orders?select=*&limit=1');
         break;

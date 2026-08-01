@@ -37,6 +37,8 @@ export const getExtraGroups = (itemId) => call('getExtraGroups', { itemId });
 // Deals
 export const getDeals = () => call('getDeals').catch(() => []);
 
+export const getPopularMeals = (limit = 10) => call('getPopularMeals', { limit }).catch(() => []);
+
 // Orders
 export const createOrder = (orderData) => call('createOrder', { orderData });
 

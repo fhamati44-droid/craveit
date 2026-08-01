@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getRestaurants, getDeals } from '@/lib/api';
+import { getRestaurants, getDeals, getPopularMeals, getAllMenuCategories } from '@/lib/api';
 import { base44 } from '@/api/base44Client';
-import { restaurantToCard, dealToCard, suggestionToCard } from '@/lib/tamamAdapters';
+import { restaurantToCard, suggestionToCard } from '@/lib/tamamAdapters';
 import { SkeletonCard, EmptyState, ErrorState } from '@/components/tamam/customer/States';
+import { track } from '@/lib/analytics';
+import { getSessionId } from '@/lib/tamamApi';
+import { dealStatus } from '@/lib/dealStatus';
+import HomeActiveDealBanner from '@/components/tamam/customer/HomeActiveDealBanner';
+import HomeUpcomingDealBanner from '@/components/tamam/customer/HomeUpcomingDealBanner';
+import JoinedDealMiniBanner from '@/components/tamam/customer/JoinedDealMiniBanner';
+import PopularMealCard from '@/components/tamam/customer/PopularMealCard';
 
 const PKG = [
   { id: 'all', label: 'الكل' },
@@ -11,27 +18,15 @@ const PKG = [
   { id: 'mix', label: 'ميكس' },
   { id: 'plus', label: 'بلس' },
 ];
-
 const MOOD_ICON = {
-  'مطبخ البيت مسكّر': 'home_work',
-  'الحبايب عنا': 'groups',
-  'آخر الليل': 'nights_stay',
-  'وقت المباراة': 'sports_soccer',
-  'البيت بده': 'cottage',
-  'طاقة': 'bolt',
-  'قعدة صبايا': 'diversity_1',
-  'أول النهار': 'wb_sunny',
-  'لمة شباب': 'sports_esports',
-  'ضيوف بالطريق': 'door_front',
-  'ناقصنا كم شغلة': 'restaurant',
-  'جوع آخر النهار': 'soup_kitchen',
+  'مطبخ البيت مسكّر': 'home_work', 'الحبايب عنا': 'groups', 'آخر الليل': 'nights_stay',
+  'وقت المباراة': 'sports_soccer', 'البيت بده': 'cottage', 'طاقة': 'bolt',
+  'قعدة صبايا': 'diversity_1', 'أول النهار': 'wb_sunny', 'لمة شباب': 'sports_esports',
+  'ضيوف بالطريق': 'door_front', 'ناقصنا كم شغلة': 'restaurant', 'جوع آخر النهار': 'soup_kitchen',
   'حلو بعد الأكل': 'cake',
 };
 const moodIcon = (m) => (m?.icon && !/[\u{1F300}-\u{1FAFF}]/u.test(m.icon) ? m.icon : MOOD_ICON[m?.name_ar] || 'auto_awesome');
-
-function MaterialIcon({ name, className = '' }) {
-  return <span className={`material-symbols-outlined ${className}`}>{name}</span>;
-}
+function MaterialIcon({ name, className = '' }) { return <span className={`material-symbols-outlined ${className}`}>{name}</span>; }
 
 export default function Home() {
   const navigate = useNavigate();
@@ -41,6 +36,9 @@ export default function Home() {
   const [sets, setSets] = useState({ classic: [], mix: [], plus: [] });
   const [tier, setTier] = useState('mix');
   const [activeMeals, setActiveMeals] = useState([]);
+  const [popularMeals, setPopularMeals] = useState([]);
+  const [popCats, setPopCats] = useState([]);
+  const [joinedDeal, setJoinedDeal] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [activeOrder, setActiveOrder] = useState(null);
@@ -48,21 +46,38 @@ export default function Home() {
   const load = async () => {
     setLoading(true); setError(false);
     try {
-      const [rests, dealsList, moodList] = await Promise.all([
+      const [rests, dealsList, moodList, popMeals, allCats] = await Promise.all([
         getRestaurants(), getDeals(), base44.entities.TamamMood.list().catch(() => []),
+        getPopularMeals(12), getAllMenuCategories().catch(() => []),
       ]);
       setRestaurants(rests || []);
       setDeals(dealsList || []);
       setMoods((moodList || []).filter(m => m.is_active).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
+      const mapped = (popMeals || []).map(pm => {
+        const r = (rests || []).find(x => x.id === pm.kitchen_id || x.kitchen_id === pm.kitchen_id);
+        return { ...pm, restaurantName: r ? (r.name_ar || r.name) : null, restaurantId: r ? r.id : pm.kitchen_id };
+      }).filter(pm => pm.restaurantId != null);
+      setPopularMeals(mapped.slice(0, 8));
+      const counts = {};
+      (allCats || []).forEach(c => { const n = (c.name_ar || c.name || '').trim(); if (n) counts[n] = (counts[n] || 0) + 1; });
+      setPopCats(Object.entries(counts).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 8));
       const allSets = await base44.entities.TamamSuggestionSet.filter({ is_active: true }).catch(() => []);
       const grouped = { classic: [], mix: [], plus: [] };
       (allSets || []).forEach(s => { if (grouped[s.package_level]) grouped[s.package_level].push(s); });
-      Object.values(grouped).forEach(arr => arr.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
+      Object.values(grouped).forEach(a => a.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
       setSets(grouped);
       try {
-        const ao = JSON.parse(localStorage.getItem('active_order') || 'null');
-        if (ao?.id) setActiveOrder(ao);
+        const phone = localStorage.getItem('user_phone');
+        const parts = phone
+          ? await base44.entities.DealParticipation.filter({ phone }).catch(() => [])
+          : await base44.entities.DealParticipation.filter({ session_id: getSessionId() }).catch(() => []);
+        const activeDeal = (dealsList || []).find(d => dealStatus(d) === 'active' && (parts || []).some(p => String(p.deal_id) === String(d.id)));
+        if (activeDeal) {
+          const partsCount = await base44.entities.DealParticipation.filter({ deal_id: Number(activeDeal.id) }).catch(() => []);
+          setJoinedDeal({ deal: activeDeal, participants: (partsCount || []).length });
+        }
       } catch {}
+      try { const ao = JSON.parse(localStorage.getItem('active_order') || 'null'); if (ao?.id) setActiveOrder(ao); } catch {}
     } catch (e) { console.error(e); setError(true); }
     finally { setLoading(false); }
   };
@@ -84,18 +99,19 @@ export default function Home() {
 
   if (error) return <ErrorState title="ما قدرنا نحمّل البيانات" onRetry={load} />;
 
-  const heroImg = deals[0]?.image_url || restaurants[0]?.image_url || restaurants[0]?.cover_image_url;
+  const activeDeals = deals.filter(d => dealStatus(d) === 'active');
+  const upcomingDeals = deals.filter(d => dealStatus(d) === 'upcoming');
+  const primaryActive = activeDeals[0] || null;
+  const primaryUpcoming = upcomingDeals[0] || null;
+  const heroImg = deals[0]?.image_url || restaurants[0]?.cover_url || restaurants[0]?.image_url;
 
   return (
     <div className="flex flex-col">
-      {/* Active Order (Mini) */}
       {activeOrder && (
         <section className="px-4 py-3">
           <div className="bg-primary/10 border border-primary/30 p-3 rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
-                <MaterialIcon name="moped" className="text-primary" />
-              </div>
+              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center"><MaterialIcon name="moped" className="text-primary" /></div>
               <div>
                 <div className="text-[10px] text-primary font-bold uppercase">طلب نشط #{activeOrder.id}</div>
                 <div className="text-sm font-semibold">{activeOrder.eta ? `يوصل خلال ${activeOrder.eta} دقيقة` : 'قيد التحضير'}</div>
@@ -106,7 +122,6 @@ export default function Home() {
         </section>
       )}
 
-      {/* Hero Section */}
       <section className="px-4 py-4 space-y-4">
         <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border border-outline-variant/20">
           {heroImg ? <img alt="Hero Feast" className="w-full h-full object-cover" src={heroImg} /> : <div className="w-full h-full bg-surface-container-high" />}
@@ -123,7 +138,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Mood Selection Grid */}
       {moods.length > 0 && (
         <section className="px-4 py-6 bg-surface/30">
           <h2 className="text-headline-md font-bold mb-4">شو وضعك اليوم؟</h2>
@@ -138,7 +152,6 @@ export default function Home() {
         </section>
       )}
 
-      {/* Suggestions Packages & Featured Card */}
       <section className="px-4 py-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-headline-md font-bold">اقتراحات TAMAM</h2>
@@ -146,35 +159,68 @@ export default function Home() {
         </div>
         <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar pb-1">
           {PKG.map(p => (
-            <button key={p.id} onClick={() => navigate(`/tamam-suggestions?package=${p.id}`)}
-              className="flex-none px-5 py-2 rounded-xl text-sm font-semibold bg-surface-container-high text-on-surface border border-outline-variant active:scale-95 transition-transform">{p.label}</button>
+            <button key={p.id} onClick={() => navigate(`/tamam-suggestions?package=${p.id}`)} className="flex-none px-5 py-2 rounded-xl text-sm font-semibold bg-surface-container-high text-on-surface border border-outline-variant active:scale-95 transition-transform">{p.label}</button>
           ))}
         </div>
         {loading ? <SkeletonCard kind="suggestion" /> : currentSet ? (
-          <SuggestionLargeCard
-            set={currentSet}
-            meals={activeMeals}
-            onChoose={() => navigate(`/tamam-order/${currentSet.id}`)}
-          />
+          <SuggestionLargeCard set={currentSet} meals={activeMeals} onChoose={() => navigate(`/tamam-order/${currentSet.id}`)} />
+        ) : <EmptyState icon="✨" title="ما في اقتراحات بهالتصنيف لسه" />}
+      </section>
+
+      {joinedDeal && (
+        <JoinedDealMiniBanner deal={joinedDeal.deal} participants={joinedDeal.participants} onOpen={() => { track('joined_deal_opened', { deal_id: joinedDeal.deal.id }); navigate(`/deals/${joinedDeal.deal.id}`); }} />
+      )}
+
+      <section className="px-4 py-8">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-headline-md font-bold">عروض TAMAM</h2>
+            <p className="text-xs text-on-surface-variant">كل ما زاد العدد، السعر بصير أحسن.</p>
+          </div>
+          <Link to="/deals" className="text-primary text-xs font-bold">شوف كل العروض</Link>
+        </div>
+        {loading ? <SkeletonCard kind="suggestion" /> : primaryActive ? (
+          <HomeActiveDealBanner deal={primaryActive} onOpen={() => { track('home_active_deal_opened', { deal_id: primaryActive.id }); navigate(`/deals/${primaryActive.id}`); }} />
+        ) : primaryUpcoming ? (
+          <HomeUpcomingDealBanner deal={primaryUpcoming} onOpen={() => { track('home_upcoming_deal_opened', { deal_id: primaryUpcoming.id }); navigate(`/deals/${primaryUpcoming.id}`); }} />
         ) : (
-          <EmptyState icon="✨" title="ما في اقتراحات بهالتصنيف لسه" />
+          <div className="bg-surface-container border border-outline-variant/30 rounded-2xl p-6 text-center">
+            <p className="text-on-surface-variant text-sm mb-3">ما في عروض جماعية شغالة هسا</p>
+            <button onClick={() => navigate('/tamam-suggestions?package=all')} className="bg-primary text-on-primary px-5 py-2.5 rounded-full text-sm font-bold">شوف اقتراحات TAMAM</button>
+          </div>
         )}
       </section>
 
-      {/* Group Deals */}
-      {!loading && deals.length > 0 && (
-        <section className="px-4 py-8 bg-surface-container">
-          <div className="mb-4">
-            <h2 className="text-headline-md font-bold">عروض TAMAM الجماعية</h2>
-            <p className="text-xs text-on-surface-variant">انضم للعرض، وكل ما نوصل للهدف السعر بنزل.</p>
+      <section className="py-6">
+        <h2 className="text-headline-md font-bold mb-4 px-4">الأكثر طلبًا</h2>
+        {loading ? (
+          <div className="flex gap-3 overflow-x-auto no-scrollbar px-4">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</div>
+        ) : popularMeals.length ? (
+          <div className="flex gap-3 overflow-x-auto no-scrollbar px-4">
+            {popularMeals.map((m, i) => (
+              <PopularMealCard key={i} meal={m} onOpen={() => { track('popular_meal_opened', { name: m.name }); navigate(`/restaurants/${m.restaurantId}`); }} />
+            ))}
           </div>
-          <div className="space-y-4">
-            {deals.slice(0, 3).map(d => <GroupDealBlock key={d.id} deal={dealToCard(d)} restaurant={restaurants.find(r => r.id === d.restaurant_id)} onJoin={() => navigate(d.restaurant_id ? `/restaurants/${d.restaurant_id}` : '/restaurants')} />)}
+        ) : (
+          <div className="px-4"><EmptyState icon="🍽️" title="ما في طلبات كفاية لعرض الأكثر طلبًا" /></div>
+        )}
+      </section>
+
+      {popCats.length > 0 && (
+        <section className="py-6 bg-surface/30">
+          <h2 className="text-headline-md font-bold mb-4 px-4">أكلات شعبية</h2>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar px-4">
+            {popCats.map(c => (
+              <button key={c.label} onClick={() => { track('popular_category_opened', { category: c.label }); navigate(`/restaurants?category=${encodeURIComponent(c.label)}`); }} className="flex-none w-32 bg-surface-container border border-outline-variant/30 rounded-2xl p-4 text-right active:scale-95 transition-transform">
+                <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center mb-2"><MaterialIcon name="restaurant" className="text-primary" /></div>
+                <h3 className="font-bold text-sm">{c.label}</h3>
+                <p className="text-[11px] text-on-surface-variant">{c.count} مطاعم</p>
+              </button>
+            ))}
           </div>
         </section>
       )}
 
-      {/* Nearby restaurants */}
       <section className="px-4 py-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-headline-md font-bold">مطاعم قريبة منك</h2>
@@ -189,7 +235,6 @@ export default function Home() {
         ) : <EmptyState icon="🏪" title="ما لقينا مطاعم بهالمنطقة" />}
       </section>
 
-      {/* Trust Points */}
       <section className="px-4 py-10 flex flex-col gap-6">
         <TrustItem icon="verified" title="مطاعم مختارة" desc="منتعاملش إلا مع الأنظف والأفضل، عشان نضمن جودة أكلك." />
         <TrustItem icon="payments" title="سعر المنيو" desc="نفس سعر المطعم، بدون زيادات مخفية أو رسوم غريبة." />
@@ -227,41 +272,6 @@ function SuggestionLargeCard({ set, meals, onChoose }) {
   );
 }
 
-function GroupDealBlock({ deal, restaurant, onJoin }) {
-  const pct = deal.nextThreshold && deal.participants ? Math.min(100, Math.round((deal.participants / deal.nextThreshold) * 100)) : 0;
-  return (
-    <div className="bg-background border border-outline-variant/30 rounded-2xl overflow-hidden shadow-xl">
-      <div className="relative h-44">
-        {deal.imageUrl ? <img alt={deal.name} className="w-full h-full object-cover" src={deal.imageUrl} /> : <div className="w-full h-full bg-surface-container-high" />}
-        {restaurant?.name && (
-          <div className="absolute top-3 right-3 bg-background/80 backdrop-blur px-2 py-1 rounded-lg border border-outline-variant/30 text-[10px] flex items-center gap-1 font-bold">
-            <MaterialIcon name="restaurant" className="text-primary text-xs" /> {restaurant.name}
-          </div>
-        )}
-      </div>
-      <div className="p-4 space-y-4">
-        <h3 className="text-base font-bold">{deal.name}</h3>
-        <div className="flex items-end gap-2">
-          {deal.currentPrice != null && <span className="text-primary text-2xl font-bold">₪{Math.round(deal.currentPrice)}</span>}
-          {deal.originalPrice != null && <span className="text-on-surface-variant line-through text-xs mb-1">₪{deal.originalPrice}</span>}
-        </div>
-        {deal.nextThreshold != null && (
-          <div className="space-y-2">
-            <div className="flex justify-between text-[10px] font-bold">
-              <span className="text-tertiary">الهدف القادم: ₪{deal.nextThreshold}</span>
-              <span className="text-primary">{deal.participants || 0} من {deal.nextThreshold} انضموا</span>
-            </div>
-            <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden border border-outline-variant/20">
-              <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-        )}
-        <button onClick={onJoin} className="w-full h-11 bg-primary text-on-primary font-bold rounded-xl active:scale-95 transition-all">انضم الآن للعرض</button>
-      </div>
-    </div>
-  );
-}
-
 function NearbyCard({ r, onOpen }) {
   const c = restaurantToCard(r);
   return (
@@ -281,9 +291,7 @@ function NearbyCard({ r, onOpen }) {
 function TrustItem({ icon, title, desc }) {
   return (
     <div className="flex gap-4 items-center">
-      <div className="w-12 h-12 shrink-0 bg-surface border border-primary/20 rounded-xl flex items-center justify-center">
-        <MaterialIcon name={icon} className="text-primary" />
-      </div>
+      <div className="w-12 h-12 shrink-0 bg-surface border border-primary/20 rounded-xl flex items-center justify-center"><MaterialIcon name={icon} className="text-primary" /></div>
       <div>
         <h4 className="text-sm font-bold">{title}</h4>
         <p className="text-[11px] text-on-surface-variant">{desc}</p>

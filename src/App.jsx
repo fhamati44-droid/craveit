@@ -31,6 +31,7 @@ import TamamGame from '@/pages/TamamGame';
 import TamamSuggestions from '@/pages/TamamSuggestions';
 import TamamAdmin from '@/pages/TamamAdmin';
 import TamamOrder from '@/pages/TamamOrder';
+import CustomerDeals from '@/pages/CustomerDeals';
 
 function App() {
   return (
@@ -50,6 +51,7 @@ function App() {
               <Route path="/deals/:dealId" element={<DealDetail />} />
               <Route path="/deals/:dealId/join" element={<DealJoin />} />
               <Route path="/deals/:dealId/confirmed" element={<DealJoined />} />
+              <Route path="/account/deals" element={<CustomerDeals />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
               <Route path="/orders" element={<OrderHistory />} />
