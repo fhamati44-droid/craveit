@@ -60,9 +60,27 @@ export function statusLabel(status) {
 }
 
 export const PAYMENT_LABELS = {
-  cash: 'دفع نقدي عند الاستلام',
-  card_on_delivery: 'دفع بالبطاقة عند الاستلام',
+  cash: 'الدفع نقدًا عند الاستلام',
+  card_on_delivery: 'الدفع بالبطاقة عند الاستلام',
+  card: 'بطاقة ائتمان أو فيزا',
+  google_pay: 'Google Pay',
+  paypal: 'PayPal',
 };
+export const PAYMENT_STATUS_LABELS = {
+  pending: 'بانتظار تأكيد الدفع',
+  authorization_pending: 'بانتظار حجز المبلغ',
+  authorized: 'تم حجز المبلغ',
+  paid: 'تم الدفع',
+  cash_on_delivery_pending: 'الدفع عند الاستلام',
+  failed: 'الدفع ما تم',
+  cancelled: 'تم إلغاء الدفع',
+  refund_pending: 'جاري إعادة المبلغ',
+  refunded: 'تمت إعادة المبلغ',
+  partially_refunded: 'إعادة جزئية للمبلغ',
+};
+export function paymentStatusLabel(status) {
+  return PAYMENT_STATUS_LABELS[status] || PAYMENT_STATUS_LABELS.pending;
+}
 export const METHOD_LABELS = { delivery: 'توصيل', pickup: 'استلام ذاتي', dinein: 'جلوس بالمطعم' };
 
 export function osmEmbed(lat, lng) {

@@ -32,6 +32,7 @@ import TamamSuggestions from '@/pages/TamamSuggestions';
 import TamamAdmin from '@/pages/TamamAdmin';
 import TamamOrder from '@/pages/TamamOrder';
 import CustomerDeals from '@/pages/CustomerDeals';
+import Rewards from '@/pages/Rewards';
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
               <Route path="/deals/:dealId/join" element={<DealJoin />} />
               <Route path="/deals/:dealId/confirmed" element={<DealJoined />} />
               <Route path="/account/deals" element={<CustomerDeals />} />
+              <Route path="/account/rewards" element={<Rewards />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
               <Route path="/orders" element={<OrderHistory />} />

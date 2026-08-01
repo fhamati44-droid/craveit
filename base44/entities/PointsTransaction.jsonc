@@ -1,0 +1,77 @@
+{
+  "name": "PointsTransaction",
+  "type": "object",
+  "properties": {
+    "account_id": {
+      "type": "string",
+      "title": "LoyaltyAccount id"
+    },
+    "phone": {
+      "type": "string",
+      "title": "\u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062a\u0641"
+    },
+    "order_id": {
+      "type": "number",
+      "title": "Supabase order id"
+    },
+    "order_number": {
+      "type": "string",
+      "title": "\u0631\u0642\u0645 \u0627\u0644\u0637\u0644\u0628"
+    },
+    "points": {
+      "type": "number",
+      "title": "\u0627\u0644\u0646\u0642\u0627\u0637 (\u0645\u0648\u062c\u0628=\u0631\u0628\u062d\u060c \u0633\u0627\u0644\u0628=\u0627\u0633\u062a\u062e\u062f\u0627\u0645/\u0627\u0633\u062a\u0631\u062c\u0627\u0639)"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "earn",
+        "redeem",
+        "expire",
+        "refund"
+      ],
+      "title": "\u0646\u0648\u0639 \u0627\u0644\u062d\u0631\u0643\u0629"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "available",
+        "expired",
+        "reversed"
+      ],
+      "title": "\u062d\u0627\u0644\u0629 \u0627\u0644\u0646\u0642\u0627\u0637"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "phone",
+    "points",
+    "type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

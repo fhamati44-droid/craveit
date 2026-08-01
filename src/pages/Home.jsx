@@ -11,6 +11,11 @@ import HomeActiveDealBanner from '@/components/tamam/customer/HomeActiveDealBann
 import HomeUpcomingDealBanner from '@/components/tamam/customer/HomeUpcomingDealBanner';
 import JoinedDealMiniBanner from '@/components/tamam/customer/JoinedDealMiniBanner';
 import PopularMealCard from '@/components/tamam/customer/PopularMealCard';
+import HomepageActiveOrderCard from '@/components/tamam/customer/HomepageActiveOrderCard';
+import PaymentTrustStrip from '@/components/tamam/customer/PaymentTrustStrip';
+import PurchaseJourneyTrustSection from '@/components/tamam/customer/PurchaseJourneyTrustSection';
+import LoyaltyBalanceCard from '@/components/tamam/customer/LoyaltyBalanceCard';
+import AssuranceSection from '@/components/tamam/customer/AssuranceSection';
 
 const PKG = [
   { id: 'all', label: 'الكل' },
@@ -107,20 +112,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col">
-      {activeOrder && (
-        <section className="px-4 py-3">
-          <div className="bg-primary/10 border border-primary/30 p-3 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center"><MaterialIcon name="moped" className="text-primary" /></div>
-              <div>
-                <div className="text-[10px] text-primary font-bold uppercase">طلب نشط #{activeOrder.id}</div>
-                <div className="text-sm font-semibold">{activeOrder.eta ? `يوصل خلال ${activeOrder.eta} دقيقة` : 'قيد التحضير'}</div>
-              </div>
-            </div>
-            <button onClick={() => navigate(`/order/${activeOrder.id}`)} className="text-xs font-bold text-primary px-3 py-1.5 border border-primary/50 rounded-lg">تابع</button>
-          </div>
-        </section>
-      )}
+      <HomepageActiveOrderCard />
 
       <section className="px-4 py-4 space-y-4">
         <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border border-outline-variant/20">
@@ -235,10 +227,10 @@ export default function Home() {
         ) : <EmptyState icon="🏪" title="ما لقينا مطاعم بهالمنطقة" />}
       </section>
 
-      <section className="px-4 py-10 flex flex-col gap-6">
-        <TrustItem icon="verified" title="مطاعم مختارة" desc="منتعاملش إلا مع الأنظف والأفضل، عشان نضمن جودة أكلك." />
-        <TrustItem icon="payments" title="سعر المنيو" desc="نفس سعر المطعم، بدون زيادات مخفية أو رسوم غريبة." />
-      </section>
+      <PaymentTrustStrip />
+      <PurchaseJourneyTrustSection />
+      <LoyaltyBalanceCard />
+      <AssuranceSection />
     </div>
   );
 }

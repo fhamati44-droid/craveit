@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getOrderById } from '@/lib/api';
 import { base44 } from '@/api/base44Client';
-import { METHOD_LABELS, PAYMENT_LABELS, statusLabel } from '@/lib/orderUtils';
+import { METHOD_LABELS, PAYMENT_LABELS, statusLabel, paymentStatusLabel } from '@/lib/orderUtils';
+import { getLoyaltyConfig, expectedPoints } from '@/lib/loyaltyApi';
+import PointsEarnedBanner from '@/components/tamam/customer/PointsEarnedBanner';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 
@@ -11,6 +13,7 @@ export default function OrderConfirmation() {
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [meta, setMeta] = useState(null);
+  const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,6 +23,7 @@ export default function OrderConfirmation() {
         setOrder(o || null);
         const metas = await base44.entities.OrderCheckoutMeta.filter({ order_id: Number(orderId) }).catch(() => []);
         setMeta((metas || [])[0] || null);
+        getLoyaltyConfig().then(setConfig).catch(() => {});
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -48,9 +52,12 @@ export default function OrderConfirmation() {
         <Row label="المطعم" value={meta?.restaurant_name || order.kitchen_id} />
         <Row label="طريقة الاستلام" value={METHOD_LABELS[meta?.fulfillment_method] || order.channel} />
         <Row label="طريقة الدفع" value={PAYMENT_LABELS[meta?.payment_method] || '—'} />
-        <Row label="حالة الدفع" value="بانتظار الدفع عند الاستلام" />
+        <Row label="حالة الدفع" value={paymentStatusLabel(meta?.payment_status)} />
         <Row label="الإجمالي" value={`₪${Math.round(order.amount)}`} highlight />
       </div>
+      {expectedPoints(config, order.amount) > 0 && (
+        <div className="mb-5"><PointsEarnedBanner points={expectedPoints(config, order.amount)} pending /></div>
+      )}
 
       <h2 className="font-bold mb-3">شو بصير هسا؟</h2>
       <div className="bg-surface-container rounded-2xl p-4 space-y-3 mb-6">

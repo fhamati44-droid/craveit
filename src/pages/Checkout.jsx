@@ -4,6 +4,7 @@ import { useCart } from '@/lib/CartContext';
 import { getCheckout, setCheckout, clearCheckout, defaultCheckout } from '@/lib/checkoutStore';
 import { isValidIsraeliPhone, normalizePhone, METHOD_LABELS, PAYMENT_LABELS, osmEmbed, reverseGeocode } from '@/lib/orderUtils';
 import CheckoutHeader from '@/components/checkout/CheckoutHeader';
+import PaymentMethodSelector from '@/components/tamam/customer/PaymentMethodSelector';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 const DELIVERY_QUICK = ['اتصل قبل الوصول', 'لا تدق الجرس', 'اترك الطلب عند الباب', 'المدخل من الخلف'];
@@ -135,15 +136,7 @@ export default function Checkout() {
         {/* Payment */}
         <section>
           <h3 className="font-bold mb-3 flex items-center gap-2"><Icon name="payments" className="text-primary" />طريقة الدفع</h3>
-          <div className="space-y-2">
-            {[{ id: 'cash', t: PAYMENT_LABELS.cash, i: 'handshake', d: 'بتدفع للمندوب وقت استلام الطلب' }, { id: 'card_on_delivery', t: PAYMENT_LABELS.card_on_delivery, i: 'credit_card', d: 'بتدفع بالبطاقة للمندوب وقت الاستلام' }].map(p => (
-              <button key={p.id} onClick={() => set('payment', p.id)} className={`w-full p-3 rounded-xl flex items-center justify-between border ${form.payment === p.id ? 'bg-primary/10 border-primary/30' : 'bg-surface-container border-outline-variant/30'}`}>
-                <div className="flex items-center gap-3"><Icon name={p.i} className="text-primary" /><div className="text-right"><p className="font-semibold text-sm">{p.t}</p><p className="text-[11px] text-on-surface-variant">{p.d}</p></div></div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${form.payment === p.id ? 'border-primary' : 'border-outline'}`}>{form.payment === p.id && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}</div>
-              </button>
-            ))}
-            <p className="text-[11px] text-on-surface-variant px-1">الدفع الآمن بالبطاقة أونلاين بيكون متاح قريبًا. هسا الدفع عند الاستلام.</p>
-          </div>
+          <PaymentMethodSelector value={form.payment} onChange={v => set('payment', v)} />
           {form.payment === 'cash' && (
             <div className="mt-3 bg-surface-container rounded-xl p-3">
               <p className="text-sm mb-2">بتحتاج فكة؟</p>

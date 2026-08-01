@@ -19,6 +19,10 @@ export function defaultCheckout(cart) {
     restaurantNotes: '',
     payment: 'cash',
     cashDenomination: '',
+    couponCode: '',
+    couponDiscount: 0,
+    pointsUsed: 0,
+    pointsDiscount: 0,
     savedAt: Date.now(),
   };
 }
