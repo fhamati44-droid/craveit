@@ -26,7 +26,7 @@ export default function PackageCards({ packages, title = 'اقتراحات TAMAM
           <h2 className="text-headline-md font-bold">{title}</h2>
           <p className="text-xs text-on-surface-variant">{subtitle}</p>
         </div>
-        <button onClick={() => navigate('/tamam-suggestions?package=all')} className="text-primary text-xs font-bold">شوف الكل</button>
+        <button onClick={() => navigate('/tamam-suggestions?package=all')} className="text-primary text-xs font-bold">كل الاقتراحات</button>
       </div>
       <div className="grid grid-cols-3 gap-3">
         {list.map((p) => {

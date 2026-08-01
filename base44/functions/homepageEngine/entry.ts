@@ -194,12 +194,28 @@ async function buildPublishedHomepage(base44) {
     home_style: { title: 'أكل بيتي', subtitle: 'لما نفسك بأكلة بتذكّرك بالبيت.', badge: null, route: '/restaurants' },
     new: { title: 'جرّب إشي جديد', subtitle: 'اقتراحات مختلفة يمكن تصير طلبك المفضل.', badge: 'جديد', route: '/restaurants' },
     desserts: { title: 'حلويات وتسالي', subtitle: 'كمّل الطلب بإشي حلو أو تسالي للجلسة.', badge: null, route: '/restaurants' },
+    lunch: { title: 'غدا اليوم', subtitle: 'وجبات مشبعة للغدا بدون ما تضيع وقت بالاختيار.', badge: null, route: '/restaurants' },
+    complete_order: { title: 'كمّل طلبك', subtitle: 'مشروب، تحلاية أو إضافة صغيرة بتكمّل الوجبة.', badge: null, route: '/restaurants' },
   };
+  const CARD_VARIANT = { tamam_picks: 'feature', lunch: 'feature', desserts: 'compact', complete_order: 'compact' };
+
+  function withinActiveHours(cfg) {
+    const ah = cfg && cfg.active_hours;
+    if (!ah || typeof ah !== 'string' || !ah.includes('-')) return true;
+    try {
+      const [from, to] = ah.split('-').map((s) => s.trim());
+      const curStr = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Jerusalem', hour12: false });
+      const cur = curStr.slice(0, 5);
+      if (from <= to) return cur >= from && cur < to;
+      return cur >= from || cur < to;
+    } catch { return true; }
+  }
 
   async function resolveCurated(sectionKey) {
     const sec = sectionByKey(sectionKey);
     if (!sec) return null;
     const cfg = parseJSON(sec.settings_json, {});
+    if (!withinActiveHours(cfg)) return null;
     const max = sec.max_items || 8;
     const defaults = CURATED_DEFAULTS[sectionKey] || {};
     const manualMealItems = itemsFor(sec.id).filter((it) => it.item_type === 'meal' && it.meal_id);
@@ -237,6 +253,7 @@ async function buildPublishedHomepage(base44) {
       badge: cfg.badge || defaults.badge || null,
       view_all_route: viewAll,
       view_all_label: sec.view_all_label || 'شوف الكل',
+      card_variant: CARD_VARIANT[sectionKey] || 'carousel',
       meals,
     };
   }
@@ -264,6 +281,8 @@ async function buildPublishedHomepage(base44) {
   const homeStyle = await resolveCurated('home_style');
   const newDiscovery = await resolveCurated('new');
   const desserts = await resolveCurated('desserts');
+  const lunch = await resolveCurated('lunch');
+  const completeOrder = await resolveCurated('complete_order');
 
   // Budget section: returns config only; meals are fetched per-range on interaction
   let budget = null;
@@ -285,7 +304,38 @@ async function buildPublishedHomepage(base44) {
     };
   }
 
-  return { hasVersion: !!active, hero, packages, tamamPicks, budget, family, quick, homeStyle, newDiscovery, desserts, mostOrdered, popularCategories, featuredRestaurants, shownMealIds: [...shownMealIds] };
+  // ---- Editorial banners (image/video + destination) ----
+  function resolveEditorialBanner(sectionKey, fallbackTitle, fallbackSubtitle, defaultRoute) {
+    const sec = sectionByKey(sectionKey) || sections.find((s) => s.section_type === 'editorial_banner' && s.section_key === sectionKey);
+    if (!sec) return null;
+    if (!withinActiveHours(parseJSON(sec.settings_json, {}))) return null;
+    const cfg = parseJSON(sec.settings_json, {});
+    const mediaItem = itemsFor(sec.id).find((it) => it.item_type === 'media');
+    const media = mediaItem && mediaItem.media_id ? mediaMap[mediaItem.media_id] : null;
+    let destination = sec.view_all_route || defaultRoute || '/restaurants';
+    if (cfg.mood_id) destination = `/tamam-suggestions/${cfg.mood_id}`;
+    else if (cfg.cta_route_key) destination = resolveRouteString(cfg.cta_route_key, cfg.cta_route_params);
+    else if (sec.view_all_route) destination = sec.view_all_route;
+    return {
+      key: sectionKey,
+      layout: cfg.layout || 'large',
+      media_kind: cfg.media_kind || (media && media.media_type) || 'image',
+      file_url: media ? media.file_url : null,
+      poster_url: cfg.poster_media_id && mediaMap[cfg.poster_media_id] ? (mediaMap[cfg.poster_media_id].file_url || mediaMap[cfg.poster_media_id].poster_image_url) : null,
+      headline: cfg.headline || sec.title || fallbackTitle,
+      subtitle: cfg.subtitle || sec.subtitle || fallbackSubtitle,
+      badge: cfg.badge || null,
+      cta_label: cfg.cta_label || 'شوف',
+      destination,
+      overlay_strength: cfg.overlay_strength ?? 55,
+    };
+  }
+
+  const homeKitchenBanner = resolveEditorialBanner('home_kitchen_banner', 'مطبخ البيت مسكّر؟', 'لقينا لك وجبات جاهزة للعيلة.', '/restaurants');
+  const lateNightBanner = resolveEditorialBanner('late_night_banner', 'جعان آخر الليل؟', 'في إشياء سريعة بتوصل لحد عندك.', '/tamam-suggestions');
+  const browseRestaurantsBanner = resolveEditorialBanner('browse_restaurants_banner', 'بدك تختار المطعم بنفسك؟', 'كل المطاعم والمنيوات بمكان واحد.', '/restaurants');
+
+  return { hasVersion: !!active, hero, packages, tamamPicks, budget, family, quick, homeStyle, newDiscovery, desserts, lunch, completeOrder, homeKitchenBanner, lateNightBanner, browseRestaurantsBanner, featuredRestaurants, shownMealIds: [...shownMealIds] };
 }
 
 // Section metadata for validation and defaults
@@ -307,6 +357,9 @@ const SECTION_META = {
   support: { label: 'الدعم' },
   promo_banner: { label: 'بانرات ترويجية' },
   editorial: { label: 'قسم تحريري' },
+  editorial_banner: { label: 'بانر تحريري' },
+  lunch_meals: { label: 'غدا اليوم' },
+  complete_order: { label: 'كمّل طلبك' },
 };
 
 async function buildSnapshot(base44) {
@@ -659,6 +712,11 @@ export default async function(req) {
           { section_key: 'home_style', section_type: 'home_style_meals', title: 'أكل بيتي', subtitle: 'لما نفسك بأكلة بتذكّرك بالبيت.', display_order: 24, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category' }) },
           { section_key: 'new', section_type: 'new_meals', title: 'جرّب إشي جديد', subtitle: 'اقتراحات مختلفة يمكن تصير طلبك المفضل.', display_order: 25, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'new', new_days: 30, badge: 'جديد' }) },
           { section_key: 'desserts', section_type: 'desserts_snacks', title: 'حلويات وتسالي', subtitle: 'كمّل الطلب بإشي حلو أو تسالي للجلسة.', display_order: 26, selection_mode: 'automatic', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category' }) },
+          { section_key: 'lunch', section_type: 'lunch_meals', title: 'غدا اليوم', subtitle: 'وجبات مشبعة للغدا بدون ما تضيع وقت بالاختيار.', display_order: 27, selection_mode: 'manual', max_items: 8, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category', active_hours: '' }) },
+          { section_key: 'complete_order', section_type: 'complete_order', title: 'كمّل طلبك', subtitle: 'مشروب، تحلاية أو إضافة صغيرة بتكمّل الوجبة.', display_order: 28, selection_mode: 'automatic', max_items: 10, view_all_route: '/restaurants', settings_json: JSON.stringify({ auto_mode: 'category' }) },
+          { section_key: 'home_kitchen_banner', section_type: 'editorial_banner', title: 'مطبخ البيت مسكّر؟', subtitle: 'لقينا لك وجبات جاهزة للعيلة.', display_order: 29, selection_mode: 'automatic', view_all_route: '/restaurants', settings_json: JSON.stringify({ layout: 'large', media_kind: 'image', headline: 'مطبخ البيت مسكّر؟', subtitle: 'لقينا لك وجبات جاهزة للعيلة.', cta_label: 'شوف الوجبات' }) },
+          { section_key: 'late_night_banner', section_type: 'editorial_banner', title: 'جعان آخر الليل؟', subtitle: 'في إشياء سريعة بتوصل لحد عندك.', display_order: 30, selection_mode: 'automatic', view_all_route: '/tamam-suggestions', settings_json: JSON.stringify({ layout: 'large', media_kind: 'image', headline: 'جعان آخر الليل؟', subtitle: 'في إشياء سريعة بتوصل لحد عندك.', cta_label: 'شوف اقتراحات آخر الليل' }) },
+          { section_key: 'browse_restaurants_banner', section_type: 'editorial_banner', title: 'بدك تختار المطعم بنفسك؟', subtitle: 'كل المطاعم والمنيوات بمكان واحد.', display_order: 31, selection_mode: 'automatic', view_all_route: '/restaurants', settings_json: JSON.stringify({ layout: 'large', media_kind: 'image', headline: 'بدك تختار المطعم بنفسك؟', subtitle: 'كل المطاعم والمنيوات بمكان واحد.', cta_label: 'تصفح كل المطاعم' }) },
         ];
         const missing = curatedDefs.filter((d) => !haveKeys.has(d.section_key));
         if (missing.length) await base44.asServiceRole.entities.HomepageSection.bulkCreate(missing);

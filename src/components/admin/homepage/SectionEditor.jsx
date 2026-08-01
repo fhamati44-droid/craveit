@@ -52,7 +52,7 @@ export default function SectionEditor({ section, onClose, onSaved }) {
       const sid = saved.id;
       // Build items to persist based on type
       let toSave = [];
-      if (itemType === 'hero' || itemType === 'promo_banner') {
+      if (itemType === 'hero' || itemType === 'promo_banner' || itemType === 'editorial_banner') {
         if (settings.media_id) toSave.push({ item_type: 'media', media_id: settings.media_id, display_order: 0, enabled: true });
       } else if (itemType === 'most_ordered' || itemType === 'popular_meals') {
         if (form.selection_mode === 'manual') {
@@ -70,7 +70,7 @@ export default function SectionEditor({ section, onClose, onSaved }) {
         toSave = items.filter((it) => it.item_type === 'suggestion').map((it, i) => ({ item_type: 'suggestion', suggestion_id: it.suggestion_id, display_order: i, enabled: true }));
       } else if (itemType === 'active_deal' || itemType === 'upcoming_deal') {
         if (form.selection_mode === 'manual') toSave = items.filter((it) => it.item_type === 'deal').map((it, i) => ({ item_type: 'deal', deal_id: it.deal_id, display_order: i, enabled: true }));
-      } else if (['tamam_picks', 'family_meals', 'quick_meals', 'home_style_meals', 'new_meals', 'desserts_snacks'].includes(itemType)) {
+      } else if (['tamam_picks', 'family_meals', 'quick_meals', 'home_style_meals', 'new_meals', 'desserts_snacks', 'lunch_meals', 'complete_order'].includes(itemType)) {
         if (form.selection_mode === 'manual') {
           toSave = items.filter((it) => it.item_type === 'meal').map((it, i) => ({ item_type: 'meal', meal_id: it.meal_id, restaurant_id: it.restaurant_id, display_order: i, enabled: true }));
         }
@@ -291,7 +291,11 @@ function renderTypeEditor(type, ctx) {
     case 'home_style_meals':
     case 'new_meals':
     case 'desserts_snacks':
-      return <CuratedMealsEditor form={form} set={set} settings={settings} setSettings={setSettings} items={items} setItems={setItems} itemIds={itemIds} isTamamPicks={type === 'tamam_picks'} />;
+    case 'lunch_meals':
+    case 'complete_order':
+      return <CuratedMealsEditor form={form} set={set} settings={settings} setSettings={setSettings} items={items} setItems={setItems} itemIds={itemIds} isTamamPicks={type === 'tamam_picks'} isLunch={type === 'lunch_meals'} />;
+    case 'editorial_banner':
+      return <EditorialBannerEditor form={form} set={set} settings={settings} setSettings={setSettings} />;
     case 'budget_meals':
       return <BudgetEditor settings={settings} setSettings={setSettings} />;
     default:
@@ -351,7 +355,7 @@ function RestaurantMultiPicker({ items, setItems, itemIds }) {
   );
 }
 
-function CuratedMealsEditor({ form, set, settings, setSettings, items, setItems, itemIds, isTamamPicks }) {
+function CuratedMealsEditor({ form, set, settings, setSettings, items, setItems, itemIds, isTamamPicks, isLunch }) {
   const autoMode = settings.auto_mode || 'manual';
   return (
     <div className="space-y-3">
@@ -386,7 +390,32 @@ function CuratedMealsEditor({ form, set, settings, setSettings, items, setItems,
       {form.selection_mode === 'manual' && items.filter((it) => it.item_type === 'meal').length > 0 && items.every((it) => it.item_type !== 'meal' || it.meal_id) && (
         <p className="text-[11px] text-amber-500 bg-amber-500/10 rounded-lg p-2">تأكد من توفّر كل الوجبات المختارة. إذا كانت كلها غير متاحة سيُخفى القسم.</p>
       )}
+      {isLunch && (
+        <div className="bg-surface-container rounded-xl p-3 space-y-2 border border-outline-variant/30">
+          <p className="text-xs font-bold">جدولة ساعات العرض (اختياري)</p>
+          <div><label className="text-[10px] text-on-surface-variant block mb-0.5">ساعات نشاط القسم (HH:MM-HH:MM)</label><input value={settings.active_hours || ''} onChange={(e) => setSettings({ active_hours: e.target.value })} placeholder="10:30-16:30" dir="ltr" className="w-full bg-surface-high rounded-lg p-2 text-sm outline-none" /></div>
+          <p className="text-[10px] text-on-surface-variant">اتركه فارغ لعرض القسم دائمًا. مثال: 10:30-16:30 يعرضه خلال ساعات الغدا فقط.</p>
+        </div>
+      )}
       {isTamamPicks && <MostOrderedThresholdEditor settings={settings} setSettings={setSettings} />}
+    </div>
+  );
+}
+
+function EditorialBannerEditor({ form, set, settings, setSettings }) {
+  return (
+    <div className="space-y-3">
+      <div><label className="text-[11px] text-on-surface-variant block mb-1">نوع الوسائط</label><select value={settings.media_kind || 'image'} onChange={(e) => setSettings({ media_kind: e.target.value })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30"><option value="image">صورة</option><option value="video">فيديو</option></select></div>
+      <div><label className="text-[11px] text-on-surface-variant block mb-1">{settings.media_kind?.includes('video') ? 'ملف الفيديو' : 'الصورة'}</label><MediaSelector value={settings.media_id || ''} onChange={(id) => setSettings({ media_id: id })} mediaType={settings.media_kind?.includes('video') ? 'video' : 'image'} /></div>
+      {settings.media_kind?.includes('video') && <div><label className="text-[11px] text-on-surface-variant block mb-1">صورة الغلاف (Poster)</label><MediaSelector value={settings.poster_media_id || ''} onChange={(id) => setSettings({ poster_media_id: id })} mediaType="image" /></div>}
+      <div><label className="text-[11px] text-on-surface-variant block mb-1">نمط العرض</label><select value={settings.layout || 'large'} onChange={(e) => setSettings({ layout: e.target.value })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30"><option value="large">بانر كبير</option><option value="compact">بانر أفقي مصغر</option></select></div>
+      <div><label className="text-[11px] text-on-surface-variant block mb-1">عنوان رئيسي</label><input value={settings.headline || ''} onChange={(e) => setSettings({ headline: e.target.value })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30" /></div>
+      <div><label className="text-[11px] text-on-surface-variant block mb-1">نص مساعد</label><input value={settings.subtitle || ''} onChange={(e) => setSettings({ subtitle: e.target.value })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30" /></div>
+      <div><label className="text-[11px] text-on-surface-variant block mb-1">شارة (اختياري)</label><input value={settings.badge || ''} onChange={(e) => setSettings({ badge: e.target.value })} placeholder="مثال: جديد / عرض" className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30" /></div>
+      <div><label className="text-[11px] text-on-surface-variant block mb-1">نص الزر</label><input value={settings.cta_label || ''} onChange={(e) => setSettings({ cta_label: e.target.value })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30" /></div>
+      <div><label className="text-[11px] text-on-surface-variant block mb-2">وجهة الزر (اختر مود لبانر آخر الليل)</label><InternalRouteSelector routeKey={settings.cta_route_key || ''} routeParams={settings.cta_route_params || {}} onChange={(r) => setSettings({ cta_route_key: r.routeKey, cta_route_params: r.routeParams })} /></div>
+      <div><label className="text-[11px] text-on-surface-variant block mb-1">مود محدد (يغطي الوجهة أعلاه) — اكتب معرف المود</label><input value={settings.mood_id || ''} onChange={(e) => setSettings({ mood_id: e.target.value })} placeholder="اتركه فارغ لاستخدام الوجهة" dir="ltr" className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30" /></div>
+      <div><label className="text-[11px] text-on-surface-variant block mb-1">قوة التعتيم (0-100)</label><input type="number" min="0" max="100" value={settings.overlay_strength ?? 55} onChange={(e) => setSettings({ overlay_strength: Number(e.target.value) })} className="w-full bg-surface-container rounded-xl p-2.5 text-sm outline-none border border-outline-variant/30" /></div>
     </div>
   );
 }

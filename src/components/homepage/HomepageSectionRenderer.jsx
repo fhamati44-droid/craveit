@@ -105,7 +105,11 @@ export default function HomepageSectionRenderer({ section, items = [], draft = f
     case 'home_style_meals':
     case 'new_meals':
     case 'desserts_snacks':
+    case 'lunch_meals':
+    case 'complete_order':
       return wrap(<CuratedMealsPreview section={section} settings={settings} items={sectionItems} navigate={navigate} />);
+    case 'editorial_banner':
+      return wrap(<EditorialBannerPreview section={section} settings={settings} items={sectionItems} navigate={navigate} />);
     case 'budget_meals':
       return wrap(<BudgetPreview section={section} settings={settings} navigate={navigate} />);
     default:
@@ -390,6 +394,29 @@ function CuratedMealsPreview({ section, settings, items, navigate }) {
       <div className="flex gap-3 overflow-x-auto no-scrollbar">
         {meals.map((m) => <PopularMealCard key={m.id} meal={{ ...m, name: m.name_ar || m.name, restaurantName: m.restaurant_name, restaurantId: m.restaurant_id, image_url: m.image_url, price: m.price }} onOpen={() => navigate(`/restaurants/${m.restaurant_id}?meal=${m.id}`)} />)}
       </div>
+    </div>
+  );
+}
+
+function EditorialBannerPreview({ section, settings, items, navigate }) {
+  const mediaItem = items.find((it) => it.item_type === 'media');
+  const [media, setMedia] = useState(null);
+  useEffect(() => {
+    if (!mediaItem?.media_id) return;
+    base44.entities.HomepageMedia.get(mediaItem.media_id).then(setMedia).catch(() => null);
+  }, [mediaItem?.media_id]);
+  const isVideo = (settings.media_kind || '').includes('video') || (media && media.media_type === 'video');
+  const dest = settings.mood_id ? `/tamam-suggestions/${settings.mood_id}` : (section.view_all_route || '/restaurants');
+  return (
+    <div className="space-y-2">
+      <h2 className="text-headline-md font-bold">{settings.headline || section.title}</h2>
+      {settings.subtitle && <p className="text-xs text-on-surface-variant">{settings.subtitle}</p>}
+      <button onClick={() => navigate(dest)} className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden block bg-surface-container-high">
+        {media?.file_url ? (isVideo ? <video src={media.file_url} poster={media.poster_image_url} controls className="w-full h-full object-cover" /> : <img src={media.file_url} alt={settings.headline || ''} referrerPolicy="no-referrer" className="w-full h-full object-cover" />) : <div className="w-full h-full flex items-center justify-center text-on-surface-variant text-sm">لا توجد وسائط — اختر صورة/فيديو</div>}
+        <div className="absolute bottom-2 right-2 left-2 text-right">
+          {settings.cta_label && <span className="inline-block bg-primary text-on-primary text-xs font-bold px-3 py-1.5 rounded-full">{settings.cta_label}</span>}
+        </div>
+      </button>
     </div>
   );
 }

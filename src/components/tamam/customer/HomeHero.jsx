@@ -12,7 +12,7 @@ export default function HomeHero({ hero }) {
   const fileUrl = resolvePublicMedia(h.file_url, null);
   const posterUrl = resolvePublicMedia(h.poster_url, null);
   const headline = h.headline || 'محتار شو تاكل اليوم؟';
-  const supporting = h.supporting_text || 'خلّي TAMAM يساعدك تختار حسب مودك.';
+  const supporting = h.supporting_text || 'خلّي TAMAM يساعدك تختار الوجبة اللي بتناسب مودك.';
   const ctaLabel = h.cta_label || 'ساعدني أختار';
   const ctaRoute = h.cta_route || '/tamam-game';
 
