@@ -17,6 +17,17 @@ export const getActiveMoods = async () => {
   return (list || []).filter(m => m.is_active);
 };
 
+// Moods that have at least one active suggestion set — for the game
+export const getPlayableMoods = async () => {
+  const [moods, sets] = await Promise.all([
+    base44.entities.TamamMood.list('sort_order', 100),
+    base44.entities.TamamSuggestionSet.filter({ is_active: true }, 'sort_order', 500).catch(() => []),
+  ]);
+  const activeMoods = (moods || []).filter(m => m.is_active);
+  const moodsWithSuggestions = new Set((sets || []).map(s => s.mood_id).filter(Boolean));
+  return activeMoods.filter(m => moodsWithSuggestions.has(m.id));
+};
+
 export const getAllMoods = () => base44.entities.TamamMood.list('sort_order', 200);
 export const createMood = (data) => base44.entities.TamamMood.create(data);
 export const updateMood = (id, data) => base44.entities.TamamMood.update(id, data);
