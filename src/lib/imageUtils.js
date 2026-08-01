@@ -3,6 +3,48 @@
  * Strips blob:, localhost, and HTTP-mixed-content URLs.
  * Resolves object-shaped values (e.g. { public_url, file_url }) to a string.
  */
+const DRIVE_PATTERNS = [
+  /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
+  /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/,
+  /drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/,
+  /[?&]id=([a-zA-Z0-9_-]+)/,
+  /lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/,
+];
+
+/** Extract a Google Drive file ID from any common share-link format. */
+export function extractGoogleDriveFileId(value) {
+  if (!value) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  for (const p of DRIVE_PATTERNS) {
+    const m = text.match(p);
+    if (m && m[1]) return m[1];
+  }
+  return null;
+}
+
+/** Normalize a Google Drive viewer link to a direct googleusercontent content URL. */
+export function normalizeGoogleDriveImageUrl(value) {
+  const fileId = extractGoogleDriveFileId(value);
+  if (!fileId) return null;
+  return `https://lh3.googleusercontent.com/d/${fileId}`;
+}
+
+/** Detect whether a resolved URL points to Google-hosted media. */
+export function isGoogleMediaImage(url) {
+  if (!url) return false;
+  return /googleusercontent\.com|drive\.google\.com|drive\.usercontent\.google\.com/.test(String(url));
+}
+
+/** Pick the first valid media value from a priority-ordered list of field values. */
+export function firstValidMedia(...values) {
+  for (const v of values) {
+    const r = resolvePublicMedia(v);
+    if (r) return r;
+  }
+  return null;
+}
+
 export function resolvePublicMedia(value, fallback = null) {
   if (!value) return fallback;
 
@@ -62,17 +104,10 @@ export function resolvePublicMedia(value, fallback = null) {
     return `${window.location.origin}${text}`;
   }
 
-  // Google Drive file viewer URLs are not direct image links — convert to thumbnail.
-  const driveMatch = text.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (driveMatch) {
-    return `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1000`;
-  }
-  const openMatch = text.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
-  if (openMatch) {
-    return `https://drive.google.com/thumbnail?id=${openMatch[1]}&sz=w1000`;
-  }
-  if (text.includes('drive.google.com/uc?') && !text.includes('export=view')) {
-    return text + '&export=view';
+  // Google Drive viewer links → direct googleusercontent content URL (no redirect, renders in production)
+  if (/drive\.google\.com|lh3\.googleusercontent\.com/.test(text)) {
+    const normalized = normalizeGoogleDriveImageUrl(text);
+    if (normalized) return normalized;
   }
 
   return text;

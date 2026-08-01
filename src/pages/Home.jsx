@@ -135,7 +135,7 @@ export default function Home() {
 
       <section className="px-4 py-4 space-y-4">
         <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border border-outline-variant/20">
-          {heroImg ? <img alt="Hero Feast" className="w-full h-full object-cover" src={resolvePublicImage(heroImg)} onError={handleImageError} /> : <div className="w-full h-full bg-surface-container-high" />}
+          {heroImg ? <img alt="Hero Feast" className="w-full h-full object-cover" src={resolvePublicImage(heroImg)} onError={handleImageError} referrerPolicy="no-referrer" /> : <div className="w-full h-full bg-surface-container-high" />}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
           <div className="absolute bottom-4 right-4 inline-block bg-tertiary text-on-tertiary px-3 py-1 text-[10px] font-bold rounded-full">جديد: ذكاء TAMAM</div>
         </div>
@@ -260,7 +260,7 @@ function SuggestionLargeCard({ set, meals, onChoose }) {
     <div className="bg-surface border border-primary/30 rounded-2xl overflow-hidden shadow-2xl relative">
       <div className="absolute top-3 left-3 bg-primary text-on-primary text-[10px] font-bold px-2 py-1 rounded-full z-10 shadow-md">اختيار TAMAM</div>
       <div className="h-52 overflow-hidden bg-surface-container-high">
-        {card.imageUrl ? <img alt={card.name} className="w-full h-full object-cover" src={resolvePublicImage(card.imageUrl)} onError={handleImageError} /> : <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>}
+        {card.imageUrl ? <img alt={card.name} className="w-full h-full object-cover" src={resolvePublicImage(card.imageUrl)} onError={handleImageError} referrerPolicy="no-referrer" /> : <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>}
       </div>
       <div className="p-4 space-y-3">
         <div className="flex justify-between items-start">
@@ -288,7 +288,7 @@ function NearbyCard({ r, onOpen }) {
   return (
     <button onClick={onOpen} className="text-right bg-surface-container border border-outline-variant/30 rounded-2xl overflow-hidden active:scale-95 transition-transform">
       <div className="relative h-24">
-        {c.coverUrl ? <img className="w-full h-full object-cover" src={resolvePublicImage(c.coverUrl)} alt={c.name} onError={handleImageError} /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-2xl">🏪</div>}
+        {c.coverUrl ? <img className="w-full h-full object-cover" src={resolvePublicImage(c.coverUrl)} alt={c.name} onError={handleImageError} referrerPolicy="no-referrer" /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-2xl">🏪</div>}
         <span className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${c.isOpen ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-error/10 text-error border border-error/20'}`}>{c.isOpen ? 'مفتوح' : 'مغلق'}</span>
       </div>
       <div className="p-2.5">

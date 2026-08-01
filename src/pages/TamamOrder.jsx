@@ -158,7 +158,7 @@ export default function TamamOrder() {
           return (
             <div key={it.id} className="rounded-2xl bg-[#0B1A14]/80 border border-white/10 p-3 flex gap-3">
               <div className="w-20 h-20 rounded-xl overflow-hidden bg-black/40 flex-shrink-0">
-                {m?.image_url ? <img src={resolvePublicMedia(m.image_url)} alt="" className="w-full h-full object-cover" onError={handleImageError} />
+                {m?.image_url ? <img src={resolvePublicMedia(m.image_url)} alt="" className="w-full h-full object-cover" onError={handleImageError} referrerPolicy="no-referrer" />
                   : <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>}
               </div>
               <div className="flex-1 min-w-0">

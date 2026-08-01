@@ -15,6 +15,7 @@ export default function PublicImage({ source, src, fallback = PLACEHOLDER_IMAGE,
       className={className}
       loading="lazy"
       decoding="async"
+      referrerPolicy="no-referrer"
       onError={(e) => handleImageError(e, fallback)}
     />
   );

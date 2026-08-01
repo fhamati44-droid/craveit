@@ -12,6 +12,9 @@ export default function SystemCheck() {
   const [checking, setChecking] = useState(null);
   const [moodDiag, setMoodDiag] = useState(null);
   const [moodDiagLoading, setMoodDiagLoading] = useState(false);
+  const [driveDiag, setDriveDiag] = useState(null);
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveMigrating, setDriveMigrating] = useState(false);
 
   const run = useCallback(async () => {
     setLoading(true);
@@ -114,6 +117,29 @@ export default function SystemCheck() {
       setMoodDiagLoading(false);
     }
   };
+  const runDriveDiag = async () => {
+    setDriveLoading(true);
+    try {
+      const res = await base44.functions.invoke('homepageEngine', { action: 'diagnoseDriveImages' });
+      setDriveDiag(res?.data?.data || res?.data || null);
+    } catch (e) {
+      console.error('Drive diagnostic error', e);
+      setDriveDiag({ error: e?.message || 'فشل الفحص' });
+    } finally { setDriveLoading(false); }
+  };
+  const migrateDriveImages = async () => {
+    if (!confirm('سيتم نسخ صور Google Drive إلى تخزين TAMAM وتحديث السجلات. متابعة؟')) return;
+    setDriveMigrating(true);
+    try {
+      const res = await base44.functions.invoke('homepageEngine', { action: 'migrateDriveImages' });
+      const data = res?.data?.data || res?.data || {};
+      alert(`تم النسخ: ${data.migrated || 0}\nفشل: ${data.failed || 0}`);
+      await runDriveDiag();
+    } catch (e) {
+      console.error('Drive migration error', e);
+      alert('فشل النسخ: ' + (e?.message || ''));
+    } finally { setDriveMigrating(false); }
+  };
   const reloadPublished = async () => {
     setChecking('reload');
     try {
@@ -215,6 +241,33 @@ export default function SystemCheck() {
               ))}
             </div>
           )}
+        </section>
+
+        <section>
+          <h2 className="text-sm font-bold mb-2 px-1">صور Google Drive</h2>
+          <div className="space-y-1.5">
+            <Stat label="إجمالي روابط Drive" value={driveDiag?.total ?? '—'} />
+            <Stat label="ملفات فريدة" value={driveDiag?.uniqueFiles ?? '—'} />
+            <Stat label="عامة (تعمل)" value={driveDiag?.publicOk ?? '—'} ok={driveDiag ? driveDiag.publicOk > 0 : undefined} />
+            <Stat label="خاصة/مكسورة" value={driveDiag?.private ?? '—'} ok={driveDiag ? driveDiag.private === 0 : undefined} />
+            <Stat label="روابط مجلدات" value={driveDiag?.folders ?? '—'} ok={driveDiag ? driveDiag.folders === 0 : undefined} />
+          </div>
+          {driveDiag?.records?.filter(x => !x.publicOk).slice(0, 6).map((rec, i) => (
+            <div key={i} className="mt-2 bg-surface-container/50 border border-outline-variant/20 rounded-lg p-2 text-[10px] space-y-0.5">
+              <div className="font-bold text-on-surface-variant">{rec.entity}: {rec.title || rec.id?.substring(0, 8)}</div>
+              <div className="text-error">HTTP {rec.httpStatus} · {rec.contentType || '—'}</div>
+              <div className="text-on-surface-variant truncate" dir="ltr">{rec.url?.substring(0, 80)}</div>
+            </div>
+          ))}
+          {driveDiag?.error && <div className="mt-2 bg-error/10 border border-error/30 rounded-xl p-3 text-xs text-error">{driveDiag.error}</div>}
+          <div className="flex flex-wrap gap-2 mt-3">
+            <button onClick={runDriveDiag} disabled={driveLoading} className="px-4 py-2.5 rounded-full bg-surface-container border border-outline-variant/30 text-sm font-bold flex items-center gap-2 disabled:opacity-50">
+              <Icon name="image_search" className="text-[18px]" /> {driveLoading ? 'جاري...' : 'فحص صور Drive'}
+            </button>
+            <button onClick={migrateDriveImages} disabled={driveMigrating} className="px-4 py-2.5 rounded-full bg-primary text-on-primary text-sm font-bold flex items-center gap-2 disabled:opacity-50">
+              <Icon name="cloud_upload" className="text-[18px]" /> {driveMigrating ? 'جاري النسخ...' : 'نسخ إلى تخزين TAMAM'}
+            </button>
+          </div>
         </section>
 
         <div className="flex flex-wrap gap-2 pt-2">

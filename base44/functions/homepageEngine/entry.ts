@@ -7,6 +7,26 @@ function parseJSON(str, fallback) {
   try { return JSON.parse(str); } catch { return fallback; }
 }
 
+function extractDriveId(value) {
+  if (!value) return null;
+  const text = String(value).trim();
+  const patterns = [
+    /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/,
+    /drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/,
+    /[?&]id=([a-zA-Z0-9_-]+)/,
+    /lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/,
+  ];
+  for (const p of patterns) { const m = text.match(p); if (m && m[1]) return m[1]; }
+  return null;
+}
+
+const DRIVE_ENTITIES = [
+  { entity: 'TamamSuggestionSet', field: 'hero_image_url', label: 'اقتراح' },
+  { entity: 'TamamMood', field: 'image_url', label: 'مود' },
+  { entity: 'GroupDeal', field: 'hero_image', label: 'عرض جماعي' },
+];
+
 // Section metadata for validation and defaults
 const SECTION_META = {
   hero: { label: 'البانر الرئيسي', requiresMedia: true },
@@ -197,6 +217,80 @@ export default async function(req) {
       case 'listVersions': {
         const versions = await base44.asServiceRole.entities.HomepageVersion.list('-version_number', 100);
         return Response.json({ data: versions || [] });
+      }
+      case 'diagnoseDriveImages': {
+        const driveRe = /drive\.google\.com|lh3\.googleusercontent\.com|docs\.google\.com/;
+        const records = [];
+        for (const s of DRIVE_ENTITIES) {
+          let all = [];
+          try { all = await base44.asServiceRole.entities[s.entity].list('-created_date', 500); } catch (e) { console.error('diag list error', s.entity, e); }
+          for (const r of (all || [])) {
+            const v = r[s.field];
+            if (!v || !driveRe.test(String(v))) continue;
+            const fileId = extractDriveId(String(v));
+            let httpStatus = null, contentType = null;
+            if (fileId) {
+              try {
+                const res = await fetch(`https://lh3.googleusercontent.com/d/${fileId}`, { headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow' });
+                httpStatus = res.status;
+                contentType = res.headers.get('content-type');
+              } catch (e) { httpStatus = 'fetch_error'; console.error('drive fetch error', fileId, e); }
+            }
+            records.push({
+              entity: s.entity, id: r.id, field: s.field, label: s.label,
+              title: r.title_ar || r.title || r.name_ar || '',
+              url: String(v).substring(0, 200), fileId,
+              httpStatus, contentType,
+              publicOk: httpStatus === 200 && contentType && contentType.startsWith('image/'),
+              isFolder: /drive\.google\.com\/drive\/folders\//.test(String(v)),
+            });
+          }
+        }
+        const uniqueFiles = [...new Set(records.map(r => r.fileId).filter(Boolean))];
+        return Response.json({ data: {
+          total: records.length,
+          uniqueFiles: uniqueFiles.length,
+          publicOk: records.filter(r => r.publicOk).length,
+          private: records.filter(r => r.fileId && !r.publicOk).length,
+          folders: records.filter(r => r.isFolder).length,
+          records,
+        }});
+      }
+      case 'migrateDriveImages': {
+        const driveRe = /drive\.google\.com/;
+        const results = [];
+        for (const s of DRIVE_ENTITIES) {
+          let all = [];
+          try { all = await base44.asServiceRole.entities[s.entity].list('-created_date', 500); } catch (e) { console.error('migrate list error', s.entity, e); }
+          for (const r of (all || [])) {
+            const v = r[s.field];
+            if (!v || !driveRe.test(String(v))) continue;
+            const fileId = extractDriveId(String(v));
+            if (!fileId) { results.push({ id: r.id, entity: s.entity, status: 'no_file_id' }); continue; }
+            try {
+              const imgRes = await fetch(`https://lh3.googleusercontent.com/d/${fileId}`, { headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow' });
+              const ct = imgRes.headers.get('content-type') || '';
+              if (!imgRes.ok || !ct.startsWith('image/')) {
+                results.push({ id: r.id, entity: s.entity, fileId, status: 'not_public', httpStatus: imgRes.status, contentType: ct });
+                continue;
+              }
+              const blob = await imgRes.blob();
+              const upload = await base44.asServiceRole.integrations.Core.UploadFile({ file: blob });
+              const newUrl = upload?.file_url || upload?.url || (upload?.data && (upload.data.file_url || upload.data.url));
+              if (!newUrl) { results.push({ id: r.id, entity: s.entity, fileId, status: 'upload_failed' }); continue; }
+              await base44.asServiceRole.entities[s.entity].update(r.id, { [s.field]: newUrl });
+              results.push({ id: r.id, entity: s.entity, fileId, status: 'migrated', newUrl });
+            } catch (e) {
+              console.error('drive migration error', r.id, e);
+              results.push({ id: r.id, entity: s.entity, fileId, status: 'error', error: String(e).substring(0, 150) });
+            }
+          }
+        }
+        return Response.json({ data: {
+          migrated: results.filter(r => r.status === 'migrated').length,
+          failed: results.filter(r => r.status !== 'migrated').length,
+          results,
+        }});
       }
       case 'rollbackToVersion': {
         const versions = await base44.asServiceRole.entities.HomepageVersion.list('-version_number', 500);
