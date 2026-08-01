@@ -5,14 +5,16 @@ import { resolvePublicImage, PLACEHOLDER_IMAGE, handleImageError } from '@/lib/i
  * Resolves media values (string, object, array) and shows a fallback on error.
  * Prevents infinite onError loops.
  */
-export default function PublicImage({ src, fallback = PLACEHOLDER_IMAGE, alt = '', className = '', ...props }) {
-  const resolved = resolvePublicImage(src, fallback);
+export default function PublicImage({ source, src, fallback = PLACEHOLDER_IMAGE, alt = '', className = '', ...props }) {
+  const resolved = resolvePublicImage(source ?? src, fallback);
   return (
     <img
       {...props}
       src={resolved || fallback}
       alt={alt}
       className={className}
+      loading="lazy"
+      decoding="async"
       onError={(e) => handleImageError(e, fallback)}
     />
   );

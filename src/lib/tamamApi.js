@@ -44,6 +44,17 @@ export const getMoodWithSuggestions = async (moodId) => {
   };
 };
 
+// Single suggestion set + items + mood — for the TAMAM order page
+export const getPublicSuggestionSet = async (setId) => {
+  const result = await moodEngine('getPublicSuggestionSet', { set_id: setId });
+  if (!result) return { set: null, items: [], mood: null };
+  return {
+    set: result.set || null,
+    items: extractRecords(result.items),
+    mood: result.mood ? normalizeMood(result.mood) : null,
+  };
+};
+
 // All active moods via backend (for catalog filter dropdown)
 export const getActiveMoods = async () => {
   const records = await moodEngine('getPublicMoods');

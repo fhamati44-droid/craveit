@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowRight, Minus, Plus, AlertTriangle } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
-import { createOrder } from '@/lib/api';
-import { trackEvent } from '@/lib/tamamApi';
-import TamamCheckoutSheet from '@/components/tamam/TamamCheckoutSheet';
-import OrderSuccessSheet from '@/components/tamam/OrderSuccessSheet';
+import { trackEvent, getPublicSuggestionSet } from '@/lib/tamamApi';
+import { useCart } from '@/lib/CartContext';
+import { resolvePublicMedia, handleImageError } from '@/lib/imageUtils';
+import AddToCartSuccessSheet from '@/components/tamam/customer/AddToCartSuccessSheet';
 
 export default function TamamOrder() {
   const { suggestionSetId } = useParams();
@@ -19,21 +18,18 @@ export default function TamamOrder() {
   const [quantities, setQuantities] = useState({});
   const [notes, setNotes] = useState({});
   const [loading, setLoading] = useState(true);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [success, setSuccess] = useState(null);
+  const { addItem, totalItems } = useCart();
+  const [submitting, setSubmitting] = useState(false);
+  const [added, setAdded] = useState(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        const s = await base44.entities.TamamSuggestionSet.get(suggestionSetId);
+        const { set: s, items: rawItems, mood: m } = await getPublicSuggestionSet(suggestionSetId);
         setSet(s);
-        if (s?.mood_id) {
-          const m = await base44.entities.TamamMood.get(s.mood_id).catch(() => null);
-          setMood(m);
-        }
-        const its = await base44.entities.TamamSuggestionItem.filter({ suggestion_set_id: suggestionSetId });
-        its.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        setMood(m);
+        const its = [...(rawItems || [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
         setItems(its);
         const q = {};
         its.forEach(i => { q[i.id] = i.quantity || 1; });
@@ -76,63 +72,42 @@ export default function TamamOrder() {
     return m && m.is_available === false;
   });
 
-  const submitOrder = async ({ name, phone, orderType, address, location, notes: orderNotes }) => {
-    const orderItems = items.map(it => {
+  const addToCart = () => {
+    if (submitting) return; // idempotency lock — prevent double-add
+    const unavailable = items.some(it => {
       const m = mealFor(it);
-      return {
-        item_id: it.meal_id,
-        name: m?.name || '—',
-        quantity: quantities[it.id] || 1,
-        price: unitPrice(it),
-        extras: it.selected_addon_ids || [],
-        notes: notes[it.id] || '',
-        tamam: true,
-        restaurant_id: it.restaurant_id,
-      };
+      return m && m.is_available === false;
     });
-    const itemsStr = items.map(it => {
-      const m = mealFor(it);
-      const r = restFor(it);
-      return `${quantities[it.id] || 1}x ${m?.name || '—'}${r ? ' (' + r.name + ')' : ''}`;
-    }).join(' | ');
-    const restId = items[0]?.restaurant_id;
-    const kitchenId = restId ? restaurants[restId]?.kitchen_id || 1 : 1;
-
-    const typeLabel = { delivery: 'משלוח', pickup: 'איסוף עצמי', dinein: 'ישיבה במקום' }[orderType] || '';
-    const fullNotes = [
-      orderNotes || '',
-      `סוג: ${typeLabel}`,
-      location?.latitude ? `מיקום: ${location.latitude},${location.longitude}` : '',
-    ].filter(Boolean).join(' · ');
-
+    if (unavailable) { alert('بعض الوجبات غير متاحة حاليًا. عدّل الكميات أو جرّب لاحقًا.'); return; }
+    setSubmitting(true);
     try {
-      const order = await createOrder({
-        customer_name: name,
-        phone,
-        address: orderType === 'delivery' ? address : null,
-        notes: fullNotes || null,
-        kitchen_id: kitchenId,
-        courier_id: null,
-        channel: 'TAMAM',
-        items: itemsStr,
-        order_items: orderItems,
-        drinks: null,
-        dessert: null,
-        quantity: Object.values(quantities).reduce((a, b) => a + b, 0),
-        amount: total,
-        status: 'new',
+      const restId = items[0]?.restaurant_id;
+      const restObj = restId ? restaurants[restId] : null;
+      const restInfo = restObj
+        ? { id: restId, name: restObj.name || restObj.name_ar || 'TAMAM', ...restObj }
+        : { id: restId || 0, name: 'TAMAM' };
+      let addedQty = 0;
+      items.forEach(it => {
+        const m = mealFor(it);
+        const qty = quantities[it.id] || 1;
+        addItem({
+          id: it.meal_id,
+          name: m?.name_ar || m?.name || '—',
+          price: unitPrice(it),
+          image_url: m?.image_url,
+          quantity: qty,
+          extras: [],
+          note: notes[it.id] || '',
+          suggestion_id: suggestionSetId,
+          package_type: set?.package_level,
+          mood_id: set?.mood_id,
+          restaurant_id: it.restaurant_id,
+        }, restInfo);
+        addedQty += qty;
       });
-      trackEvent({ action: 'order_completed', mood_id: mood?.id, suggestion_set_id: suggestionSetId, package_level: set?.package_level });
-      setShowCheckout(false);
-      setSuccess({
-        orderNumber: `NJ-${order?.id || ''}`,
-        customerName: name,
-        total,
-      });
-    } catch (err) {
-      alert(`שגיאה בשליחת ההזמנה: ${err.message}`);
-      setShowCheckout(false);
-    }
+      trackEvent({ action: 'order_started', mood_id: mood?.id, suggestion_set_id: suggestionSetId, package_level: set?.package_level });
+      setAdded({ title: set?.title_ar || 'اقتراح TAMAM', quantity: addedQty, subtotal: total });
+    } finally { setSubmitting(false); }
   };
 
   if (loading) {
@@ -183,7 +158,7 @@ export default function TamamOrder() {
           return (
             <div key={it.id} className="rounded-2xl bg-[#0B1A14]/80 border border-white/10 p-3 flex gap-3">
               <div className="w-20 h-20 rounded-xl overflow-hidden bg-black/40 flex-shrink-0">
-                {m?.image_url ? <img src={m.image_url} alt="" className="w-full h-full object-cover" />
+                {m?.image_url ? <img src={resolvePublicMedia(m.image_url)} alt="" className="w-full h-full object-cover" onError={handleImageError} />
                   : <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>}
               </div>
               <div className="flex-1 min-w-0">
@@ -228,29 +203,22 @@ export default function TamamOrder() {
             <p className="text-white/50 text-[11px]">الإجمالي التقديري</p>
             <p className="font-extrabold text-xl text-[#3DEB8B]">₪{Math.round(total)}</p>
           </div>
-          <button onClick={() => { trackEvent({ action: 'order_started', mood_id: mood?.id, suggestion_set_id: suggestionSetId, package_level: set?.package_level }); setShowCheckout(true); }}
-            className="flex-1 bg-[#3DEB8B] text-black font-extrabold py-3.5 rounded-2xl">
-            متابعة الطلب
+          <button onClick={addToCart} disabled={submitting}
+            className="flex-1 bg-[#3DEB8B] text-black font-extrabold py-3.5 rounded-2xl disabled:opacity-60">
+            {submitting ? 'جاري الإضافة...' : 'أضف للسلة'}
           </button>
         </div>
       </div>
 
-      <TamamCheckoutSheet
-        open={showCheckout}
-        onClose={() => setShowCheckout(false)}
-        total={total}
-        mood={mood}
-        packageLevel={set.package_level}
-        suggestionTitle={set.title_ar}
-        onSubmit={submitOrder}
-      />
-
-      <OrderSuccessSheet
-        open={!!success}
-        orderNumber={success?.orderNumber}
-        customerName={success?.customerName}
-        total={success?.total}
-        onClose={() => { setSuccess(null); navigate('/'); }}
+      <AddToCartSuccessSheet
+        open={!!added}
+        title={added?.title}
+        quantity={added?.quantity}
+        subtotal={added?.subtotal}
+        cartCount={totalItems}
+        onClose={() => setAdded(null)}
+        onContinue={() => { setAdded(null); navigate('/cart'); }}
+        onKeepBrowsing={() => setAdded(null)}
       />
     </div>
   );

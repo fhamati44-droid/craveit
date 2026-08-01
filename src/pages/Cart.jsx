@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/lib/CartContext';
 import { getMenuItemsByRestaurant } from '@/lib/api';
+import { resolvePublicMedia, handleImageError } from '@/lib/imageUtils';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 
@@ -35,7 +36,7 @@ export default function Cart() {
       {/* Restaurant header */}
       {restaurant && (
         <div className="mx-4 relative overflow-hidden rounded-xl bg-surface-container p-3 flex items-center gap-3 mb-4">
-          <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-surface-variant">{restaurant.image_url || restaurant.logo_url ? <img className="w-full h-full object-cover" src={restaurant.image_url || restaurant.logo_url} alt="" /> : <div className="w-full h-full flex items-center justify-center text-2xl">🏪</div>}</div>
+          <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-surface-variant">{restaurant.image_url || restaurant.logo_url ? <img className="w-full h-full object-cover" src={resolvePublicMedia(restaurant.image_url || restaurant.logo_url)} onError={handleImageError} alt="" /> : <div className="w-full h-full flex items-center justify-center text-2xl">🏪</div>}</div>
           <div className="flex-1">
             <div className="flex items-center gap-1"><h2 className="font-bold">{restaurant.name}</h2>{restaurant.is_open !== false && <Icon name="verified" className="text-primary text-[18px]" />}</div>
             <p className="text-label-sm text-on-surface-variant">{restaurant.delivery_time ? `توصيل خلال ${restaurant.delivery_time} دقيقة` : 'توصيل سريع'}</p>
@@ -50,7 +51,7 @@ export default function Cart() {
       <div className="px-4 flex flex-col gap-3 mb-6">
         {items.map(it => (
           <div key={it.cartId} className="bg-surface-container-low rounded-xl p-3 flex gap-3 active:scale-[0.98] transition-transform">
-            <div className="w-20 h-20 rounded-lg overflow-hidden bg-surface-variant flex-shrink-0">{it.image_url ? <img className="w-full h-full object-cover" src={it.image_url} alt={it.name} /> : <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>}</div>
+            <div className="w-20 h-20 rounded-lg overflow-hidden bg-surface-variant flex-shrink-0">{it.image_url ? <img className="w-full h-full object-cover" src={resolvePublicMedia(it.image_url)} onError={handleImageError} alt={it.name} /> : <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>}</div>
             <div className="flex-1 flex flex-col justify-between min-w-0">
               <div className="flex justify-between items-start">
                 <h3 className="font-bold text-sm truncate">{it.name}</h3>
@@ -81,7 +82,7 @@ export default function Cart() {
             {upsell.map(u => (
               <div key={u.id} className="flex-shrink-0 w-32 bg-surface-container rounded-xl p-2 flex flex-col gap-2">
                 <div className="w-full h-24 rounded-lg overflow-hidden bg-surface-variant relative">
-                  {u.image_url ? <img className="w-full h-full object-cover" src={u.image_url} alt={u.name} /> : null}
+                  {u.image_url ? <img className="w-full h-full object-cover" src={resolvePublicMedia(u.image_url)} onError={handleImageError} alt={u.name} /> : null}
                   <button onClick={() => addItem({ id: u.id, name: u.name, price: u.price, image_url: u.image_url, quantity: 1, extras: [] }, restaurant)} className="absolute bottom-1 left-1 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg"><Icon name="add" className="text-[20px]" /></button>
                 </div>
                 <div><p className="text-label-sm truncate">{u.name}</p><p className="text-primary font-semibold text-sm">₪{u.price}</p></div>

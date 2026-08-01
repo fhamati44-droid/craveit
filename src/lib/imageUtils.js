@@ -7,51 +7,75 @@ export function resolvePublicMedia(value, fallback = null) {
   if (!value) return fallback;
 
   if (Array.isArray(value)) {
-    return resolvePublicMedia(value[0], fallback);
+    for (const item of value) {
+      const resolved = resolvePublicMedia(item, null);
+      if (resolved) return resolved;
+    }
+    return fallback;
   }
 
   if (typeof value === 'object') {
-    const objectUrl =
-      value.public_url ||
-      value.publicUrl ||
-      value.url ||
-      value.file_url ||
-      value.fileUrl ||
-      value.image_url;
-    return resolvePublicMedia(objectUrl, fallback);
+    const possibleValue =
+      value.public_url ??
+      value.publicUrl ??
+      value.file_url ??
+      value.fileUrl ??
+      value.download_url ??
+      value.downloadUrl ??
+      value.secure_url ??
+      value.secureUrl ??
+      value.src ??
+      value.url ??
+      value.path ??
+      value.image_url ??
+      null;
+    return resolvePublicMedia(possibleValue, fallback);
   }
 
-  const url = String(value).trim();
-  if (!url) return fallback;
+  let text = String(value).trim();
+  if (!text) return fallback;
 
+  // JSON-encoded media value (stringified object/array)
+  if (text.startsWith('{') || text.startsWith('[')) {
+    try {
+      return resolvePublicMedia(JSON.parse(text), fallback);
+    } catch (e) {
+      console.warn('INVALID_MEDIA_JSON', e);
+    }
+  }
+
+  // Reject non-public / non-persistent sources
   if (
-    url.startsWith('blob:') ||
-    url.startsWith('http://localhost') ||
-    url.startsWith('https://localhost')
+    text.startsWith('blob:') ||
+    text.startsWith('data:') ||
+    text.includes('localhost')
   ) {
     return fallback;
   }
 
-  if (url.startsWith('http://')) {
-    return url.replace('http://', 'https://');
+  if (text.startsWith('http://')) {
+    text = text.replace(/^http:\/\//, 'https://');
+  }
+
+  // Relative path -> resolve against current origin (production domain)
+  if (text.startsWith('/')) {
+    return `${window.location.origin}${text}`;
   }
 
   // Google Drive file viewer URLs are not direct image links — convert to thumbnail.
-  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  const driveMatch = text.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (driveMatch) {
     return `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1000`;
   }
-  // Google Drive open?id= URLs
-  const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  const openMatch = text.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
   if (openMatch) {
     return `https://drive.google.com/thumbnail?id=${openMatch[1]}&sz=w1000`;
   }
-  // Google Drive uc?export=view URLs are already direct
-  if (url.includes('drive.google.com/uc?') && !url.includes('export=view')) {
-    return url + '&export=view';
+  if (text.includes('drive.google.com/uc?') && !text.includes('export=view')) {
+    return text + '&export=view';
   }
 
-  return url;
+  return text;
 }
 
 // Alias for backward compatibility

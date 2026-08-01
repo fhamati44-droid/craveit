@@ -143,6 +143,18 @@ export default async function(req) {
       return Response.json({ data: { mood, sets: sets || [], items } });
     }
 
+    // Public: single suggestion set + its items + mood (for the TAMAM order page)
+    if (action === 'getPublicSuggestionSet') {
+      const setId = payload.set_id;
+      if (!setId) return Response.json({ error: 'set_id required' }, { status: 400 });
+      const set = await base44.asServiceRole.entities.TamamSuggestionSet.get(setId).catch(() => null);
+      if (!set) return Response.json({ data: null });
+      const items = await base44.asServiceRole.entities.TamamSuggestionItem.filter({ suggestion_set_id: setId }, 'sort_order', 200);
+      let mood = null;
+      if (set.mood_id) mood = await base44.asServiceRole.entities.TamamMood.get(set.mood_id).catch(() => null);
+      return Response.json({ data: { set, items: items || [], mood } });
+    }
+
     // Admin-only actions
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
