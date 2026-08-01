@@ -5,7 +5,8 @@ import { Search, ShoppingBag, User, MapPin, ChevronDown } from 'lucide-react';
  * Customer header — TAMAM logo, location, search, cart, profile.
  * Links use existing routes; cartCount wired in Phase 2.
  */
-export default function TamamHeader({ cartCount = 0, location = 'موقعك الحالي' }) {
+export default function TamamHeader({ cartCount = 0, location }) {
+  const resolvedLocation = (typeof window !== 'undefined' && localStorage.getItem('tamam_location')) || location || 'موقعك الحالي';
   return (
     <header
       className="sticky top-0 z-30 bg-tamam-ink/95 backdrop-blur border-b border-tamam-outline/40 pt-safe"
@@ -19,7 +20,7 @@ export default function TamamHeader({ cartCount = 0, location = 'موقعك ال
 
         <button className="flex items-center gap-1 text-tamam-text-muted text-xs max-w-[42%] truncate">
           <MapPin size={13} className="text-tamam-green flex-shrink-0" />
-          <span className="truncate">{location}</span>
+          <span className="truncate">{resolvedLocation}</span>
           <ChevronDown size={13} className="flex-shrink-0" />
         </button>
 

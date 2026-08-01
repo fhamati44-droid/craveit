@@ -5,10 +5,11 @@ import { base44 } from '@/api/base44Client';
 import { restaurantToCard, dealToCard, suggestionToCard } from '@/lib/tamamAdapters';
 import { SkeletonCard, EmptyState, ErrorState } from '@/components/tamam/customer/States';
 
-const TIERS = [
-  { id: 'classic', label: 'Classic' },
-  { id: 'mix', label: 'Mix' },
-  { id: 'plus', label: 'Plus' },
+const PKG = [
+  { id: 'all', label: 'الكل' },
+  { id: 'classic', label: 'كلاسيك' },
+  { id: 'mix', label: 'ميكس' },
+  { id: 'plus', label: 'بلس' },
 ];
 
 const MOOD_ICON = {
@@ -38,7 +39,7 @@ export default function Home() {
   const [deals, setDeals] = useState([]);
   const [moods, setMoods] = useState([]);
   const [sets, setSets] = useState({ classic: [], mix: [], plus: [] });
-  const [tier, setTier] = useState('classic');
+  const [tier, setTier] = useState('mix');
   const [activeMeals, setActiveMeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -137,16 +138,17 @@ export default function Home() {
         </section>
       )}
 
-      {/* Suggestions Tabs & Card */}
+      {/* Suggestions Packages & Featured Card */}
       <section className="px-4 py-8">
-        <div className="flex flex-col items-center text-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <h2 className="text-headline-md font-bold">اقتراحات TAMAM</h2>
-          <div className="flex gap-2 mt-4 w-full">
-            {TIERS.map(t => (
-              <button key={t.id} onClick={() => setTier(t.id)}
-                className={`flex-1 py-2 text-xs font-bold border-b-2 ${tier === t.id ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant'}`}>{t.label}</button>
-            ))}
-          </div>
+          <button onClick={() => navigate('/tamam-suggestions?package=all')} className="text-primary text-xs font-bold">شوف كل الاقتراحات</button>
+        </div>
+        <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar pb-1">
+          {PKG.map(p => (
+            <button key={p.id} onClick={() => navigate(`/tamam-suggestions?package=${p.id}`)}
+              className="flex-none px-5 py-2 rounded-xl text-sm font-semibold bg-surface-container-high text-on-surface border border-outline-variant active:scale-95 transition-transform">{p.label}</button>
+          ))}
         </div>
         {loading ? <SkeletonCard kind="suggestion" /> : currentSet ? (
           <SuggestionLargeCard

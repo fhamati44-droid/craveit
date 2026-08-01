@@ -18,6 +18,7 @@ export default function Checkout() {
 
   useEffect(() => { if (!items.length) navigate('/cart', { replace: true }); }, [items.length]);
   useEffect(() => { setCheckout(form); }, [form]);
+  useEffect(() => { if (form.city) localStorage.setItem('tamam_location', form.city); }, [form.city]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const isDelivery = form.method === 'delivery';

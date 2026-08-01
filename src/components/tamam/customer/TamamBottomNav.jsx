@@ -1,17 +1,20 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, UtensilsCrossed, Sparkles, Tag, User } from 'lucide-react';
+import { Home, UtensilsCrossed, Sparkles, ReceiptText, User } from 'lucide-react';
 
 const ITEMS = [
   { to: '/', label: 'الرئيسية', icon: Home },
   { to: '/restaurants', label: 'المطاعم', icon: UtensilsCrossed },
   { to: '/tamam-game', label: 'اقتراح TAMAM', icon: Sparkles, highlight: true },
-  { to: '/deals', label: 'العروض', icon: Tag },
+  { to: '/orders', label: 'طلباتي', icon: ReceiptText },
   { to: '/profile', label: 'حسابي', icon: User },
 ];
 
 export default function TamamBottomNav() {
   const { pathname } = useLocation();
-  const isActive = (to) => (to === '/' ? pathname === '/' : pathname.startsWith(to));
+  const isActive = (to) => {
+    if (to === '/tamam-game') return pathname.startsWith('/tamam-game') || pathname.startsWith('/tamam-suggestions');
+    return to === '/' ? pathname === '/' : pathname.startsWith(to);
+  };
 
   return (
     <nav
