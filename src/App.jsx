@@ -21,6 +21,12 @@ import DealDetail from '@/pages/DealDetail';
 import DealJoin from '@/pages/DealJoin';
 import DealJoined from '@/pages/DealJoined';
 import Cart from '@/pages/Cart';
+import CheckoutReview from '@/pages/CheckoutReview';
+import CheckoutProcessing from '@/pages/CheckoutProcessing';
+import OrderConfirmation from '@/pages/OrderConfirmation';
+import OrderHistory from '@/pages/OrderHistory';
+import OrderRate from '@/pages/OrderRate';
+import OrderHelp from '@/pages/OrderHelp';
 import TamamGame from '@/pages/TamamGame';
 import TamamSuggestions from '@/pages/TamamSuggestions';
 import TamamAdmin from '@/pages/TamamAdmin';
@@ -44,12 +50,18 @@ function App() {
               <Route path="/deals/:dealId/join" element={<DealJoin />} />
               <Route path="/deals/:dealId/confirmed" element={<DealJoined />} />
               <Route path="/cart" element={<Cart />} />
+              <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+              <Route path="/orders" element={<OrderHistory />} />
+              <Route path="/orders/:orderId" element={<OrderTracking />} />
+              <Route path="/orders/:orderId/rate" element={<OrderRate />} />
+              <Route path="/orders/:orderId/help" element={<OrderHelp />} />
             </Route>
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/checkout/review" element={<CheckoutReview />} />
+            <Route path="/checkout/processing" element={<CheckoutProcessing />} />
             <Route element={<AppLayout />}>
               <Route path="/search" element={<Search />} />
-              <Route path="/checkout" element={<Checkout />} />
               <Route path="/order/:id" element={<OrderTracking />} />
-              <Route path="/orders" element={<OrderTracking />} />
               <Route path="/profile" element={<Profile />} />
             </Route>
             <Route path="/tamam-order/:suggestionSetId" element={<TamamOrder />} />

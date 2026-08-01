@@ -27,7 +27,7 @@ export default function TamamHeader({ cartCount = 0, location = 'موقعك ال
           <Link to="/search" aria-label="بحث" className="w-10 h-10 rounded-full bg-tamam-surface flex items-center justify-center text-tamam-text-muted">
             <Search size={18} />
           </Link>
-          <Link to="/checkout" aria-label="السلة" className="relative w-10 h-10 rounded-full bg-tamam-surface flex items-center justify-center text-tamam-text-muted">
+          <Link to="/cart" aria-label="السلة" className="relative w-10 h-10 rounded-full bg-tamam-surface flex items-center justify-center text-tamam-text-muted">
             <ShoppingBag size={18} />
             {cartCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-tamam-green text-tamam-ink text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center">

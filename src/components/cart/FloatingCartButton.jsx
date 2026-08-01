@@ -1,8 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/lib/CartContext';
 
 export default function FloatingCartButton() {
-  const { totalItems, total, setIsOpen } = useCart();
+  const { totalItems, total } = useCart();
+  const navigate = useNavigate();
 
   return (
     <AnimatePresence>
@@ -12,18 +14,18 @@ export default function FloatingCartButton() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 80, opacity: 0 }}
           transition={{ type: 'spring', damping: 25 }}
-          className="fixed bottom-20 left-4 right-4 z-30 max-w-lg mx-auto"
+          className="fixed bottom-20 left-4 right-4 z-30 max-w-[480px] mx-auto"
         >
           <motion.button
             whileTap={{ scale: 0.97 }}
-            onClick={() => setIsOpen(true)}
-            className="w-full btn-green py-4 px-5 text-base rounded-2xl flex items-center justify-between shadow-card-lg"
+            onClick={() => navigate('/cart')}
+            className="w-full bg-tamam-green text-tamam-ink py-4 px-5 text-base rounded-2xl flex items-center justify-between shadow-card-lg font-bold"
           >
-            <span className="bg-green-dark/30 text-white text-sm font-bold px-2 py-0.5 rounded-lg">
+            <span className="bg-tamam-ink/20 text-tamam-ink text-sm font-bold px-2 py-0.5 rounded-lg">
               {totalItems}
             </span>
-            <span className="font-bold">הצג את הזמנתך</span>
-            <span className="font-bold">₪{total.toFixed(0)}</span>
+            <span>شوف السلة</span>
+            <span>₪{total.toFixed(0)}</span>
           </motion.button>
         </motion.div>
       )}

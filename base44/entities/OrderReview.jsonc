@@ -1,0 +1,40 @@
+{
+  "name": "OrderReview",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "number",
+      "title": "Supabase order id"
+    },
+    "food_rating": {
+      "type": "number",
+      "title": "Food rating (1-5)"
+    },
+    "restaurant_rating": {
+      "type": "number",
+      "title": "Restaurant rating (1-5)"
+    },
+    "delivery_rating": {
+      "type": "number",
+      "title": "Delivery rating (1-5)"
+    },
+    "tamam_rating": {
+      "type": "number",
+      "title": "TAMAM experience rating (1-5)"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags"
+    },
+    "comment": {
+      "type": "string",
+      "title": "Comment"
+    }
+  },
+  "required": [
+    "order_id"
+  ]
+}

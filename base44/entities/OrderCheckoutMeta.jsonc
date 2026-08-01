@@ -1,0 +1,94 @@
+{
+  "name": "OrderCheckoutMeta",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "number",
+      "title": "Supabase order id"
+    },
+    "order_number": {
+      "type": "string",
+      "title": "Human-readable order number"
+    },
+    "delivery_reference": {
+      "type": "string",
+      "title": "Delivery reference"
+    },
+    "fulfillment_method": {
+      "type": "string",
+      "enum": [
+        "delivery",
+        "pickup",
+        "dinein"
+      ],
+      "title": "Fulfillment method"
+    },
+    "payment_method": {
+      "type": "string",
+      "title": "Payment method"
+    },
+    "payment_status": {
+      "type": "string",
+      "title": "Payment status"
+    },
+    "email": {
+      "type": "string",
+      "title": "Email (optional)"
+    },
+    "city": {
+      "type": "string",
+      "title": "City"
+    },
+    "street": {
+      "type": "string",
+      "title": "Street"
+    },
+    "building": {
+      "type": "string",
+      "title": "Building number"
+    },
+    "entrance": {
+      "type": "string",
+      "title": "Entrance"
+    },
+    "floor": {
+      "type": "string",
+      "title": "Floor"
+    },
+    "apartment": {
+      "type": "string",
+      "title": "Apartment"
+    },
+    "latitude": {
+      "type": "number",
+      "title": "Latitude"
+    },
+    "longitude": {
+      "type": "number",
+      "title": "Longitude"
+    },
+    "delivery_notes": {
+      "type": "string",
+      "title": "Delivery notes"
+    },
+    "restaurant_notes": {
+      "type": "string",
+      "title": "Restaurant notes"
+    },
+    "cash_denomination": {
+      "type": "string",
+      "title": "Cash denomination needed"
+    },
+    "restaurant_name": {
+      "type": "string",
+      "title": "Restaurant name snapshot"
+    },
+    "total": {
+      "type": "number",
+      "title": "Total"
+    }
+  },
+  "required": [
+    "order_id"
+  ]
+}
