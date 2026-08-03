@@ -1,43 +1,82 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ChevronLeft, Play } from 'lucide-react';
+import { Sparkles, ChevronLeft, Play, RefreshCw } from 'lucide-react';
 import CommunityMoodCard from './CommunityMoodCard';
 import ShareSheet from './ShareSheet';
 import { getHomepageSection } from '@/lib/communityMoodApi';
 import { track } from '@/lib/analytics';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
+// Exact production text — config overrides if admin edits
+const TEXT = {
+  ar: {
+    title: 'اصنع مودك على طاولة TAMAM',
+    subtitle: 'اختار الوجبات، رتّب مودك، وانشره حتى الناس تدعمه.',
+    ctaPrimary: 'ابدأ لعبة المود',
+    ctaSecondary: 'شوف مودات الناس',
+    listHeading: 'مودات عملها الناس',
+    viewAll: 'شوف الكل',
+    empty: 'لسه ما نُشر أول مود. ممكن مودك يكون الأول.',
+    emptyCta: 'ابدأ اللعبة',
+    errorRetry: 'إعادة المحاولة',
+    proposalsError: 'ما قدرنا نحمّل المودات',
+  },
+  he: {
+    title: 'צרו את המוד שלכם על שולחן TAMAM',
+    subtitle: 'בוחרים מנות, מרכיבים מוד ומשתפים כדי שהקהילה תתמוך.',
+    ctaPrimary: 'התחילו את משחק המוד',
+    ctaSecondary: 'צפו במודים של הקהילה',
+    listHeading: 'מודים שהקהילה יצרה',
+    viewAll: 'צפו בכולם',
+    empty: 'לא פורסם מוד ראשון עדיין. המוד שלך יכול להיות הראשון.',
+    emptyCta: 'התחילו את המשחק',
+    errorRetry: 'נסה שוב',
+    proposalsError: 'לא הצלחנו לטעון את המודים',
+  },
+};
+
 export default function CommunityMoodGameSection() {
   const navigate = useNavigate();
   const { locale } = useLanguage();
-  const [data, setData] = useState(null);
+  const [config, setConfig] = useState(null);
+  const [proposals, setProposals] = useState([]);
+  const [proposalsError, setProposalsError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [inView, setInView] = useState(false);
   const [shareProposal, setShareProposal] = useState(null);
   const sectionRef = useRef(null);
   const videoRef = useRef(null);
 
+  const t = locale === 'he' ? TEXT.he : TEXT.ar;
+  const isRTL = true;
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => setInView(entry.isIntersecting),
-      { threshold: 0.2 }
+      { threshold: 0.15 }
     );
     if (sectionRef.current) observer.observe(sectionRef.current);
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!inView) return;
+  const loadProposals = () => {
+    setProposalsError(false);
     getHomepageSection()
       .then((res) => {
+        setConfig(res?.config || null);
+        setProposals(res?.proposals || []);
         if (res?.enabled !== false) {
-          setData(res);
           track('community_game_banner_viewed', { has_proposals: (res?.proposals?.length || 0) > 0 });
         }
       })
-      .catch(() => {})
+      .catch(() => setProposalsError(true))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (!inView) return;
+    loadProposals();
   }, [inView, locale]);
 
   // Pause video when out of view or tab hidden
@@ -45,39 +84,39 @@ export default function CommunityMoodGameSection() {
     const handleVisibility = () => {
       if (document.hidden || !inView) {
         videoRef.current?.pause();
-      } else if (inView && data?.config?.preview_media_url) {
+      } else if (inView && config?.preview_media_url) {
         videoRef.current?.play().catch(() => {});
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [inView, data]);
+  }, [inView, config]);
 
   if (!inView) {
     return <div ref={sectionRef} className="min-h-[200px]" />;
   }
 
-  if (loading || !data || data.enabled === false) return null;
-
-  const config = data.config || {};
-  const proposals = data.proposals || [];
-  const isRTL = locale === 'he' || locale === 'ar';
-  const title = locale === 'he' ? config.section_title_he : config.section_title_ar;
-  const subtitle = locale === 'he' ? config.section_subtitle_he : config.section_subtitle_ar;
-  const ctaPrimary = locale === 'he' ? config.cta_primary_he : config.cta_primary_ar;
-  const ctaSecondary = locale === 'he' ? config.cta_secondary_he : config.cta_secondary_ar;
+  // Merge config with exact fallback text
+  const cfg = config || {};
+  const title = cfg.section_title_ar || cfg.section_title_he || t.title;
+  const subtitle = cfg.section_subtitle_ar || cfg.section_subtitle_he || t.subtitle;
+  const ctaPrimary = cfg.cta_primary_ar || cfg.cta_primary_he || t.ctaPrimary;
+  const ctaSecondary = cfg.cta_secondary_ar || cfg.cta_secondary_he || t.ctaSecondary;
 
   return (
     <section ref={sectionRef} className="px-4 py-4" dir="rtl">
-      {/* Game Banner */}
-      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-tamam-surface-low via-tamam-teal to-tamam-surface-lowest border border-tamam-outline/30">
-        {/* Preview media (video or animated) */}
+      {/* ===== GAME ENTRY BANNER ===== */}
+      <div
+        onClick={() => { track('community_game_started', { source: 'homepage_banner' }); navigate('/mood-game'); }}
+        className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-tamam-surface-low via-tamam-teal to-tamam-surface-lowest border border-tamam-outline/30 cursor-pointer active:scale-[0.99] transition-transform"
+      >
+        {/* Preview media */}
         <div className="relative h-[180px] overflow-hidden">
-          {config.preview_media_url && inView ? (
+          {cfg.preview_media_url && inView ? (
             <video
               ref={videoRef}
-              src={config.preview_media_url}
-              poster={config.preview_poster_url || config.banner_poster_url}
+              src={cfg.preview_media_url}
+              poster={cfg.preview_poster_url || cfg.banner_poster_url}
               autoPlay
               muted
               loop
@@ -92,30 +131,30 @@ export default function CommunityMoodGameSection() {
         </div>
 
         {/* Text overlay */}
-        <div className="absolute inset-0 flex flex-col justify-end p-4">
+        <div className="absolute inset-0 flex flex-col justify-end p-4 pointer-events-none">
           <div className="flex items-center gap-1.5 mb-1">
             <Sparkles size={14} className="text-tamam-gold" />
             <span className="text-tamam-gold text-[10px] font-bold uppercase tracking-wide">TAMAM طاولة</span>
           </div>
           <h2 className="text-white font-bold text-lg leading-tight mb-1">{title}</h2>
           <p className="text-tamam-text-muted text-xs leading-snug mb-3 line-clamp-2">{subtitle}</p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pointer-events-auto">
             <button
-              onClick={() => { track('community_game_started', { source: 'homepage_banner' }); navigate('/mood-game'); }}
-              className="bg-tamam-green text-tamam-ink font-bold text-xs px-4 py-2 rounded-full active:scale-95 transition-transform flex items-center gap-1"
+              onClick={(e) => { e.stopPropagation(); track('community_game_started', { source: 'homepage_banner' }); navigate('/mood-game'); }}
+              className="bg-tamam-green text-tamam-ink font-bold text-xs px-4 py-2 rounded-full active:scale-95 transition-transform flex items-center gap-1 min-h-[36px]"
             >
               <Play size={12} fill="currentColor" /> {ctaPrimary}
             </button>
             <button
-              onClick={() => navigate('/community-moods')}
-              className="bg-tamam-surface-high/80 text-tamam-text font-bold text-xs px-4 py-2 rounded-full active:scale-95 transition-transform"
+              onClick={(e) => { e.stopPropagation(); navigate('/community-moods'); }}
+              className="bg-tamam-surface-high/80 text-tamam-text font-bold text-xs px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
             >
               {ctaSecondary}
             </button>
           </div>
         </div>
 
-        {/* Floating preview elements */}
+        {/* Floating preview elements — no fake numbers */}
         <div className="absolute top-3 left-3 flex flex-col gap-1 items-start pointer-events-none">
           <FloatingHearts />
           <div className="bg-tamam-surface/90 rounded-lg px-2 py-1 text-[9px] text-tamam-text-muted flex items-center gap-1">
@@ -124,15 +163,29 @@ export default function CommunityMoodGameSection() {
         </div>
       </div>
 
-      {/* Community Proposals Carousel */}
-      {proposals.length > 0 ? (
+      {/* ===== COMMUNITY MOOD LIST ===== */}
+      {loading ? (
+        <div className="mt-4">
+          <div className="h-4 w-32 skeleton-t rounded mb-2" />
+          <div className="flex gap-3 overflow-hidden">
+            {[1, 2].map((i) => (
+              <div key={i} className="flex-shrink-0 w-[280px] h-[200px] skeleton-t rounded-2xl" />
+            ))}
+          </div>
+        </div>
+      ) : proposalsError ? (
+        <div className="mt-4 flex flex-col items-center py-6">
+          <p className="text-tamam-text-muted text-sm mb-3">{t.proposalsError}</p>
+          <button onClick={loadProposals} className="flex items-center gap-1.5 bg-tamam-surface text-tamam-text font-bold text-xs px-4 py-2 rounded-full">
+            <RefreshCw size={12} /> {t.errorRetry}
+          </button>
+        </div>
+      ) : proposals.length > 0 ? (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-tamam-text font-bold text-sm">
-              {locale === 'he' ? 'מודים שהקהילה יצרה' : 'مودات عملها الناس'}
-            </h3>
+            <h3 className="text-tamam-text font-bold text-sm">{t.listHeading}</h3>
             <button onClick={() => navigate('/community-moods')} className="text-tamam-green-bright text-[11px] font-bold flex items-center gap-0.5">
-              شوف الكل <ChevronLeft size={12} />
+              {t.viewAll} <ChevronLeft size={12} />
             </button>
           </div>
           <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
@@ -143,12 +196,12 @@ export default function CommunityMoodGameSection() {
         </div>
       ) : (
         <div className="mt-4 text-center py-6">
-          <p className="text-tamam-text-muted text-sm mb-3">لسه ما نُشر أول مود. ممكن مودك يكون الأول.</p>
+          <p className="text-tamam-text-muted text-sm mb-3">{t.empty}</p>
           <button
             onClick={() => { track('community_game_started', { source: 'empty_state' }); navigate('/mood-game'); }}
-            className="bg-tamam-green text-tamam-ink font-bold text-xs px-5 py-2 rounded-full"
+            className="bg-tamam-green text-tamam-ink font-bold text-xs px-5 py-2 rounded-full min-h-[36px]"
           >
-            ابدأ اللعبة
+            {t.emptyCta}
           </button>
         </div>
       )}

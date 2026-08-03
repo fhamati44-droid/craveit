@@ -64,7 +64,7 @@ export default function CommentSheet({ proposal, open, onClose, onCountChange })
               onClick={() => { onClose(); navigate(`/community-moods/${proposal.id}`); }}
               className="border-t border-tamam-outline/20 px-4 py-3 flex items-center justify-center gap-1 text-tamam-green-bright text-xs font-bold"
             >
-              عرض كل التعليقات <ChevronLeft size={14} />
+              شوف كل التعليقات <ChevronLeft size={14} />
             </button>
           </motion.div>
         </>

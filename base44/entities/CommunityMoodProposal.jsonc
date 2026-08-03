@@ -133,6 +133,16 @@
       "type": "string",
       "title": "Admin note to creator"
     },
+    "is_public": {
+      "type": "boolean",
+      "default": false,
+      "title": "Public on homepage (set on publish)"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Published timestamp (server time)"
+    },
     "target_likes": {
       "type": "number",
       "default": 100,

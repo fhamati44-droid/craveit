@@ -32,6 +32,12 @@ export default async function(req) {
           is_enabled: true,
           section_title_ar: 'اصنع مودك على طاولة TAMAM',
           section_title_he: 'צרו את המוד שלכם על שולחן TAMAM',
+          section_subtitle_ar: 'اختار الوجبات، رتّب مودك، وانشره حتى الناس تدعمه.',
+          section_subtitle_he: 'בוחרים מנות, מרכיבים מוד ומשתפים כדי שהקהילה תתמוך.',
+          cta_primary_ar: 'ابدأ لعبة المود',
+          cta_primary_he: 'התחילו את משחק המוד',
+          cta_secondary_ar: 'شوف مودات الناس',
+          cta_secondary_he: 'צפו במודים של הקהילה',
           selection_mode: 'automatic',
           max_cards: 6,
           default_target_likes: 100,
@@ -45,7 +51,18 @@ export default async function(req) {
       let config = (configs && configs[0]) || null;
       if (!config) {
         config = await base44.asServiceRole.entities.CommunityMoodConfig.create({
-          is_enabled: true, section_title_ar: 'اصنع مودك على طاولة TAMAM', selection_mode: 'automatic', max_cards: 6, default_target_likes: 100,
+          is_enabled: true,
+          section_title_ar: 'اصنع مودك على طاولة TAMAM',
+          section_title_he: 'צרו את המוד שלכם על שולחן TAMAM',
+          section_subtitle_ar: 'اختار الوجبات، رتّب مودك، وانشره حتى الناس تدعمه.',
+          section_subtitle_he: 'בוחרים מנות, מרכיבים מוד ומשתפים כדי שהקהילה תתמוך.',
+          cta_primary_ar: 'ابدأ لعبة المود',
+          cta_primary_he: 'התחילו את משחק המוד',
+          cta_secondary_ar: 'شوف مودات الناس',
+          cta_secondary_he: 'צפו במודים של הקהילה',
+          selection_mode: 'automatic',
+          max_cards: 6,
+          default_target_likes: 100,
         });
       }
       if (!config.is_enabled) return Response.json({ data: { enabled: false, config, proposals: [] } });
@@ -59,6 +76,8 @@ export default async function(req) {
       // Validate: approved, not expired, has valid meal + restaurant refs
       const isValid = (p) => {
         if (p.moderation_status !== 'approved') return false;
+        if (p.status !== 'published') return false;
+        if (p.is_public === false) return false;
         if (p.ends_at && new Date(p.ends_at) < now) return false;
         if (!p.meal_ids?.length || !p.restaurant_ids?.length) return false;
         return true;
@@ -503,15 +522,16 @@ export default async function(req) {
       case 'adminApproveProposal': {
         const p = await base44.asServiceRole.entities.CommunityMoodProposal.get(payload.proposal_id).catch(() => null);
         if (!p) return Response.json({ error: 'not_found' }, { status: 404 });
-        const publishedAt = p.starts_at || new Date().toISOString();
+        const publishedAt = new Date().toISOString();
         await base44.asServiceRole.entities.CommunityMoodProposal.update(payload.proposal_id, {
           status: 'published', moderation_status: 'approved', moderation_note: payload.note || null,
-          starts_at: publishedAt,
+          is_public: true, published_at: publishedAt,
+          starts_at: p.starts_at || publishedAt,
         });
         await base44.asServiceRole.entities.CommunityMoodAuditLog.create({
           proposal_id: payload.proposal_id, action: 'approved', admin_id: user.id, admin_name: user.full_name, new_value: 'published',
         });
-        return Response.json({ data: { approved: true, status: 'published', moderation_status: 'approved', published_at: publishedAt } });
+        return Response.json({ data: { approved: true, status: 'published', moderation_status: 'approved', is_public: true, published_at: publishedAt } });
       }
 
       case 'adminRejectProposal': {
@@ -678,7 +698,7 @@ export default async function(req) {
         const checks = {
           is_approved: p.moderation_status === 'approved',
           is_published: p.status === 'published',
-          is_public: p.status === 'published' && p.moderation_status === 'approved',
+          is_public: p.is_public !== false && p.status === 'published' && p.moderation_status === 'approved',
           is_expired: p.ends_at ? new Date(p.ends_at) < now : false,
           has_valid_meal: !!(p.meal_ids?.length),
           has_valid_restaurant: !!(p.restaurant_ids?.length),
@@ -686,6 +706,7 @@ export default async function(req) {
         const reasons = [];
         if (!checks.is_approved) reasons.push('moderation_status ليس approved');
         if (!checks.is_published) reasons.push(`status هو "${p.status}" وليس published`);
+        if (p.is_public === false) reasons.push('is_public = false (غير عام)');
         if (checks.is_expired) reasons.push('العرض منتهي الصلاحية');
         if (!checks.has_valid_meal) reasons.push('لا يوجد وجبات مرتبطة');
         if (!checks.has_valid_restaurant) reasons.push('لا يوجد مطعم مرتبط');

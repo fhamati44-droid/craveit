@@ -34,8 +34,8 @@ export default function CommunityMoodCard({ proposal, onShare }) {
   const coverImage = resolvePublicImage(proposal.cover_image_url || (mainMeal && mainMeal.image_url), null);
   const target = proposal.target_likes || 100;
   const percent = Math.min(100, Math.round((likeCount / target) * 100));
+  const reachedTarget = likeCount >= target;
 
-  // Replay pending like after login redirect
   useEffect(() => {
     const pending = sessionStorage.getItem('pending_like_proposal');
     if (pending === proposal.id) {
@@ -48,13 +48,13 @@ export default function CommunityMoodCard({ proposal, onShare }) {
 
   const doLike = async (e) => {
     if (e?.stopPropagation) e.stopPropagation();
+    if (e?.preventDefault) e.preventDefault();
     if (likingRef.current) return;
     likingRef.current = true;
     setLikeAnimating(true);
     setTimeout(() => setLikeAnimating(false), 600);
     const wasLiked = liked;
     const prevCount = likeCount;
-    // optimistic
     setLiked(!wasLiked);
     setLikeCount(wasLiked ? Math.max(0, likeCount - 1) : likeCount + 1);
     try {
@@ -69,7 +69,6 @@ export default function CommunityMoodCard({ proposal, onShare }) {
         base44.auth.redirectToLogin(window.location.pathname + window.location.search);
         return;
       }
-      // revert on error
       setLiked(wasLiked);
       setLikeCount(prevCount);
     } finally {
@@ -90,6 +89,11 @@ export default function CommunityMoodCard({ proposal, onShare }) {
   const open = () => {
     track('community_mood_viewed', { proposal_id: proposal.id, source: 'homepage_card' });
     navigate(`/community-moods/${proposal.id}`);
+  };
+
+  const openClick = (e) => {
+    e.stopPropagation();
+    open();
   };
 
   return (
@@ -122,49 +126,78 @@ export default function CommunityMoodCard({ proposal, onShare }) {
           </div>
 
           {mainMeal && (
-            <div className="text-[11px] text-tamam-text-muted">
-              <span className="text-tamam-text font-semibold">{mainMeal.name}</span>
-              {restaurant && <span> · {restaurant.name}</span>}
+            <div className="flex items-center justify-between text-[11px]">
+              <div className="min-w-0 flex-1">
+                <span className="text-tamam-text font-semibold truncate">{mainMeal.name}</span>
+                {restaurant && <span className="text-tamam-text-muted"> · {restaurant.name}</span>}
+              </div>
+              {mainMeal.price != null && (
+                <span className="text-tamam-green-bright font-bold flex-shrink-0">₪{Math.round(mainMeal.price)}</span>
+              )}
             </div>
           )}
 
           {/* Progress */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] text-tamam-text-muted">{likeCount} / {target} إعجاب</span>
+              <span className="text-[10px] text-tamam-text-muted">{likeCount} من {target} إعجاب</span>
               <span className="text-[10px] text-tamam-green-bright font-bold">{percent}%</span>
             </div>
-            <div role="progressbar" aria-valuenow={likeCount} aria-valuemin={0} aria-valuemax={target} aria-label="تقدم الإعجابات نحو الهدف" className="h-1.5 bg-tamam-surface-high rounded-full overflow-hidden">
+            <div
+              role="progressbar"
+              aria-valuenow={likeCount}
+              aria-valuemin={0}
+              aria-valuemax={target}
+              aria-label={`تقدم الإعجابات: ${likeCount} من ${target}`}
+              className="h-1.5 bg-tamam-surface-high rounded-full overflow-hidden"
+            >
               <motion.div className="h-full bg-gradient-to-l from-tamam-green to-tamam-green-bright rounded-full" animate={{ width: `${percent}%` }} transition={{ duration: 0.4 }} />
             </div>
+            {reachedTarget && (
+              <p className="text-[9px] text-tamam-gold font-bold mt-1 text-center">وصل المود للهدف وبستنى مراجعة TAMAM</p>
+            )}
           </div>
 
-          {/* Social stats */}
-          <div className="flex items-center gap-3 text-[10px] text-tamam-text-muted">
-            <span className="flex items-center gap-0.5"><MessageCircle size={11} /> {commentCount}</span>
-            <span className="flex items-center gap-0.5"><Share2 size={11} /> {proposal.shares_count || 0}</span>
+          {/* Social stats + supporter avatars */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-[10px] text-tamam-text-muted">
+              <span className="flex items-center gap-0.5"><MessageCircle size={11} /> {commentCount}</span>
+              <span className="flex items-center gap-0.5"><Share2 size={11} /> {proposal.shares_count || 0}</span>
+            </div>
             {supporters.length > 0 && <SupporterAvatarStack supporters={supporters} size={18} />}
           </div>
 
-          {/* Actions */}
+          {/* Actions — Like / Comment / Share / CTA */}
           <div className="flex items-center gap-2 pt-1">
             <button
               onClick={doLike}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${liked ? 'bg-tamam-green text-tamam-ink' : 'bg-tamam-surface-high text-tamam-text'}`}
+              aria-label={liked ? 'إلغاء الإعجاب' : 'إعجاب'}
+              className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold transition-colors min-h-[40px] ${liked ? 'bg-tamam-green text-tamam-ink' : 'bg-tamam-surface-high text-tamam-text'}`}
             >
               <motion.span animate={likeAnimating ? { scale: [1, 1.4, 1] } : {}} transition={{ duration: 0.4 }}>
-                <Heart size={13} fill={liked ? 'currentColor' : 'none'} />
+                <Heart size={15} fill={liked ? 'currentColor' : 'none'} />
               </motion.span>
-              {liked ? 'دعمنا' : 'ادعم المود'}
+              {likeCount}
             </button>
-            <button onClick={handleComment} className="p-1.5 rounded-lg bg-tamam-surface-high text-tamam-text-muted">
-              <MessageCircle size={13} />
+            <button
+              onClick={handleComment}
+              aria-label="تعليق"
+              className="p-2 rounded-lg bg-tamam-surface-high text-tamam-text-muted min-h-[40px] min-w-[40px] flex items-center justify-center"
+            >
+              <MessageCircle size={15} />
             </button>
-            <button onClick={handleShare} className="p-1.5 rounded-lg bg-tamam-surface-high text-tamam-text-muted">
-              <Share2 size={13} />
+            <button
+              onClick={handleShare}
+              aria-label="مشاركة"
+              className="p-2 rounded-lg bg-tamam-surface-high text-tamam-text-muted min-h-[40px] min-w-[40px] flex items-center justify-center"
+            >
+              <Share2 size={15} />
             </button>
-            <button onClick={(e) => { e.stopPropagation(); open(); }} className="mr-auto flex items-center gap-0.5 text-tamam-green-bright text-[11px] font-bold px-2">
-              فتح <ChevronLeft size={13} />
+            <button
+              onClick={openClick}
+              className="mr-auto flex items-center gap-0.5 text-tamam-green-bright text-[11px] font-bold px-2 min-h-[40px]"
+            >
+              ادعم المود <ChevronLeft size={13} />
             </button>
           </div>
         </div>
