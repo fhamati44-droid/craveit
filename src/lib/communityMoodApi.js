@@ -141,6 +141,11 @@ export async function adminArchiveProposal(proposalId) {
   return res?.data ?? res;
 }
 
+export async function adminTestProposalVisibility(proposalId) {
+  const res = await base44.functions.invoke('communityMoodEngine', { action: 'adminTestProposalVisibility', payload: { proposal_id: proposalId } });
+  return res?.data ?? res;
+}
+
 export async function adminSaveConfig(config) {
   const res = await base44.functions.invoke('communityMoodEngine', { action: 'adminSaveConfig', payload: config });
   return res?.data ?? res;

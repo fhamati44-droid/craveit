@@ -53,19 +53,58 @@ export default async function(req) {
       let proposals = [];
       const maxCards = config.max_cards || 6;
 
+      const now = new Date();
+      const allPublished = await base44.asServiceRole.entities.CommunityMoodProposal.filter({ status: 'published' }, '-created_date', 200).catch(() => []);
+
+      // Validate: approved, not expired, has valid meal + restaurant refs
+      const isValid = (p) => {
+        if (p.moderation_status !== 'approved') return false;
+        if (p.ends_at && new Date(p.ends_at) < now) return false;
+        if (!p.meal_ids?.length || !p.restaurant_ids?.length) return false;
+        return true;
+      };
+      const valid = (allPublished || []).filter(isValid);
+
       if (config.selection_mode === 'manual' && config.manual_proposal_ids?.length) {
-        const ids = config.manual_proposal_ids.slice(0, maxCards);
-        const all = await base44.asServiceRole.entities.CommunityMoodProposal.list('-created_date', 200).catch(() => []);
-        proposals = (all || []).filter((p) => ids.includes(p.id) && p.status === 'published')
-          .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+        const ids = config.manual_proposal_ids;
+        proposals = valid.filter((p) => ids.includes(p.id)).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+        if (proposals.length < maxCards) {
+          const manualIds = new Set(proposals.map((p) => p.id));
+          proposals = [...proposals, ...valid.filter((p) => !manualIds.has(p.id))];
+        }
       } else {
-        // automatic: featured first, then near target, then newest
-        const all = await base44.asServiceRole.entities.CommunityMoodProposal.filter({ status: 'published' }, '-created_date', 100).catch(() => []);
-        const featured = (all || []).filter((p) => p.is_featured).sort((a, b) => (a.featured_order || 0) - (b.featured_order || 0));
-        const nearTarget = (all || []).filter((p) => !p.is_featured && p.valid_likes_count >= (p.target_likes || 100) * 0.7)
+        // Order: featured first, near target, then newest approved public
+        const featured = valid.filter((p) => p.is_featured).sort((a, b) => (a.featured_order || 0) - (b.featured_order || 0));
+        const featuredIds = new Set(featured.map((p) => p.id));
+        const nearTarget = valid.filter((p) => !featuredIds.has(p.id) && p.valid_likes_count >= (p.target_likes || 100) * 0.7)
           .sort((a, b) => b.valid_likes_count - a.valid_likes_count);
-        const rest = (all || []).filter((p) => !p.is_featured && p.valid_likes_count < (p.target_likes || 100) * 0.7);
-        proposals = [...featured, ...nearTarget, ...rest].slice(0, maxCards);
+        const usedIds = new Set([...featuredIds, ...nearTarget.map((p) => p.id)]);
+        const rest = valid.filter((p) => !usedIds.has(p.id));
+        proposals = [...featured, ...nearTarget, ...rest];
+      }
+      proposals = proposals.slice(0, maxCards);
+
+      // Enrich proposals with meal/restaurant snapshots if missing
+      const needsEnrichment = proposals.filter((p) => {
+        const meals = parseJSON(p.meal_snapshots, []);
+        const rests = parseJSON(p.restaurant_snapshots, []);
+        return (!meals.length && p.meal_ids?.length) || (!rests.length && p.restaurant_ids?.length);
+      });
+      if (needsEnrichment.length) {
+        const allMealIds = [...new Set(needsEnrichment.flatMap((p) => p.meal_ids || []))];
+        const allRestIds = [...new Set(needsEnrichment.flatMap((p) => p.restaurant_ids || []))];
+        const [mealsRes, restsRes] = await Promise.all([
+          allMealIds.length ? base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getMenuItemsByIds', payload: { ids: allMealIds } }).then((r) => r?.data?.data || r?.data || []).catch(() => []) : [],
+          allRestIds.length ? base44.asServiceRole.functions.invoke('supabaseProxy', { action: 'getRestaurantsByIds', payload: { ids: allRestIds } }).then((r) => r?.data?.data || r?.data || []).catch(() => []) : [],
+        ]);
+        const mealMap = {}; (mealsRes || []).forEach((m) => { mealMap[m.id] = { id: m.id, name: m.name_ar || m.name, image_url: m.image_url, price: m.price, restaurant_id: m.restaurant_id }; });
+        const restMap = {}; (restsRes || []).forEach((r) => { restMap[r.id] = { id: r.id, name: r.name_ar || r.name, image_url: r.image_url }; });
+        needsEnrichment.forEach((p) => {
+          const meals = parseJSON(p.meal_snapshots, []);
+          const rests = parseJSON(p.restaurant_snapshots, []);
+          if (!meals.length && p.meal_ids?.length) p.meal_snapshots = JSON.stringify(p.meal_ids.map((id) => mealMap[id]).filter(Boolean));
+          if (!rests.length && p.restaurant_ids?.length) p.restaurant_snapshots = JSON.stringify(p.restaurant_ids.map((id) => restMap[id]).filter(Boolean));
+        });
       }
 
       // Get latest comment preview + supporter avatars for each proposal
@@ -191,34 +230,42 @@ export default async function(req) {
       const activeLike = (existing || []).find((l) => l.is_valid !== false);
 
       const avatar = getAvatarInfo(user);
+      let newCount;
 
       if (activeLike) {
-        // Unlike
         await base44.asServiceRole.entities.CommunityMoodLike.update(activeLike.id, { status: 'revoked', revoked_at: new Date().toISOString() });
-        const newCount = Math.max(0, (proposal.valid_likes_count || 0) - 1);
-        await base44.asServiceRole.entities.CommunityMoodProposal.update(proposalId, { valid_likes_count: newCount });
-        return Response.json({ data: { liked: false, count: newCount } });
+        newCount = Math.max(0, (proposal.valid_likes_count || 0) - 1);
       } else {
-        // Like
         await base44.asServiceRole.entities.CommunityMoodLike.create({
-          proposal_id: proposalId,
-          user_id: user.id,
+          proposal_id: proposalId, user_id: user.id,
           user_display_name: avatar.display_name,
-          user_avatar_type: avatar.avatar_type,
-          user_avatar_key: avatar.avatar_key,
-          user_avatar_url: avatar.avatar_url,
-          status: 'active',
-          is_valid: true,
+          user_avatar_type: avatar.avatar_type, user_avatar_key: avatar.avatar_key, user_avatar_url: avatar.avatar_url,
+          status: 'active', is_valid: true,
         });
-        const newCount = (proposal.valid_likes_count || 0) + 1;
-        const update = { valid_likes_count: newCount };
-        if (newCount >= (proposal.target_likes || 100) && !proposal.reached_target_at) {
-          update.reached_target_at = new Date().toISOString();
-          update.reward_status = 'pending';
-        }
-        await base44.asServiceRole.entities.CommunityMoodProposal.update(proposalId, update);
-        return Response.json({ data: { liked: true, count: newCount, reached_target: !!update.reached_target_at } });
+        newCount = (proposal.valid_likes_count || 0) + 1;
       }
+
+      const update = { valid_likes_count: newCount };
+      if (newCount >= (proposal.target_likes || 100) && !proposal.reached_target_at) {
+        update.reached_target_at = new Date().toISOString();
+        update.reward_status = 'pending';
+      }
+      await base44.asServiceRole.entities.CommunityMoodProposal.update(proposalId, update);
+
+      // Fetch updated supporter avatars (active valid likes, max 5)
+      const likes = await base44.asServiceRole.entities.CommunityMoodLike.filter({ proposal_id: proposalId, status: 'active' }, '-created_date', 50).catch(() => []);
+      const supporterAvatars = (likes || []).filter((l) => l.is_valid !== false).slice(0, 5).map((l) => ({
+        user_id: l.user_id, user_display_name: l.user_display_name,
+        user_avatar_type: l.user_avatar_type, user_avatar_key: l.user_avatar_key, user_avatar_url: l.user_avatar_url,
+      }));
+
+      const target = proposal.target_likes || 100;
+      const progressPercent = Math.min(100, Math.round((newCount / target) * 100));
+
+      return Response.json({ data: {
+        liked: !activeLike, validLikesCount: newCount, targetLikes: target,
+        progressPercent, supporterAvatars, reached_target: !!update.reached_target_at,
+      } });
     }
 
     if (action === 'addComment') {
@@ -245,9 +292,10 @@ export default async function(req) {
         status: 'active',
       });
 
-      await base44.asServiceRole.entities.CommunityMoodProposal.update(proposalId, { comments_count: (proposal.comments_count || 0) + 1 });
+      const newCommentsCount = (proposal.comments_count || 0) + 1;
+      await base44.asServiceRole.entities.CommunityMoodProposal.update(proposalId, { comments_count: newCommentsCount });
 
-      return Response.json({ data: comment });
+      return Response.json({ data: { ...comment, comments_count: newCommentsCount } });
     }
 
     if (action === 'deleteComment') {
@@ -455,14 +503,15 @@ export default async function(req) {
       case 'adminApproveProposal': {
         const p = await base44.asServiceRole.entities.CommunityMoodProposal.get(payload.proposal_id).catch(() => null);
         if (!p) return Response.json({ error: 'not_found' }, { status: 404 });
+        const publishedAt = p.starts_at || new Date().toISOString();
         await base44.asServiceRole.entities.CommunityMoodProposal.update(payload.proposal_id, {
           status: 'published', moderation_status: 'approved', moderation_note: payload.note || null,
-          starts_at: new Date().toISOString(),
+          starts_at: publishedAt,
         });
         await base44.asServiceRole.entities.CommunityMoodAuditLog.create({
           proposal_id: payload.proposal_id, action: 'approved', admin_id: user.id, admin_name: user.full_name, new_value: 'published',
         });
-        return Response.json({ data: { approved: true } });
+        return Response.json({ data: { approved: true, status: 'published', moderation_status: 'approved', published_at: publishedAt } });
       }
 
       case 'adminRejectProposal': {
@@ -620,6 +669,28 @@ export default async function(req) {
         // Get public-approved references for homepage preview
         const refs = await base44.asServiceRole.entities.GameReferenceVideo.filter({ is_public_preview: true, is_enabled: true }, '-priority', 5).catch(() => []);
         return Response.json({ data: refs || [] });
+      }
+
+      case 'adminTestProposalVisibility': {
+        const p = await base44.asServiceRole.entities.CommunityMoodProposal.get(payload.proposal_id).catch(() => null);
+        if (!p) return Response.json({ error: 'not_found' }, { status: 404 });
+        const now = new Date();
+        const checks = {
+          is_approved: p.moderation_status === 'approved',
+          is_published: p.status === 'published',
+          is_public: p.status === 'published' && p.moderation_status === 'approved',
+          is_expired: p.ends_at ? new Date(p.ends_at) < now : false,
+          has_valid_meal: !!(p.meal_ids?.length),
+          has_valid_restaurant: !!(p.restaurant_ids?.length),
+        };
+        const reasons = [];
+        if (!checks.is_approved) reasons.push('moderation_status ليس approved');
+        if (!checks.is_published) reasons.push(`status هو "${p.status}" وليس published`);
+        if (checks.is_expired) reasons.push('العرض منتهي الصلاحية');
+        if (!checks.has_valid_meal) reasons.push('لا يوجد وجبات مرتبطة');
+        if (!checks.has_valid_restaurant) reasons.push('لا يوجد مطعم مرتبط');
+        const included = checks.is_public && !checks.is_expired && checks.has_valid_meal && checks.has_valid_restaurant;
+        return Response.json({ data: { ...checks, included_by_homepage: included, reason_if_excluded: reasons.length ? reasons.join('؛ ') : null } });
       }
 
       default:
