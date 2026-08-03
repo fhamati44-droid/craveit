@@ -4,8 +4,13 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { CartProvider } from '@/lib/CartContext';
+import { LanguageProvider } from '@/lib/i18n/LanguageContext';
 import AppLayout from '@/components/layout/AppLayout';
 import CustomerMobileLayout from '@/components/tamam/customer/CustomerMobileLayout';
+
+// Info pages
+import HowTamamWorks from '@/pages/HowTamamWorks';
+import TamamPoints from '@/pages/TamamPoints';
 
 // Pages
 import Home from '@/pages/Home';
@@ -45,6 +50,7 @@ import SystemCheck from '@/pages/admin/SystemCheck';
 function App() {
   return (
     <QueryClientProvider client={queryClientInstance}>
+      <LanguageProvider>
       <CartProvider>
         <Router>
           <Routes>
@@ -68,6 +74,10 @@ function App() {
               <Route path="/orders/:orderId" element={<OrderTracking />} />
               <Route path="/orders/:orderId/rate" element={<OrderRate />} />
               <Route path="/orders/:orderId/help" element={<OrderHelp />} />
+              <Route path="/how-tamam-works" element={<HowTamamWorks />} />
+              <Route path="/how-tamam-works/:topic" element={<HowTamamWorks />} />
+              <Route path="/tamam-points" element={<TamamPoints />} />
+              <Route path="/account/points" element={<Rewards />} />
             </Route>
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/checkout/review" element={<CheckoutReview />} />
@@ -94,6 +104,7 @@ function App() {
         </Router>
         <Toaster />
       </CartProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }

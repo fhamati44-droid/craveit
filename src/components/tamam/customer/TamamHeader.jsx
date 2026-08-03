@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Search, ShoppingBag, User, MapPin, ChevronDown } from 'lucide-react';
+import LocaleSwitcher from './LocaleSwitcher';
 
 /**
  * Customer header — TAMAM logo, location, search, cart, profile.
@@ -25,6 +26,7 @@ export default function TamamHeader({ cartCount = 0, location }) {
         </button>
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          <LocaleSwitcher />
           <Link to="/search" aria-label="بحث" className="w-10 h-10 rounded-full bg-tamam-surface flex items-center justify-center text-tamam-text-muted">
             <Search size={18} />
           </Link>

@@ -11,9 +11,11 @@ import FeaturedRestaurants from '@/components/tamam/customer/FeaturedRestaurants
 import HomeActiveDealBanner from '@/components/tamam/customer/HomeActiveDealBanner';
 import HomeDiscoverySections from '@/components/tamam/customer/HomeDiscoverySections';
 import PaymentTrustStrip from '@/components/tamam/customer/PaymentTrustStrip';
-import PurchaseJourneyTrustSection from '@/components/tamam/customer/PurchaseJourneyTrustSection';
+import ClickableTrustCards from '@/components/tamam/customer/ClickableTrustCards';
 import LoyaltyBalanceCard from '@/components/tamam/customer/LoyaltyBalanceCard';
-import AssuranceSection from '@/components/tamam/customer/AssuranceSection';
+import ClickableAssuranceSection from '@/components/tamam/customer/ClickableAssuranceSection';
+import HomeMoodBanners from '@/components/tamam/customer/HomeMoodBanners';
+import InfoFooter from '@/components/tamam/customer/InfoFooter';
 import LazySection from '@/components/tamam/customer/LazySection';
 
 export default function Home() {
@@ -53,15 +55,19 @@ export default function Home() {
         </section>
       )}
 
+      {/* Clickable mood banners */}
+      <HomeMoodBanners />
+
       {/* Lower homepage — 10 carousels + 3 banners, always visible, CMS-independent */}
       <HomeDiscoverySections />
 
       {/* Existing trust + featured */}
       <LazySection><FeaturedRestaurants restaurants={data?.featuredRestaurants} loading={loading} title="مطاعم بنرشحها" /></LazySection>
       <PaymentTrustStrip />
-      <PurchaseJourneyTrustSection />
+      <ClickableTrustCards />
       <LoyaltyBalanceCard />
-      <AssuranceSection />
+      <ClickableAssuranceSection />
+      <InfoFooter />
     </div>
   );
 }

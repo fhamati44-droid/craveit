@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { useCart } from '@/lib/CartContext';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 import TamamHeader from './TamamHeader';
 import TamamBottomNav from './TamamBottomNav';
 
@@ -10,11 +11,12 @@ import TamamBottomNav from './TamamBottomNav';
  */
 export default function CustomerMobileLayout({ children, location = 'موقعك الحالي' }) {
   const { totalItems } = useCart();
+  const { locale } = useLanguage();
   const cartCount = totalItems;
   return (
     <div
       dir="rtl"
-      lang="ar"
+      lang={locale}
       className="font-tamam min-h-[100dvh] bg-tamam-bg text-tamam-text flex flex-col max-w-[480px] mx-auto overflow-x-hidden"
     >
       <TamamHeader cartCount={cartCount} location={location} />

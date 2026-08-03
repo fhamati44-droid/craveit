@@ -162,7 +162,11 @@ export default function TamamCatalog() {
   const filtered = useMemo(() => {
     let list = suggestions.slice();
     if (pkg !== 'all') list = list.filter(s => s.package_level === pkg);
-    if (moodId) list = list.filter(s => s.mood?.id === moodId);
+    if (moodId) {
+      const resolvedMood = moods.find(m => m.id === moodId || m.slug === moodId);
+      const resolvedId = resolvedMood?.id || moodId;
+      list = list.filter(s => s.mood?.id === resolvedId);
+    }
     if (people) {
       list = list.filter(s => {
         if (s.peopleCount == null) return false;
@@ -270,7 +274,7 @@ export default function TamamCatalog() {
             <Icon name="temp_preferences_custom" className="text-[18px]" /><span className="text-sm">الكل</span>
           </button>
           {moods.slice(0, 5).map(m => (
-            <button key={m.id} onClick={() => setParam('mood', m.id)} className={`flex items-center gap-1 px-4 py-2 rounded-full whitespace-nowrap ${moodId === m.id ? 'bg-secondary-container text-on-secondary-container border border-primary/20' : 'bg-surface-container-high text-on-surface-variant'}`}>
+            <button key={m.id} onClick={() => setParam('mood', m.id)} className={`flex items-center gap-1 px-4 py-2 rounded-full whitespace-nowrap ${(moodId === m.id || moodId === m.slug) ? 'bg-secondary-container text-on-secondary-container border border-primary/20' : 'bg-surface-container-high text-on-surface-variant'}`}>
               <Icon name={moodIconFor(m)} className="text-[18px]" /><span className="text-sm">{m.name_ar}</span>
             </button>
           ))}
@@ -353,6 +357,7 @@ export default function TamamCatalog() {
       <FilterSheet open={sheet === 'food'} onClose={() => setSheet(null)} title="نوع الأكل" selected={foodType} onSelect={v => setParam('food', v)} options={[{ value: '', label: 'الكل' }, ...foodTypes.map(f => ({ value: f, label: f }))]} />
       <FilterSheet open={sheet === 'sort'} onClose={() => setSheet(null)} title="الترتيب" selected={sort} onSelect={v => setParam('sort', v)} options={SORTS} />
       <FilterSheet open={sheet === 'moods'} onClose={() => setSheet(null)} title="كل المودات" selected={moodId} onSelect={v => setParam('mood', v)} options={[{ value: '', label: 'الكل' }, ...moods.map(m => ({ value: m.id, label: m.name_ar }))]} />
+      {/* Mood chip active state matches by ID or slug */}
     </div>
   );
 }
