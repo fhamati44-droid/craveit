@@ -19,6 +19,7 @@ import ClickableAssuranceSection from '@/components/tamam/customer/ClickableAssu
 import HomeMoodBanners from '@/components/tamam/customer/HomeMoodBanners';
 import InfoFooter from '@/components/tamam/customer/InfoFooter';
 import LazySection from '@/components/tamam/customer/LazySection';
+import CommunityMoodGameSection from '@/components/community/CommunityMoodGameSection';
 // Time-aware slot components
 import TimeAwareHero from '@/components/tamam/customer/TimeAwareHero';
 import TimeAwareTopSuggestions from '@/components/tamam/customer/TimeAwareTopSuggestions';
@@ -90,6 +91,9 @@ export default function Home() {
             onOpen={() => { track('home_active_deal_opened', { deal_id: dealView.deal.id }); navigate(`/deals/${dealView.deal.id}`); }} />
         </section>
       )}
+
+      {/* 4.5 Community Mood Game — اصنع مودك (NEW SECTION, directly under TAMAM Offers) */}
+      <CommunityMoodGameSection />
 
       {/* 5. Clickable mood banners (STABLE) */}
       <HomeMoodBanners />

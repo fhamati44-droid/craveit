@@ -1,0 +1,219 @@
+{
+  "name": "CommunityMoodProposal",
+  "type": "object",
+  "properties": {
+    "creator_user_id": {
+      "type": "string",
+      "title": "Base44 user id"
+    },
+    "creator_display_name": {
+      "type": "string",
+      "title": "Display name snapshot"
+    },
+    "creator_phone": {
+      "type": "string",
+      "title": "Creator phone (internal)"
+    },
+    "creator_avatar_type": {
+      "type": "string",
+      "enum": [
+        "tamam",
+        "profile"
+      ],
+      "default": "tamam"
+    },
+    "creator_avatar_key": {
+      "type": "string",
+      "title": "Generated avatar key (f1, m3, n5...)"
+    },
+    "creator_avatar_url": {
+      "type": "string",
+      "title": "Profile image URL when allowed"
+    },
+    "mood_title_ar": {
+      "type": "string",
+      "title": "\u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0645\u0648\u062f (\u0639\u0631\u0628\u064a)"
+    },
+    "mood_title_he": {
+      "type": "string",
+      "title": "\u05db\u05d5\u05ea\u05e8\u05ea \u05de\u05d5\u05d3 (\u05e2\u05d1\u05e8\u05d9\u05ea)"
+    },
+    "description_ar": {
+      "type": "string",
+      "title": "\u0648\u0635\u0641 \u0642\u0635\u064a\u0631 (\u0639\u0631\u0628\u064a)"
+    },
+    "description_he": {
+      "type": "string",
+      "title": "\u05ea\u05d9\u05d0\u05d5\u05e8 \u05e7\u05e6\u05e8 (\u05e2\u05d1\u05e8\u05d9\u05ea)"
+    },
+    "existing_mood_id": {
+      "type": "string",
+      "title": "Existing TamamMood id (optional)"
+    },
+    "occasion_key": {
+      "type": "string",
+      "title": "Occasion slug"
+    },
+    "num_people": {
+      "type": "number",
+      "title": "Number of people"
+    },
+    "restaurant_ids": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "title": "Restaurant ids (Supabase)"
+    },
+    "meal_ids": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "title": "Meal ids (Supabase menu_items)"
+    },
+    "table_layout_json": {
+      "type": "string",
+      "title": "Table arrangement (JSON)"
+    },
+    "package_type": {
+      "type": "string",
+      "enum": [
+        "classic",
+        "mix",
+        "plus"
+      ],
+      "default": "classic"
+    },
+    "cover_layout": {
+      "type": "string",
+      "enum": [
+        "table_top",
+        "hero_meal",
+        "meal_grid",
+        "main_plus_additions"
+      ],
+      "default": "table_top"
+    },
+    "cover_image_url": {
+      "type": "string",
+      "title": "Cover image URL"
+    },
+    "meal_snapshots": {
+      "type": "string",
+      "title": "Meal snapshots (JSON)"
+    },
+    "restaurant_snapshots": {
+      "type": "string",
+      "title": "Restaurant snapshots (JSON)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "pending_review",
+        "published",
+        "rejected",
+        "paused",
+        "archived"
+      ],
+      "default": "pending_review"
+    },
+    "moderation_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "edit_requested"
+      ],
+      "default": "pending"
+    },
+    "moderation_note": {
+      "type": "string",
+      "title": "Admin note to creator"
+    },
+    "target_likes": {
+      "type": "number",
+      "default": 100,
+      "title": "Target likes"
+    },
+    "valid_likes_count": {
+      "type": "number",
+      "default": 0,
+      "title": "Valid likes count"
+    },
+    "comments_count": {
+      "type": "number",
+      "default": 0
+    },
+    "shares_count": {
+      "type": "number",
+      "default": 0
+    },
+    "views_count": {
+      "type": "number",
+      "default": 0
+    },
+    "starts_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ends_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reached_target_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reward_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "none"
+    },
+    "reward_type": {
+      "type": "string",
+      "title": "Reward type"
+    },
+    "is_featured": {
+      "type": "boolean",
+      "default": false
+    },
+    "featured_order": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "mood_title_ar",
+    "package_type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

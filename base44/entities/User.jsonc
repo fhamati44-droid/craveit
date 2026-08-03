@@ -7,6 +7,26 @@
         "admin",
         "user"
       ]
+    },
+    "display_name": {
+      "type": "string",
+      "title": "Community display name"
+    },
+    "avatar_type": {
+      "type": "string",
+      "enum": [
+        "tamam",
+        "profile"
+      ],
+      "default": "tamam"
+    },
+    "avatar_key": {
+      "type": "string",
+      "title": "Generated avatar key (f1, m3, n5...)"
+    },
+    "avatar_url": {
+      "type": "string",
+      "title": "Profile image URL (when allowed)"
     }
   },
   "required": [

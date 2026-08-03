@@ -1,0 +1,71 @@
+{
+  "name": "CommunityMoodLike",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "title": "CommunityMoodProposal id"
+    },
+    "user_id": {
+      "type": "string",
+      "title": "Base44 user id"
+    },
+    "user_display_name": {
+      "type": "string",
+      "title": "Display name snapshot"
+    },
+    "user_avatar_type": {
+      "type": "string",
+      "enum": [
+        "tamam",
+        "profile"
+      ],
+      "default": "tamam"
+    },
+    "user_avatar_key": {
+      "type": "string"
+    },
+    "user_avatar_url": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "revoked"
+      ],
+      "default": "active"
+    },
+    "revoked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "is_valid": {
+      "type": "boolean",
+      "default": true,
+      "title": "Valid (not invalidated by admin)"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "user_id"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

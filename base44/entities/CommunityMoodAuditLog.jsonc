@@ -1,0 +1,73 @@
+{
+  "name": "CommunityMoodAuditLog",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "submitted",
+        "approved",
+        "rejected",
+        "edit_requested",
+        "paused",
+        "unpublished",
+        "featured",
+        "unfeatured",
+        "target_changed",
+        "comment_moderated",
+        "likes_invalidated",
+        "reward_approved",
+        "reward_rejected",
+        "converted_to_mood",
+        "archived",
+        "config_saved",
+        "reference_added",
+        "reference_updated",
+        "reference_deleted"
+      ]
+    },
+    "admin_id": {
+      "type": "string"
+    },
+    "admin_name": {
+      "type": "string"
+    },
+    "previous_value": {
+      "type": "string"
+    },
+    "new_value": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

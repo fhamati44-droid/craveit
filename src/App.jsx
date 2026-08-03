@@ -3,8 +3,10 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
+import { AuthProvider } from '@/lib/AuthContext';
 import { CartProvider } from '@/lib/CartContext';
 import { LanguageProvider } from '@/lib/i18n/LanguageContext';
+import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppLayout from '@/components/layout/AppLayout';
 import CustomerMobileLayout from '@/components/tamam/customer/CustomerMobileLayout';
 
@@ -47,9 +49,15 @@ import HomepagePreview from '@/pages/admin/HomepagePreview';
 import HomepageMedia from '@/pages/admin/HomepageMedia';
 import SystemCheck from '@/pages/admin/SystemCheck';
 import HomepageTimeAdmin from '@/pages/admin/HomepageTimeAdmin';
+import MoodGame from '@/pages/MoodGame';
+import CommunityMoods from '@/pages/CommunityMoods';
+import CommunityMoodDetail from '@/pages/CommunityMoodDetail';
+import CommunityMoodsAdmin from '@/pages/admin/CommunityMoodsAdmin';
+import GameReferencesAdmin from '@/pages/admin/GameReferencesAdmin';
 
 function App() {
   return (
+    <AuthProvider>
     <QueryClientProvider client={queryClientInstance}>
       <LanguageProvider>
       <CartProvider>
@@ -79,6 +87,9 @@ function App() {
               <Route path="/how-tamam-works/:topic" element={<HowTamamWorks />} />
               <Route path="/tamam-points" element={<TamamPoints />} />
               <Route path="/account/points" element={<Rewards />} />
+              <Route path="/mood-game" element={<MoodGame />} />
+              <Route path="/community-moods" element={<CommunityMoods />} />
+              <Route path="/community-moods/:proposalId" element={<CommunityMoodDetail />} />
             </Route>
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/checkout/review" element={<CheckoutReview />} />
@@ -99,6 +110,8 @@ function App() {
               <Route path="/admin/homepage/preview" element={<HomepagePreview />} />
               <Route path="/admin/homepage/media" element={<HomepageMedia />} />
               <Route path="/admin/homepage-time-content" element={<HomepageTimeAdmin />} />
+              <Route path="/admin/community-moods" element={<CommunityMoodsAdmin />} />
+              <Route path="/admin/community-moods/game-references" element={<GameReferencesAdmin />} />
               <Route path="/admin/system-check" element={<SystemCheck />} />
             </Route>
             <Route path="*" element={<PageNotFound />} />
@@ -108,6 +121,7 @@ function App() {
       </CartProvider>
       </LanguageProvider>
     </QueryClientProvider>
+    </AuthProvider>
   );
 }
 

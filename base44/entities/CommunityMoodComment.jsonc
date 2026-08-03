@@ -1,0 +1,71 @@
+{
+  "name": "CommunityMoodComment",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "title": "CommunityMoodProposal id"
+    },
+    "user_id": {
+      "type": "string",
+      "title": "Base44 user id"
+    },
+    "user_display_name": {
+      "type": "string"
+    },
+    "user_avatar_type": {
+      "type": "string",
+      "enum": [
+        "tamam",
+        "profile"
+      ],
+      "default": "tamam"
+    },
+    "user_avatar_key": {
+      "type": "string"
+    },
+    "user_avatar_url": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string",
+      "title": "Comment text (max 300)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "hidden",
+        "deleted"
+      ],
+      "default": "active"
+    },
+    "edited_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "user_id",
+    "body"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

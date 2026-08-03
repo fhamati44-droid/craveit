@@ -1,0 +1,52 @@
+{
+  "name": "CommunityMoodShare",
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "title": "CommunityMoodProposal id"
+    },
+    "user_id": {
+      "type": "string",
+      "title": "Base44 user id (optional)"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "whatsapp",
+        "facebook",
+        "instagram",
+        "native",
+        "copy_link",
+        "download"
+      ],
+      "title": "Share channel"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "channel"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

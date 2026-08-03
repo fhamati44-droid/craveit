@@ -1,0 +1,92 @@
+{
+  "name": "CommunityMoodGameDraft",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "title": "Base44 user id"
+    },
+    "current_stage": {
+      "type": "string",
+      "enum": [
+        "intro",
+        "mood_selection",
+        "restaurant_selection",
+        "meal_selection",
+        "table_building",
+        "package_selection",
+        "mood_details",
+        "social_preview",
+        "submission",
+        "success"
+      ],
+      "default": "intro"
+    },
+    "selected_mood_id": {
+      "type": "string"
+    },
+    "custom_mood_data": {
+      "type": "string",
+      "title": "Custom mood data (JSON)"
+    },
+    "selected_restaurant_ids": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "selected_meal_ids": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "table_layout_json": {
+      "type": "string"
+    },
+    "package_type": {
+      "type": "string",
+      "enum": [
+        "classic",
+        "mix",
+        "plus"
+      ],
+      "default": "classic"
+    },
+    "quality_mode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "high",
+        "balanced",
+        "lite"
+      ],
+      "default": "auto"
+    }
+  },
+  "required": [
+    "user_id"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
