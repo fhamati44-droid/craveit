@@ -125,7 +125,7 @@ export default function CommunityMoodGameSection() {
       </div>
 
       {/* Community Proposals Carousel */}
-      {proposals.length > 0 && (
+      {proposals.length > 0 ? (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-tamam-text font-bold text-sm">
@@ -140,6 +140,16 @@ export default function CommunityMoodGameSection() {
               <CommunityMoodCard key={p.id} proposal={p} onShare={setShareProposal} />
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="mt-4 text-center py-6">
+          <p className="text-tamam-text-muted text-sm mb-3">لسه ما نُشر أول مود. ممكن مودك يكون الأول.</p>
+          <button
+            onClick={() => { track('community_game_started', { source: 'empty_state' }); navigate('/mood-game'); }}
+            className="bg-tamam-green text-tamam-ink font-bold text-xs px-5 py-2 rounded-full"
+          >
+            ابدأ اللعبة
+          </button>
         </div>
       )}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Copy, Check, MessageCircle, Facebook, Download } from 'lucide-react';
+import { X, Copy, Check, MessageCircle, Facebook, Download, Instagram } from 'lucide-react';
 import { recordShare } from '@/lib/communityMoodApi';
 import { track } from '@/lib/analytics';
 
@@ -16,7 +16,10 @@ export default function ShareSheet({ proposal, open, onClose }) {
 
   if (!proposal) return null;
 
-  const shareText = `شوف مود ${proposal.mood_title_ar} وادعمه بلايك 👇`;
+  const restaurantName = proposal.restaurant_snapshots?.[0]?.name || '';
+  const shareText = restaurantName
+    ? `شوف مود ${proposal.mood_title_ar} من ${restaurantName} وادعمه بلايك 👇`
+    : `شوف مود ${proposal.mood_title_ar} وادعمه بلايك 👇`;
   const fullUrl = `${window.location.origin}/community-moods/${proposal.id}`;
 
   const handleShare = async (channel) => {
@@ -29,6 +32,10 @@ export default function ShareSheet({ proposal, open, onClose }) {
         break;
       case 'facebook':
         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullUrl)}&quote=${encodeURIComponent(shareText)}`, '_blank');
+        break;
+      case 'instagram':
+        navigator.clipboard.writeText(fullUrl).catch(() => {});
+        window.open('https://www.instagram.com/', '_blank');
         break;
       case 'native':
         if (navigator.share) {
@@ -51,6 +58,7 @@ export default function ShareSheet({ proposal, open, onClose }) {
   const channels = [
     { key: 'whatsapp', label: 'واتساب', icon: <MessageCircle size={20} />, color: 'bg-[#25D366] text-white' },
     { key: 'facebook', label: 'فيسبوك', icon: <Facebook size={20} />, color: 'bg-[#1877F2] text-white' },
+    { key: 'instagram', label: 'انستغرام', icon: <Instagram size={20} />, color: 'bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white' },
     { key: 'native', label: 'مشاركة', icon: <ShareIcon />, color: 'bg-tamam-surface-high text-tamam-text' },
     { key: 'copy_link', label: copied ? 'تم النسخ' : 'نسخ الرابط', icon: copied ? <Check size={20} /> : <Copy size={20} />, color: 'bg-tamam-surface-high text-tamam-text' },
     { key: 'download', label: 'حفظ الكارت', icon: <Download size={20} />, color: 'bg-tamam-surface-high text-tamam-text' },
@@ -80,7 +88,7 @@ export default function ShareSheet({ proposal, open, onClose }) {
                 <p className="text-tamam-text-muted text-xs">{shareText}</p>
                 <p className="text-tamam-green-bright text-[11px] mt-1 break-all">{fullUrl}</p>
               </div>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 gap-3">
                 {channels.map((ch) => (
                   <button
                     key={ch.key}

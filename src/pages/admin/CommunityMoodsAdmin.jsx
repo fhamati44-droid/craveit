@@ -5,6 +5,7 @@ import {
   adminApproveProposal, adminRejectProposal, adminPauseProposal, adminFeatureProposal,
   adminSetTarget, adminModerateComment, adminInvalidateLikes, adminApproveReward,
   adminRejectReward, adminArchiveProposal, adminSaveConfig, getConfig,
+  adminTestProposalVisibility,
 } from '@/lib/communityMoodApi';
 import { useNavigate } from 'react-router-dom';
 import TamamAvatar from '@/components/community/TamamAvatar';
@@ -93,19 +94,21 @@ function ProposalList({ tab, proposals, onAction }) {
               <h3 className="font-bold text-sm">{p.mood_title_ar}</h3>
               <p className="text-gray-500 text-xs">{p.creator_display_name} · {new Date(p.created_date).toLocaleDateString('ar')}</p>
               {p.description_ar && <p className="text-gray-600 text-xs mt-1 line-clamp-2">{p.description_ar}</p>}
-              <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-500">
-                <span>♥ {p.valid_likes_count}/{p.target_likes}</span>
-                <span>💬 {p.comments_count}</span>
-                <span>🔗 {p.shares_count}</span>
+              <div className="flex items-center gap-2 mt-1 text-[11px] flex-wrap">
+                <span className={`px-1.5 py-0.5 rounded font-bold ${p.status === 'published' ? 'bg-green-100 text-green-700' : p.status === 'pending_review' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>{p.status}</span>
+                <span className={`px-1.5 py-0.5 rounded ${p.moderation_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{p.moderation_status}</span>
+                {p.is_featured && <span className="text-yellow-500 font-bold">⭐ مميز</span>}
+                <span className="text-gray-500">♥ {p.valid_likes_count}/{p.target_likes}</span>
+                <span className="text-gray-500">💬 {p.comments_count}</span>
+                <span className="text-gray-500">🔗 {p.shares_count}</span>
                 <span className="font-bold text-tamam-green">{p.package_type}</span>
-                {p.is_featured && <span className="text-yellow-500">⭐ مميز</span>}
               </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-1.5 mt-3">
             {tab === 'pending' && (
               <>
-                <button onClick={() => onAction(adminApproveProposal, p.id)} className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"><Check size={12} /> اعتمد</button>
+                <button onClick={() => onAction(adminApproveProposal, p.id)} className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"><Check size={12} /> موافقة ونشر</button>
                 <button onClick={() => onAction(adminRejectProposal, p.id, prompt('سبب الرفض؟'))} className="bg-red-500 text-white text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"><X size={12} /> ارفض</button>
               </>
             )}
@@ -126,6 +129,8 @@ function ProposalList({ tab, proposals, onAction }) {
               </>
             )}
             <button onClick={() => onAction(adminInvalidateLikes, p.id)} className="bg-orange-100 text-orange-700 text-xs px-3 py-1.5 rounded-lg">إبطال الإعجابات</button>
+            <button onClick={() => window.open(`/community-moods/${p.id}`, '_blank')} className="bg-blue-100 text-blue-700 text-xs px-3 py-1.5 rounded-lg">فتح الصفحة العامة</button>
+            <TestVisibilityButton proposalId={p.id} />
           </div>
         </div>
       ))}
@@ -253,6 +258,52 @@ function ConfigEditor({ config, onSave }) {
         </label>
       </div>
       <button onClick={save} className="bg-green-600 text-white text-sm font-bold px-4 py-2 rounded-lg w-full">حفظ الإعدادات</button>
+    </div>
+  );
+}
+
+function TestVisibilityButton({ proposalId }) {
+  const [result, setResult] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  const run = async () => {
+    const r = await adminTestProposalVisibility(proposalId);
+    setResult(r);
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <button onClick={run} className="bg-purple-100 text-purple-700 text-xs px-3 py-1.5 rounded-lg">فحص ظهور المود</button>
+      {open && result && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-xl p-4 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-sm mb-3">فحص ظهور المود</h3>
+            <div className="space-y-1.5 text-xs">
+              <Row label="معتمد؟" ok={result.is_approved} />
+              <Row label="منشور؟" ok={result.is_published} />
+              <Row label="عام؟" ok={result.is_public} />
+              <Row label="صلاحية سارية؟" ok={!result.is_expired} />
+              <Row label="وجبات صالحة؟" ok={result.has_valid_meal} />
+              <Row label="مطعم صالح؟" ok={result.has_valid_restaurant} />
+              <Row label="يظهر بالهوم؟" ok={result.included_by_homepage} />
+            </div>
+            {result.reason_if_excluded && (
+              <p className="text-red-600 text-xs mt-3 bg-red-50 p-2 rounded">سبب الاستبعاد: {result.reason_if_excluded}</p>
+            )}
+            <button onClick={() => setOpen(false)} className="mt-3 w-full bg-gray-100 text-gray-700 text-xs py-2 rounded-lg">إغلاق</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Row({ label, ok }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-gray-600">{label}</span>
+      <span className={ok ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>{ok ? '✓ نعم' : '✗ لا'}</span>
     </div>
   );
 }
