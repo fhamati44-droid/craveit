@@ -1,0 +1,110 @@
+{
+  "name": "HomepageTimeSlotRule",
+  "type": "object",
+  "properties": {
+    "slot_key": {
+      "type": "string",
+      "enum": [
+        "homepage_hero",
+        "homepage_top_suggestions",
+        "homepage_time_banner_1",
+        "homepage_time_banner_2",
+        "homepage_time_carousel_1",
+        "homepage_time_carousel_2"
+      ],
+      "title": "\u0645\u0641\u062a\u0627\u062d \u0627\u0644\u062e\u0627\u0646\u0629"
+    },
+    "period_id": {
+      "type": "string",
+      "title": "\u0645\u0639\u0631\u0641 \u0627\u0644\u0641\u062a\u0631\u0629 \u0627\u0644\u0632\u0645\u0646\u064a\u0629 (HomepageTimePeriod id)"
+    },
+    "selection_mode": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "automatic"
+      ],
+      "default": "manual",
+      "title": "\u0648\u0636\u0639 \u0627\u0644\u0627\u062e\u062a\u064a\u0627\u0631"
+    },
+    "content_type": {
+      "type": "string",
+      "enum": [
+        "suggestion",
+        "meal",
+        "restaurant",
+        "category",
+        "mood",
+        "banner",
+        "media"
+      ],
+      "default": "suggestion",
+      "title": "\u0646\u0648\u0639 \u0627\u0644\u0645\u062d\u062a\u0648\u0649"
+    },
+    "content_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "\u0645\u0639\u0631\u0641\u0627\u062a \u0627\u0644\u0645\u062d\u062a\u0648\u0649 (\u064a\u062f\u0648\u064a)"
+    },
+    "fallback_content_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "\u0645\u0639\u0631\u0641\u0627\u062a \u0627\u0644\u0627\u062d\u062a\u064a\u0627\u0637\u064a"
+    },
+    "settings_json": {
+      "type": "string",
+      "title": "\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0625\u0636\u0627\u0641\u064a\u0629 (JSON)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "title": "\u0645\u0641\u0639\u0651\u0644"
+    },
+    "priority": {
+      "type": "number",
+      "default": 0,
+      "title": "\u0627\u0644\u0623\u0648\u0644\u0648\u064a\u0629"
+    },
+    "max_items": {
+      "type": "number",
+      "default": 1,
+      "title": "\u0623\u0642\u0635\u0649 \u0639\u062f\u062f \u0639\u0646\u0627\u0635\u0631"
+    },
+    "display_order": {
+      "type": "number",
+      "default": 0,
+      "title": "\u062a\u0631\u062a\u064a\u0628 \u0627\u0644\u0639\u0631\u0636"
+    }
+  },
+  "required": [
+    "slot_key",
+    "period_id",
+    "selection_mode"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

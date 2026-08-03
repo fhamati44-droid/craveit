@@ -1,25 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
-
-const ADMIN = (user) => user && user.role === 'admin';
-
-function parseJSON(str, fallback) {
-  if (!str) return fallback;
-  try { return JSON.parse(str); } catch { return fallback; }
-}
-
-function extractDriveId(value) {
-  if (!value) return null;
-  const text = String(value).trim();
-  const patterns = [
-    /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
-    /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/,
-    /drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/,
-    /[?&]id=([a-zA-Z0-9_-]+)/,
-    /lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/,
-  ];
-  for (const p of patterns) { const m = text.match(p); if (m && m[1]) return m[1]; }
-  return null;
-}
+import { ADMIN, parseJSON, extractDriveId } from '../../shared/homepageUtils.ts';
 
 const DRIVE_ENTITIES = [
   { entity: 'TamamSuggestionSet', field: 'hero_image_url', label: 'اقتراح' },

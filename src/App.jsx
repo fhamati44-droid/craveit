@@ -46,6 +46,7 @@ import HomepageAdmin from '@/pages/admin/HomepageAdmin';
 import HomepagePreview from '@/pages/admin/HomepagePreview';
 import HomepageMedia from '@/pages/admin/HomepageMedia';
 import SystemCheck from '@/pages/admin/SystemCheck';
+import HomepageTimeAdmin from '@/pages/admin/HomepageTimeAdmin';
 
 function App() {
   return (
@@ -97,6 +98,7 @@ function App() {
               <Route path="/admin/homepage" element={<HomepageAdmin />} />
               <Route path="/admin/homepage/preview" element={<HomepagePreview />} />
               <Route path="/admin/homepage/media" element={<HomepageMedia />} />
+              <Route path="/admin/homepage-time-content" element={<HomepageTimeAdmin />} />
               <Route path="/admin/system-check" element={<SystemCheck />} />
             </Route>
             <Route path="*" element={<PageNotFound />} />
