@@ -184,11 +184,14 @@ export default function CommunityMoodGameSection() {
         </div>
       ) : proposals.length > 0 ? (
         <div className="mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-tamam-text font-bold text-sm">{t.listHeading}</h3>
-            <button onClick={() => navigate('/community-moods')} className="text-tamam-green-bright text-[11px] font-bold flex items-center gap-0.5">
-              {t.viewAll} <ChevronLeft size={12} />
-            </button>
+          <div className="mb-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-tamam-text font-bold text-sm">{t.listHeading}</h3>
+              <button onClick={() => navigate('/community-moods')} className="text-tamam-green-bright text-[11px] font-bold flex items-center gap-0.5">
+                {t.viewAll} <ChevronLeft size={12} />
+              </button>
+            </div>
+            {t.listSubtitle && <p className="text-tamam-text-muted text-[10px] mt-0.5">{t.listSubtitle}</p>}
           </div>
           <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
             {proposals.map((p) => (
