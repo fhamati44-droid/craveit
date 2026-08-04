@@ -52,6 +52,7 @@ import HomepageTimeAdmin from '@/pages/admin/HomepageTimeAdmin';
 import MoodGame from '@/pages/MoodGame';
 import CommunityMoods from '@/pages/CommunityMoods';
 import CommunityMoodDetail from '@/pages/CommunityMoodDetail';
+import AccountCommunityMoods from '@/pages/AccountCommunityMoods';
 import CommunityMoodsAdmin from '@/pages/admin/CommunityMoodsAdmin';
 import GameReferencesAdmin from '@/pages/admin/GameReferencesAdmin';
 
@@ -90,6 +91,8 @@ function App() {
               <Route path="/mood-game" element={<MoodGame />} />
               <Route path="/community-moods" element={<CommunityMoods />} />
               <Route path="/community-moods/:proposalId" element={<CommunityMoodDetail />} />
+              <Route path="/account/community-moods" element={<AccountCommunityMoods />} />
+              <Route path="/account/community-moods/:proposalId" element={<AccountCommunityMoods />} />
             </Route>
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/checkout/review" element={<CheckoutReview />} />

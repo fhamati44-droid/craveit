@@ -60,6 +60,16 @@ export async function deleteDraft() {
   return res?.data ?? res;
 }
 
+export async function getMyProposals() {
+  const res = await base44.functions.invoke('communityMoodEngine', { action: 'getMyProposals' });
+  return res?.data ?? res;
+}
+
+export async function adminTestPublishFlow(proposalId) {
+  const res = await base44.functions.invoke('communityMoodEngine', { action: 'adminTestPublishFlow', payload: { proposal_id: proposalId } });
+  return res?.data ?? res;
+}
+
 export async function reportProposal(proposalId, reason, details) {
   const res = await base44.functions.invoke('communityMoodEngine', { action: 'reportProposal', payload: { proposal_id: proposalId, reason, details } });
   return res?.data ?? res;

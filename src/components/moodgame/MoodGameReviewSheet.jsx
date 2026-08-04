@@ -4,7 +4,7 @@ import { X, Rocket, ClipboardList } from 'lucide-react';
 import { resolvePublicImage } from '@/lib/imageUtils';
 import { getTotalPrice, getRestaurantNames, calculateScore } from '@/lib/moodGameEngine';
 
-export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubmit, submitting, draftSaving }) {
+export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubmit, submitting, draftSaving, error }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const total = getTotalPrice(placedMeals);
@@ -110,13 +110,18 @@ export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubm
                 </div>
               </div>
 
+              {error && (
+                <div className="bg-tamam-error/15 border border-tamam-error/30 text-tamam-error text-[11px] rounded-lg px-3 py-2 text-center">
+                  {error}
+                </div>
+              )}
               {/* Publish */}
               <button
                 onClick={handlePublish}
                 disabled={!title.trim() || submitting}
                 className="w-full bg-tamam-green text-tamam-ink font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-40 active:scale-95 transition-transform"
               >
-                {submitting ? 'جاري الإرسال...' : <><Rocket size={16} /> انشر العرض</>}
+                {submitting ? 'جاري الإرسال...' : <><Rocket size={16} /> انشر المود</>}
               </button>
               <button
                 onClick={onClose}

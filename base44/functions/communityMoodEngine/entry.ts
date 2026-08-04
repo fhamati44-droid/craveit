@@ -484,6 +484,49 @@ export default async function(req) {
       return Response.json({ data: { updated: true } });
     }
 
+    if (action === 'getMyProposals') {
+      const user = await base44.auth.me().catch(() => null);
+      if (!user) return Response.json({ error: 'auth_required' }, { status: 401 });
+      const proposals = await base44.asServiceRole.entities.CommunityMoodProposal.filter({ creator_user_id: user.id }, '-created_date', 100).catch(() => []);
+      return Response.json({ data: (proposals || []).map((p) => ({
+        ...p,
+        meal_snapshots: parseJSON(p.meal_snapshots, []),
+        restaurant_snapshots: parseJSON(p.restaurant_snapshots, []),
+        table_layout: parseJSON(p.table_layout_json, {}),
+      })) });
+    }
+
+    if (action === 'adminTestPublishFlow') {
+      const p = await base44.asServiceRole.entities.CommunityMoodProposal.get(payload.proposal_id).catch(() => null);
+      if (!p) return Response.json({ error: 'not_found' }, { status: 404 });
+      const meals = parseJSON(p.meal_snapshots, []);
+      const rests = parseJSON(p.restaurant_snapshots, []);
+      const report = {
+        record_created: !!p.id,
+        creator_valid: !!p.creator_user_id && !!p.creator_display_name,
+        meals_valid: !!(p.meal_ids?.length && meals.length),
+        restaurant_valid: !!(p.restaurant_ids?.length && rests.length),
+        cover_generated: !!p.cover_image_url,
+        current_status: p.status,
+        moderation_status: p.moderation_status,
+        is_public: p.is_public,
+        publish_action_error: null,
+      };
+      const reasons = [];
+      if (!report.creator_valid) reasons.push('creator غير صالح');
+      if (!report.meals_valid) reasons.push('وجبات غير متاحة');
+      if (!report.restaurant_valid) reasons.push('مطعم غير متاح');
+      const now = new Date();
+      const homepageEligible = p.status === 'published' && p.moderation_status === 'approved' && p.is_public !== false && (!p.ends_at || new Date(p.ends_at) > now) && report.meals_valid && report.restaurant_valid;
+      if (!homepageEligible) {
+        if (p.status !== 'published') reasons.push(`status = ${p.status}`);
+        if (p.moderation_status !== 'approved') reasons.push(`moderation_status = ${p.moderation_status}`);
+        if (p.is_public === false) reasons.push('is_public = false');
+        if (p.ends_at && new Date(p.ends_at) < now) reasons.push('منتهي الصلاحية');
+      }
+      return Response.json({ data: { ...report, included_in_homepage: homepageEligible, reason_if_excluded: reasons.length ? reasons.join('؛ ') : null } });
+    }
+
     // ===== ADMIN ACTIONS =====
 
     const user = await base44.auth.me().catch(() => null);

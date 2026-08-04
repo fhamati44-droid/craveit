@@ -41,6 +41,9 @@ export default function MoodGame() {
   const [config, setConfig] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [lastProposalId, setLastProposalId] = useState(null);
+  const [publishError, setPublishError] = useState(null);
 
   const qualitySettings = useMemo(() => getQualitySettings(qualityMode), [qualityMode]);
   const combo = calculateCombo(placedMeals);
@@ -260,6 +263,10 @@ export default function MoodGame() {
 
   // --- Publish proposal ---
   const handlePublish = useCallback(async ({ title_ar, description_ar }) => {
+    setPublishError(null);
+    if (!placedMeals.length) { setPublishError('لازم تختار وجبة واحدة على الأقل'); return; }
+    const restaurantIds = [...new Set(placedMeals.map((m) => m.restaurant_id))].filter(Boolean);
+    if (!restaurantIds.length) { setPublishError('المطعم أو الوجبة مش متاحين حاليًا'); return; }
     setSubmitting(true);
     try {
       const isAuth = await base44.auth.isAuthenticated();
@@ -267,7 +274,6 @@ export default function MoodGame() {
         await base44.auth.redirectToLogin('/mood-game');
         return;
       }
-      const restaurantIds = [...new Set(placedMeals.map((m) => m.restaurant_id))].filter(Boolean);
       const mealIds = placedMeals.map((m) => m.id);
       const result = await submitProposal({
         mood_title_ar: title_ar,
@@ -282,10 +288,12 @@ export default function MoodGame() {
       });
       await deleteDraft();
       track('community_mood_submitted', { proposal_id: result.id });
+      setLastProposalId(result.id);
       setShowReview(false);
-      navigate('/community-moods');
+      setShowSuccess(true);
     } catch (err) {
-      alert(err?.error === 'auth_required' ? 'سجّل أولًا' : 'صار خطأ، جرّب مرة ثانية');
+      const msg = err?.error === 'auth_required' ? 'سجّل أولًا' : (err?.message || 'صار خطأ بالنشر، جرّب مرة ثانية');
+      setPublishError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -409,10 +417,11 @@ export default function MoodGame() {
       <MoodGameReviewSheet
         open={showReview}
         placedMeals={placedMeals}
-        onClose={() => setShowReview(false)}
+        onClose={() => { setShowReview(false); setPublishError(null); }}
         onSubmit={handlePublish}
         submitting={submitting}
         draftSaving={placedMeals.length > 0}
+        error={publishError}
       />
 
       {/* Pause sheet */}
@@ -425,6 +434,34 @@ export default function MoodGame() {
         onStartOver={startOver}
         onExit={() => navigate('/')}
       />
+
+      {/* Success overlay — after publish */}
+      <AnimatePresence>
+        {showSuccess && (
+          <>
+            <div className="fixed inset-0 bg-tamam-ink/80 z-50" />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-6"
+              dir="rtl"
+            >
+              <div className="bg-tamam-surface rounded-3xl p-6 max-w-[340px] w-full text-center border border-tamam-green/30" style={{ boxShadow: '0 0 40px rgba(110,191,95,0.25)' }}>
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.15, type: 'spring' }} className="w-16 h-16 rounded-full bg-tamam-green/20 flex items-center justify-center mx-auto mb-4">
+                  <Check size={32} className="text-tamam-green-bright" />
+                </motion.div>
+                <h2 className="text-tamam-text font-bold text-lg mb-1">وصلنا مودك</h2>
+                <p className="text-tamam-text-muted text-sm mb-5">المود دخل للمراجعة، وبنخبرك لما يصير جاهز للنشر.</p>
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => navigate(`/account/community-moods/${lastProposalId}`)} className="w-full bg-tamam-green text-tamam-ink font-bold text-sm py-3 rounded-xl">شوف حالة المود</button>
+                  <button onClick={() => navigate('/')} className="w-full bg-tamam-surface-high text-tamam-text font-bold text-sm py-3 rounded-xl">ارجع للهوم</button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   adminSetTarget, adminModerateComment, adminInvalidateLikes, adminApproveReward,
   adminRejectReward, adminArchiveProposal, adminSaveConfig, getConfig,
   adminTestProposalVisibility,
+  adminTestPublishFlow,
 } from '@/lib/communityMoodApi';
 import { useNavigate } from 'react-router-dom';
 import TamamAvatar from '@/components/community/TamamAvatar';
@@ -131,6 +132,7 @@ function ProposalList({ tab, proposals, onAction }) {
             <button onClick={() => onAction(adminInvalidateLikes, p.id)} className="bg-orange-100 text-orange-700 text-xs px-3 py-1.5 rounded-lg">إبطال الإعجابات</button>
             <button onClick={() => window.open(`/community-moods/${p.id}`, '_blank')} className="bg-blue-100 text-blue-700 text-xs px-3 py-1.5 rounded-lg">فتح الصفحة العامة</button>
             <TestVisibilityButton proposalId={p.id} />
+            <PublishFlowButton proposalId={p.id} />
           </div>
         </div>
       ))}
@@ -289,6 +291,60 @@ function TestVisibilityButton({ proposalId }) {
               <Row label="يظهر بالهوم؟" ok={result.included_by_homepage} />
             </div>
             {result.reason_if_excluded && (
+              <p className="text-red-600 text-xs mt-3 bg-red-50 p-2 rounded">سبب الاستبعاد: {result.reason_if_excluded}</p>
+            )}
+            <button onClick={() => setOpen(false)} className="mt-3 w-full bg-gray-100 text-gray-700 text-xs py-2 rounded-lg">إغلاق</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function PublishFlowButton({ proposalId }) {
+  const [result, setResult] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const r = await adminTestPublishFlow(proposalId);
+      setResult(r);
+      setOpen(true);
+    } catch (e) {
+      setResult({ error: e?.message || 'فشل الفحص' });
+      setOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button onClick={run} disabled={loading} className="bg-indigo-100 text-indigo-700 text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">
+        {loading ? '...' : 'فحص مسار النشر'}
+      </button>
+      {open && result && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-xl p-4 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-sm mb-3">فحص مسار النشر</h3>
+            {result.error ? (
+              <p className="text-red-600 text-xs">{result.error}</p>
+            ) : (
+              <div className="space-y-1.5 text-xs">
+                <Row label="تم إنشاء السجل؟" ok={result.record_created} />
+                <Row label="المنشئ صالح؟" ok={result.creator_valid} />
+                <Row label="الوجبات صالحة؟" ok={result.meals_valid} />
+                <Row label="المطعم صالح؟" ok={result.restaurant_valid} />
+                <Row label="صورة الغلاف موجودة؟" ok={result.cover_generated} />
+                <div className="flex items-center justify-between"><span className="text-gray-600">الحالة الحالية</span><span className="font-bold text-gray-800">{result.current_status}</span></div>
+                <div className="flex items-center justify-between"><span className="text-gray-600">حالة المراجعة</span><span className="font-bold text-gray-800">{result.moderation_status}</span></div>
+                <Row label="عام؟" ok={result.is_public} />
+                <Row label="مدرج بالهوم؟" ok={result.included_in_homepage} />
+              </div>
+            )}
+            {result?.reason_if_excluded && (
               <p className="text-red-600 text-xs mt-3 bg-red-50 p-2 rounded">سبب الاستبعاد: {result.reason_if_excluded}</p>
             )}
             <button onClick={() => setOpen(false)} className="mt-3 w-full bg-gray-100 text-gray-700 text-xs py-2 rounded-lg">إغلاق</button>
