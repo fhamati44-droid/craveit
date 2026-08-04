@@ -12,14 +12,14 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 const TEXT = {
   ar: {
     title: 'مود جيم TAMAM',
-    subtitle: 'اختار الوجبات، رتّبها على الطاولة، واعمل مودك.',
-    ctaPrimary: 'ادخل على اللعبة',
+    subtitle: 'اختار المطاعم والوجبات، رتّبها على الطاولة، واعمل المود بطريقتك.',
+    ctaPrimary: 'ادخل على مود جيم',
     ctaSecondary: 'شوف مودات الناس',
     listHeading: 'مودات عملها الناس',
-    listSubtitle: 'ادعم المود اللي عجبك بلايك، تعليق أو مشاركة.',
+    listSubtitle: 'شوف المودات اللي عملها الناس وادعم المود اللي عجبك.',
     viewAll: 'شوف الكل',
-    empty: 'لسه ما نُشر أول مود. ممكن مودك يكون الأول.',
-    emptyCta: 'اعمل أول مود',
+    empty: 'لسه ما في مودات منشورة. ممكن مودك يكون الأول.',
+    emptyCta: 'ابدأ اللعبة',
     errorRetry: 'إعادة المحاولة',
     proposalsError: 'ما قدرنا نحمّل المودات',
   },
@@ -106,7 +106,7 @@ export default function CommunityMoodGameSection() {
   const ctaSecondary = cfg.cta_secondary_ar || cfg.cta_secondary_he || t.ctaSecondary;
 
   return (
-    <section ref={sectionRef} className="px-4 py-4" dir="rtl">
+    <section ref={sectionRef} id="community-mood-home-section" className="px-4 py-4" dir="rtl">
       {/* ===== GAME ENTRY BANNER ===== */}
       <div
         onClick={() => { track('community_game_started', { source: 'homepage_banner' }); navigate('/mood-game'); }}
