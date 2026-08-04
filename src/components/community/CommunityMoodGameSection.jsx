@@ -94,80 +94,50 @@ export default function CommunityMoodGameSection() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [inView, config]);
 
-  if (!inView) {
-    return <div ref={sectionRef} className="min-h-[200px]" />;
-  }
-
-  // Merge config with exact fallback text
-  const cfg = config || {};
-  const title = cfg.section_title_ar || cfg.section_title_he || t.title;
-  const subtitle = cfg.section_subtitle_ar || cfg.section_subtitle_he || t.subtitle;
-  const ctaPrimary = cfg.cta_primary_ar || cfg.cta_primary_he || t.ctaPrimary;
-  const ctaSecondary = cfg.cta_secondary_ar || cfg.cta_secondary_he || t.ctaSecondary;
-
   return (
     <section ref={sectionRef} id="community-mood-home-section" className="px-4 py-4" dir="rtl">
-      {/* ===== GAME ENTRY BANNER ===== */}
-      <div
-        onClick={() => { track('community_game_started', { source: 'homepage_banner' }); navigate('/mood-game'); }}
-        className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-tamam-surface-low via-tamam-teal to-tamam-surface-lowest border border-tamam-outline/30 cursor-pointer active:scale-[0.99] transition-transform"
-      >
-        {/* Preview media */}
+      {/* ===== GAME ENTRY BANNER — always visible, hardcoded, no config/login/condition ===== */}
+      <section id="mood-game-entry-banner" className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-tamam-surface-low via-tamam-teal to-tamam-surface-lowest border border-tamam-outline/30">
         <div className="relative h-[180px] overflow-hidden">
-          {cfg.preview_media_url && inView ? (
-            <video
-              ref={videoRef}
-              src={cfg.preview_media_url}
-              poster={cfg.preview_poster_url || cfg.banner_poster_url}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="none"
-              className="absolute inset-0 w-full h-full object-cover opacity-60"
-            />
-          ) : (
-            <AnimatedTablePreview />
-          )}
+          <AnimatedTablePreview />
           <div className="absolute inset-0 bg-gradient-to-t from-tamam-ink/80 via-tamam-ink/20 to-transparent" />
         </div>
-
-        {/* Text overlay */}
         <div className="absolute inset-0 flex flex-col justify-end p-4 pointer-events-none">
           <div className="flex items-center gap-1.5 mb-1">
             <Sparkles size={14} className="text-tamam-gold" />
             <span className="text-tamam-gold text-[10px] font-bold uppercase tracking-wide">TAMAM طاولة</span>
           </div>
-          <h2 className="text-white font-bold text-lg leading-tight mb-1">{title}</h2>
-          <p className="text-tamam-text-muted text-xs leading-snug mb-3 line-clamp-2">{subtitle}</p>
+          <h2 className="text-white font-bold text-lg leading-tight mb-1">{t.title}</h2>
+          <p className="text-tamam-text-muted text-xs leading-snug mb-3 line-clamp-2">{t.subtitle}</p>
           <div className="flex items-center gap-2 pointer-events-auto">
             <button
               id="open-mood-game-button"
               onClick={(e) => { e.stopPropagation(); track('community_game_started', { source: 'homepage_banner' }); navigate('/mood-game'); }}
               className="bg-tamam-green text-tamam-ink font-bold text-xs px-4 py-2 rounded-full active:scale-95 transition-transform flex items-center gap-1 min-h-[44px]"
             >
-              <Play size={12} fill="currentColor" /> {ctaPrimary}
+              <Play size={12} fill="currentColor" /> {t.ctaPrimary}
             </button>
             <button
+              id="open-community-moods-button"
               onClick={(e) => { e.stopPropagation(); navigate('/community-moods'); }}
               className="bg-tamam-surface-high/80 text-tamam-text font-bold text-xs px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
             >
-              {ctaSecondary}
+              {t.ctaSecondary}
             </button>
           </div>
         </div>
-
-        {/* Floating preview elements — no fake numbers */}
         <div className="absolute top-3 left-3 flex flex-col gap-1 items-start pointer-events-none">
           <FloatingHearts />
           <div className="bg-tamam-surface/90 rounded-lg px-2 py-1 text-[9px] text-tamam-text-muted flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-tamam-green" /> معاينة
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* ===== COMMUNITY MOOD LIST ===== */}
-      {loading ? (
+      {/* ===== COMMUNITY MOOD LIST (lazy-loaded below the banner) ===== */}
+      {!inView ? (
+        <div className="mt-4 min-h-[120px]" />
+      ) : loading ? (
         <div className="mt-4">
           <div className="h-4 w-32 skeleton-t rounded mb-2" />
           <div className="flex gap-3 overflow-hidden">
