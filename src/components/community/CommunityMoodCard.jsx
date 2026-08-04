@@ -197,7 +197,7 @@ export default function CommunityMoodCard({ proposal, onShare }) {
               onClick={openClick}
               className="mr-auto flex items-center gap-0.5 text-tamam-green-bright text-[11px] font-bold px-2 min-h-[40px]"
             >
-              ادعم المود <ChevronLeft size={13} />
+              شوف المود <ChevronLeft size={13} />
             </button>
           </div>
         </div>
