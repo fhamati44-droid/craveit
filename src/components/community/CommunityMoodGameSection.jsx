@@ -12,7 +12,7 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 const TEXT = {
   ar: {
     title: 'مود جيم TAMAM',
-    subtitle: 'اختار المطاعم والوجبات، اسحبهم للطاولة، وركّب مودك بطريقتك.',
+    subtitle: 'اختار الوجبات، رتّبها على الطاولة، واعمل مودك.',
     ctaPrimary: 'ادخل على اللعبة',
     ctaSecondary: 'شوف مودات الناس',
     listHeading: 'مودات عملها الناس',
@@ -25,7 +25,7 @@ const TEXT = {
   },
   he: {
     title: 'משחק המוד של TAMAM',
-    subtitle: 'בוחרים מסעדות ומנות, גוררים לשולחן ויוצרים מוד משלכם.',
+    subtitle: 'בוחרים מנות, מסדרים על השולחן ויוצרים מוד.',
     ctaPrimary: 'היכנסו למשחק',
     ctaSecondary: 'צפו במודים של הקהילה',
     listHeading: 'מודים שהקהילה יצרה',
