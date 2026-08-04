@@ -142,8 +142,9 @@ export default function CommunityMoodGameSection() {
           <p className="text-tamam-text-muted text-xs leading-snug mb-3 line-clamp-2">{subtitle}</p>
           <div className="flex items-center gap-2 pointer-events-auto">
             <button
+              id="open-mood-game-button"
               onClick={(e) => { e.stopPropagation(); track('community_game_started', { source: 'homepage_banner' }); navigate('/mood-game'); }}
-              className="bg-tamam-green text-tamam-ink font-bold text-xs px-4 py-2 rounded-full active:scale-95 transition-transform flex items-center gap-1 min-h-[36px]"
+              className="bg-tamam-green text-tamam-ink font-bold text-xs px-4 py-2 rounded-full active:scale-95 transition-transform flex items-center gap-1 min-h-[44px]"
             >
               <Play size={12} fill="currentColor" /> {ctaPrimary}
             </button>
@@ -193,7 +194,7 @@ export default function CommunityMoodGameSection() {
             </div>
             {t.listSubtitle && <p className="text-tamam-text-muted text-[10px] mt-0.5">{t.listSubtitle}</p>}
           </div>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+          <div id="community-mood-list" className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
             {proposals.map((p) => (
               <CommunityMoodCard key={p.id} proposal={p} onShare={setShareProposal} />
             ))}
