@@ -291,6 +291,8 @@ export default function MoodGame() {
       setLastProposalId(result.id);
       setShowReview(false);
       setShowSuccess(true);
+      // Auto-redirect to the creator's status page (leave the publishing page)
+      setTimeout(() => navigate(`/account/community-moods/${result.id}`), 1800);
     } catch (err) {
       const msg = err?.error === 'auth_required' ? 'سجّل أولًا' : (err?.message || 'صار خطأ بالنشر، جرّب مرة ثانية');
       setPublishError(msg);
