@@ -11,9 +11,9 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 // Exact production text — config overrides if admin edits
 const TEXT = {
   ar: {
-    title: 'اصنع مودك على طاولة TAMAM',
-    subtitle: 'اختار الوجبات، رتّب مودك، وانشره حتى الناس تدعمه.',
-    ctaPrimary: 'ابدأ لعبة المود',
+    title: 'مود جيم TAMAM',
+    subtitle: 'اختار مطعم، اسحب الوجبات للطاولة، وركّب مودك بطريقتك.',
+    ctaPrimary: 'ابدأ اللعبة',
     ctaSecondary: 'شوف مودات الناس',
     listHeading: 'مودات عملها الناس',
     viewAll: 'شوف الكل',
@@ -23,9 +23,9 @@ const TEXT = {
     proposalsError: 'ما قدرنا نحمّل المودات',
   },
   he: {
-    title: 'צרו את המוד שלכם על שולחן TAMAM',
-    subtitle: 'בוחרים מנות, מרכיבים מוד ומשתפים כדי שהקהילה תתמוך.',
-    ctaPrimary: 'התחילו את משחק המוד',
+    title: 'משחק המוד של TAMAM',
+    subtitle: 'בוחרים מסעדה, גוררים מנות לשולחן ויוצרים מוד משלכם.',
+    ctaPrimary: 'התחילו לשחק',
     ctaSecondary: 'צפו במודים של הקהילה',
     listHeading: 'מודים שהקהילה יצרה',
     viewAll: 'צפו בכולם',
