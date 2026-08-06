@@ -65,18 +65,18 @@ export function validateItem(form) {
   return errors;
 }
 
-// ---- Publishing rule (Part 15) ----
+// ---- Publishing rule ----
 export function isItemPublishable(item, restaurant) {
   if (!item || !restaurant) return false;
   if (!restaurant.active || !restaurant.accepts_orders) return false;
   if (restaurant.current_status === 'closed' || restaurant.current_status === 'temporarily_unavailable') return false;
   if (!item.active || !item.available) return false;
   if (item.price == null || Number(item.price) <= 0) return false;
-  if (!item.meal_id && !item.mapped_meal_set_variant_id) return false;
+  if (!item.mapped_tamam_product_id && !item.meal_id && !item.mapped_meal_set_variant_id) return false;
   return true;
 }
 
-// ---- Display priority (Part 12) ----
+// ---- Display priority ----
 export function resolveItemDisplayImage(item, tamamProduct) {
   if (item?.primary_image) return item.primary_image;
   if (item?.gallery_images?.length) return item.gallery_images[0];
@@ -95,38 +95,53 @@ export function resolveItemPayablePrice(item) {
   return Number(item.price);
 }
 
-// ---- CSV template columns (official, Part 6) ----
+// ---- CSV template columns (official, exact spec) ----
 export const CSV_COLUMNS = [
-  'restaurant_sku', 'external_id',
-  'restaurant_item_name_ar', 'restaurant_item_name_en',
-  'restaurant_item_short_description_ar', 'restaurant_item_full_description_ar',
-  'ingredients_ar', 'included_items_ar', 'allergens_ar',
-  'portion_description_ar', 'packaging_description_ar',
-  'restaurant_category', 'restaurant_subcategory', 'restaurant_menu_section',
-  'restaurant_price', 'compare_at_price', 'currency', 'tax_included',
-  'primary_image_file', 'primary_image_url',
-  'gallery_image_file_1', 'gallery_image_file_2', 'gallery_image_file_3',
-  'gallery_image_url_1', 'gallery_image_url_2', 'gallery_image_url_3',
-  'active', 'available', 'sold_out', 'available_quantity', 'daily_capacity',
-  'preparation_time_min', 'preparation_time_max',
-  'delivery_fee_override', 'minimum_order_override', 'free_delivery_threshold_override',
-  'available_days', 'available_from_time', 'available_until_time',
-  'tamam_product_id', 'tamam_product_name_reference',
-  'meal_set_id', 'meal_set_name_reference', 'meal_set_variant_id', 'tier',
-  'modifier_group_1', 'modifier_1_name', 'modifier_1_price', 'modifier_2_name', 'modifier_2_price',
+  'restaurant_sku',
+  'restaurant_item_name_ar',
+  'restaurant_item_name_en',
+  'restaurant_item_short_description_ar',
+  'restaurant_item_full_description_ar',
+  'ingredients_ar',
+  'included_items_ar',
+  'allergens_ar',
+  'portion_description_ar',
+  'restaurant_price',
+  'compare_at_price',
+  'currency',
+  'primary_image_file',
+  'primary_image_url',
+  'gallery_image_file_1',
+  'gallery_image_file_2',
+  'gallery_image_file_3',
+  'active',
+  'available',
+  'sold_out',
+  'available_quantity',
+  'preparation_time_min',
+  'preparation_time_max',
+  'delivery_fee_override',
+  'available_days',
+  'available_from_time',
+  'available_until_time',
+  'tamam_product_id',
+  'tamam_product_name_reference',
+  'meal_set_id',
+  'meal_set_variant_id',
+  'tier',
   'internal_notes',
 ];
 export const CSV_TEMPLATE = CSV_COLUMNS.join(',');
 export function downloadCsvTemplate() {
-  downloadCsv(CSV_TEMPLATE + '\n', 'tamam_restaurant_menu_template.csv');
+  downloadCsv(CSV_TEMPLATE + '\n', 'tamam_restaurant_menu_import_template.csv');
 }
-// Example file with 2–3 sample rows clearly marked as examples (never auto-inserted).
 export function downloadCsvExample() {
   const sample = [
-    `BG-001,EXT-1,دبل برغر فطر وجبنة,Double Mushroom Burger,قطعتان لحم وجبنة شيدر وفطر مشوي,برغر لحم مزدوج مع جبنة شيدر وفطر مشوي وخس وبندورة وصوص المطعم,لحم، خبز، جبنة، فطر، صوص,خبز، جبنة شيدر، فطر,خس وبندورة وبصل,وجبة كاملة,علبة كرتون,برغر,برغر,وجبات رئيسية,54,68,ILS,true,BG-001.jpg,,,,,,true,true,false,20,40,15,25,10,40,0,,,,,true,false,,,,برغر Mix,BRG-MIX,,mix,إضافات,جبنة إضافية,3,صوص فطر,2,مثال — يمسح`,
-    `BG-002,,برغر كرسبي مع حلقات بصل,Crispy Burger Rings,برغر مقرمش مع حلقات بصل,برغر دجاج مقرمش مع حلقات بصل وطماطم وصلصة خاصة,دجاج، بقسماط، بصل,حلقات بصل,خس وطماطم,وجبة كاملة,علبة كرتون,برغر,برغر,وجبات رئيسية,47,,ILS,true,BG-002.jpg,,,,,,true,true,false,15,,12,20,8,35,0,,,,,true,false,,,,برغر Mix,BRG-MIX,,mix,,,,,,مثال — يمسح`,
+    'BG-001,דבל בורגר פטריות וגבינה,Double Mushroom Burger,שני קציצות בשר גבינת צ׳דר ופטריות,בורגר בשר כפול עם גבינת צ׳דר ופטריות חצויות חסה עגבניה ורוטב,בשר לחם גבינה פטריות רוטב,לחם גבינת צ׳דר פטריות,חסה עגבניה בצל,ארוחה מלאה,54,68,ILS,BG-001.jpg,,,,,,true,true,false,20,15,25,10,1,6|7,11:00,23:00,101,Burger Mix,,mix,דוגמה — למחיקה',
+    'BG-002,בורגר קריספי עם טבעות בצל,Crispy Onion Rings Burger,בורגר פריך עם טבעות בצל,בורגר עוף פריך עם טבעות בצל עגבניה ורוטב מיוחד,עוף פנקו בצל,טבעות בצל,חסה עגבניה,ארוחה מלאה,47,,ILS,BG-002.png,,,,,,true,true,false,15,12,20,8,,,11:00,23:00,101,Burger Mix,,mix,דוגמה — למחיקה',
+    'BG-003,מנה צמחונית פסטה,Vegan Pasta Bowl,פסטה עם ירקות ורוטב עגבנים,פסטה עם ירקות טריים רוטב עגבנים ושמן זית,פסטה ירקות רוטב עגבנים,פסטה,בזיליקום,קערה,39,,ILS,VG-003.jpg,,,,,,true,true,false,10,10,15,5,,,11:00,23:00,205,Vegan Bowl,,classic,דוגמה — למחיקה',
   ].join('\n');
-  downloadCsv(CSV_TEMPLATE + '\n' + sample + '\n', 'tamam_restaurant_menu_example.csv');
+  downloadCsv(CSV_TEMPLATE + '\n' + sample + '\n', 'tamam_restaurant_menu_import_example.csv');
 }
 function downloadCsv(content, fileName) {
   const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
@@ -135,7 +150,7 @@ function downloadCsv(content, fileName) {
   a.href = url; a.download = fileName; a.click();
   URL.revokeObjectURL(url);
 }
-// Map a CSV/TAMAM mapping request into the stable entity fields (Part 1).
+// Map a mapping request into the stable entity fields.
 export function buildMappingFields({ tamam_product_id, meal_set_variant_id, tier, meal_set_id } = {}) {
   const productId = tamam_product_id != null && tamam_product_id !== '' ? Number(tamam_product_id) : null;
   const variantId = meal_set_variant_id || null;
@@ -151,18 +166,17 @@ export function buildMappingFields({ tamam_product_id, meal_set_variant_id, tier
   if (meal_set_id) fields.mapped_meal_set_id = meal_set_id;
   return fields;
 }
-// Index existing items by SKU for update-by-SKU (Part 9).
 export function buildSkuIndex(items) {
   const map = new Map();
   (items || []).forEach((it) => { if (it.restaurant_sku) map.set(it.restaurant_sku, it); });
   return map;
 }
-// ---- CSV exports (Part 17) ----
+
+// ---- CSV exports ----
 function rowFromItem(it) {
   const row = {};
   CSV_COLUMNS.forEach((c) => (row[c] = ''));
   row.restaurant_sku = it.restaurant_sku || '';
-  row.external_id = it.external_id || '';
   row.restaurant_item_name_ar = it.restaurant_product_name || it.name_ar || '';
   row.restaurant_item_name_en = it.name_en || '';
   row.restaurant_item_short_description_ar = it.customer_visible_description || it.short_description_ar || '';
@@ -171,35 +185,24 @@ function rowFromItem(it) {
   row.included_items_ar = it.included_items || '';
   row.allergens_ar = it.allergens_ar || '';
   row.portion_description_ar = it.portion_description_ar || '';
-  row.packaging_description_ar = it.packaging_description_ar || '';
-  row.restaurant_category = it.restaurant_category_name || '';
-  row.restaurant_subcategory = it.restaurant_subcategory_name || '';
-  row.restaurant_menu_section = it.menu_section_name || '';
   row.restaurant_price = it.price != null ? String(it.price) : '';
   row.compare_at_price = it.compare_at_price != null ? String(it.compare_at_price) : '';
   row.currency = it.currency || 'ILS';
-  row.tax_included = it.tax_included === false ? 'false' : 'true';
   row.primary_image_url = it.primary_image || '';
-  row.gallery_image_url_1 = it.gallery_images?.[0] || '';
-  row.gallery_image_url_2 = it.gallery_images?.[1] || '';
-  row.gallery_image_url_3 = it.gallery_images?.[2] || '';
   row.active = it.active === false ? 'false' : 'true';
   row.available = it.available === false ? 'false' : 'true';
   row.sold_out = it.sold_out ? 'true' : 'false';
   row.available_quantity = it.available_quantity != null ? String(it.available_quantity) : '';
-  row.daily_capacity = it.daily_capacity != null ? String(it.daily_capacity) : '';
   row.preparation_time_min = it.preparation_time_override != null ? String(it.preparation_time_override) : '';
   row.delivery_fee_override = it.delivery_fee_override != null ? String(it.delivery_fee_override) : '';
-  row.minimum_order_override = it.minimum_order_override != null ? String(it.minimum_order_override) : '';
-  row.free_delivery_threshold_override = it.free_delivery_threshold_override != null ? String(it.free_delivery_threshold_override) : '';
   row.available_days = (it.available_days || []).join('|');
   row.available_from_time = it.available_from_time || '';
   row.available_until_time = it.available_until_time || '';
   row.tamam_product_id = it.mapped_tamam_product_id || it.meal_id || '';
   row.tamam_product_name_reference = it.meal_name_snapshot || '';
-  row.tier = it.mapped_tier || it.package_id || '';
-  row.meal_set_variant_id = it.mapped_meal_set_variant_id || '';
   row.meal_set_id = it.mapped_meal_set_id || '';
+  row.meal_set_variant_id = it.mapped_meal_set_variant_id || '';
+  row.tier = it.mapped_tier || it.package_id || '';
   row.internal_notes = it.restaurant_notes || '';
   return row;
 }
@@ -215,7 +218,7 @@ function escCsv(v) {
   const s = String(v ?? '');
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
-export function exportRestaurantMenuCsv(items) { downloadCsv(itemsToCsv(items || []), 'restaurant_menu.csv'); }
+export function exportRestaurantMenuCsv(items) { downloadCsv(itemsToCsv(items || []), 'tamam_restaurant_menu_current.csv'); }
 export function exportUnmappedCsv(items) { downloadCsv(itemsToCsv((items || []).filter((i) => i.mapping_status === 'unmapped' || i.mapping_status === 'needs_review')), 'restaurant_menu_unmapped.csv'); }
 export function exportNoImageCsv(items) { downloadCsv(itemsToCsv((items || []).filter((i) => !i.primary_image && !(i.gallery_images || []).length)), 'restaurant_menu_no_image.csv'); }
 export function exportPricesCsv(items) { downloadCsv(itemsToCsv(items || []), 'restaurant_menu_prices.csv'); }
@@ -223,14 +226,26 @@ export function exportTamamProductsReferenceCsv(products) {
   const cols = ['tamam_product_id', 'tamam_product_name', 'category', 'menu', 'meal_set_id', 'meal_set_name', 'meal_set_variant_id', 'tier', 'marketing_image_reference'];
   const lines = [cols.join(',')];
   for (const p of products || []) {
-    lines.push(cols.map((c) => escCsv(p[c] ?? '')).join(','));
+    const row = {
+      tamam_product_id: p.id ?? '',
+      tamam_product_name: p.name_ar || p.name || '',
+      category: p.category_name || p.category || '',
+      menu: p.menu_name || p.menu || '',
+      meal_set_id: p.meal_set_id || '',
+      meal_set_name: p.meal_set_name || '',
+      meal_set_variant_id: p.meal_set_variant_id || '',
+      tier: p.tier || '',
+      marketing_image_reference: p.image_url || '',
+    };
+    lines.push(cols.map((c) => escCsv(row[c])).join(','));
   }
   downloadCsv(lines.join('\n'), 'tamam_master_products_reference.csv');
 }
 
 // ---- CSV parse (client-side) ----
 export function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  const clean = text.replace(/^\uFEFF/, '');
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim());
   if (!lines.length) return [];
   const headers = splitCsvLine(lines[0]).map((h) => h.trim());
   const rows = [];
@@ -257,9 +272,9 @@ function splitCsvLine(line) {
 export function validateCsvRow(row, mapping) {
   const errors = [];
   const get = (field) => row[mapping[field]] || row[field] || '';
-  const name = get('name_ar') || get('restaurant_product_name');
+  const name = get('restaurant_item_name_ar') || get('restaurant_product_name');
   if (!name) errors.push('الاسم مطلوب');
-  const price = get('price');
+  const price = get('restaurant_price') || get('price');
   if (price === '' || isNaN(Number(price)) || Number(price) <= 0) errors.push('السعر غير صالح');
   return errors;
 }

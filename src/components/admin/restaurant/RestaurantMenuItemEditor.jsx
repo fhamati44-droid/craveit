@@ -66,7 +66,7 @@ export default function RestaurantMenuItemEditor({ restaurant, menus, item, onSa
     setSearchResults([]);
   };
   const clearMapping = () => {
-    up('meal_id', null); up('meal_name_snapshot', ''); up('mapping_status', 'unmapped'); up('mapping_confidence', 0);
+    up('meal_id', null); up('mapped_tamam_product_id', null); up('meal_name_snapshot', ''); up('mapping_status', 'unmapped'); up('mapping_confidence', 0);
   };
   const setStatus = (s) => up('mapping_status', s);
 
@@ -101,6 +101,7 @@ export default function RestaurantMenuItemEditor({ restaurant, menus, item, onSa
         free_delivery_threshold_override: num(form.free_delivery_threshold_override),
         display_order: Number(form.display_order) || 0,
         meal_id: form.meal_id ? Number(form.meal_id) : null,
+        mapped_tamam_product_id: form.meal_id ? Number(form.meal_id) : null,
         mapping_confidence: num(form.mapping_confidence),
       };
       if (isEdit) await updateItem(item.id, payload);

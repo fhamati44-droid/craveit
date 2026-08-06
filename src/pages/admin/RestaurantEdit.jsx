@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowRight, Save } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { getAllMenuCategories } from '@/lib/api';
-
-const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
+import RestaurantMenuSection, { RestaurantCreatedSuccess } from '@/components/admin/restaurant/RestaurantMenuSection';
 
 const STATUSES = [
   { value: 'open', label: 'مفتوح' },
@@ -32,6 +31,7 @@ export default function RestaurantEdit() {
   const [menus, setMenus] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [justCreatedId, setJustCreatedId] = useState(null);
   const isEdit = !!id;
 
   useEffect(() => {
@@ -51,12 +51,20 @@ export default function RestaurantEdit() {
     try {
       const payload = { ...form, rating: numOrNull(form.rating), latitude: numOrNull(form.latitude), longitude: numOrNull(form.longitude), minimum_order: Number(form.minimum_order) || 0, delivery_fee: Number(form.delivery_fee) || 0, free_delivery_threshold: numOrNull(form.free_delivery_threshold), preparation_time_min: numOrNull(form.preparation_time_min), preparation_time_max: numOrNull(form.preparation_time_max), delivery_time_min: numOrNull(form.delivery_time_min), delivery_time_max: numOrNull(form.delivery_time_max), supabase_restaurant_id: numOrNull(form.supabase_restaurant_id) };
       if (isEdit) await base44.entities.Restaurant.update(id, payload);
-      else await base44.entities.Restaurant.create(payload);
+      else {
+        const created = await base44.entities.Restaurant.create(payload);
+        setJustCreatedId(created.id);
+        return;
+      }
       navigate('/admin/restaurants');
     } catch (e) {
       setError(e?.message || 'فشل الحفظ');
     } finally { setSaving(false); }
   };
+
+  if (justCreatedId) {
+    return <RestaurantCreatedSuccess restaurantId={justCreatedId} navigate={navigate} />;
+  }
 
   return (
     <div dir="rtl" className="font-tamam space-y-4 max-w-2xl">
@@ -130,16 +138,7 @@ export default function RestaurantEdit() {
           {saving ? 'عم نحفظ...' : <><Save size={18} /> حفظ</>}
         </button>
 
-        {isEdit && (
-          <div className="border-t border-outline-variant/20 pt-4 space-y-2">
-            <h3 className="font-bold text-sm">إعداد مينيو المطعم (الخطوة 2)</h3>
-            <p className="text-xs text-on-surface-variant">تم حفظ بيانات المطعم. إسا أضف المينيو الحقيقي للمطعم. المطعم بدون وجبات مربوطة يبقى مسودة ولا يظهر كموفّر تجهيز.</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => navigate(`/admin/restaurants/${id}/menu`)} className="flex items-center justify-center gap-1.5 bg-primary/10 text-primary py-2.5 rounded-xl text-sm font-bold">إضافة وجبة يدويًا</button>
-              <button onClick={() => navigate(`/admin/restaurants/${id}/mapping`)} className="flex items-center justify-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 rounded-xl text-sm font-bold">ربط بالمينيو الرئيسي</button>
-            </div>
-          </div>
-        )}
+        {isEdit && <RestaurantMenuSection restaurantId={id} restaurant={form} />}
       </div>
       <style>{`.inp{width:100%;background:var(--background);border:1px solid hsl(var(--outline-variant)/.4);border-radius:12px;padding:10px 12px;font-size:14px;color:inherit;outline:none}.inp:focus{border-color:hsl(var(--primary))}`}</style>
     </div>

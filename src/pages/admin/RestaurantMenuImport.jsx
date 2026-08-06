@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowRight, Upload, Download, FileSpreadsheet, Check, AlertTriangle, X, Link2 } from 'lucide-react';
+import { ArrowRight, Upload, Download, FileSpreadsheet, Check, AlertTriangle, X, Link2, Archive } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import JSZip from 'jszip';
 import {
   parseCsv, downloadCsvTemplate, downloadCsvExample, searchTamamProducts, suggestMappings,
   getMenusForRestaurant, createMenu, createItem, updateItem, createImportBatch,
@@ -13,22 +14,31 @@ const Icon = ({ name, className = '' }) => <span className={`material-symbols-ou
 
 // Destination fields the importer can populate
 const DEST_FIELDS = [
-  { f: 'restaurant_product_name', aliases: ['name_ar', 'restaurant_product_name', 'اسم الصنف', 'اسم الوجبة', 'الاسم'] },
+  { f: 'restaurant_product_name', aliases: ['restaurant_item_name_ar', 'name_ar', 'restaurant_product_name', 'اسم الصنف', 'اسم الوجبة', 'الاسم'] },
+  { f: 'name_en', aliases: ['restaurant_item_name_en', 'name_en', 'الاسم الإنجليزي'] },
   { f: 'restaurant_sku', aliases: ['restaurant_sku', 'sku', 'كود', 'رمز'] },
-  { f: 'price', aliases: ['price', 'السعر', 'السعر الجديد', 'سعر'] },
+  { f: 'external_id', aliases: ['external_id'] },
+  { f: 'price', aliases: ['restaurant_price', 'price', 'السعر', 'السعر الجديد', 'سعر'] },
   { f: 'compare_at_price', aliases: ['compare_at_price', 'قارن'] },
-  { f: 'customer_visible_description', aliases: ['short_description_ar', 'وصف قصير', 'الوصف'] },
-  { f: 'full_description_ar', aliases: ['full_description_ar', 'وصف كامل'] },
+  { f: 'customer_visible_description', aliases: ['restaurant_item_short_description_ar', 'short_description_ar', 'وصف قصير', 'الوصف'] },
+  { f: 'full_description_ar', aliases: ['restaurant_item_full_description_ar', 'full_description_ar', 'وصف كامل'] },
   { f: 'ingredients_ar', aliases: ['ingredients_ar', 'المكونات'] },
   { f: 'included_items', aliases: ['included_items_ar', 'المشمولات', 'يشمل'] },
   { f: 'allergens_ar', aliases: ['allergens_ar', 'المسببات'] },
   { f: 'portion_description_ar', aliases: ['portion_description_ar', 'الحصة'] },
-  { f: 'restaurant_category_name', aliases: ['category', 'القسم', 'category'] },
-  { f: 'restaurant_subcategory_name', aliases: ['subcategory', 'القسم الفرعي'] },
-  { f: 'menu_section_name', aliases: ['menu_section', 'قائمة'] },
+  { f: 'restaurant_category_name', aliases: ['category', 'restaurant_category', 'القسم', 'category'] },
+  { f: 'restaurant_subcategory_name', aliases: ['subcategory', 'restaurant_subcategory', 'القسم الفرعي'] },
+  { f: 'menu_section_name', aliases: ['menu_section', 'restaurant_menu_section', 'قائمة'] },
   { f: 'primary_image', aliases: ['primary_image_url', 'صورة', 'الصورة'] },
+  { f: 'primary_image_file', aliases: ['primary_image_file', 'ملف الصورة'] },
+  { f: 'gallery_image_file_1', aliases: ['gallery_image_file_1'] },
+  { f: 'gallery_image_file_2', aliases: ['gallery_image_file_2'] },
+  { f: 'gallery_image_file_3', aliases: ['gallery_image_file_3'] },
   { f: 'currency', aliases: ['currency', 'العملة'] },
   { f: 'tax_included', aliases: ['tax_included', 'شامل الضريبة'] },
+  { f: 'active', aliases: ['active', 'فعّال'] },
+  { f: 'available', aliases: ['available', 'متاح'] },
+  { f: 'sold_out', aliases: ['sold_out', 'نفد'] },
   { f: 'available_quantity', aliases: ['available_quantity', 'الكمية'] },
   { f: 'preparation_time_override', aliases: ['preparation_time_min', 'تجهيز'] },
   { f: 'delivery_fee_override', aliases: ['delivery_fee_override', 'توصيل'] },
@@ -37,7 +47,10 @@ const DEST_FIELDS = [
   { f: 'available_from_time', aliases: ['available_from_time', 'من ساعة'] },
   { f: 'available_until_time', aliases: ['available_until_time', 'إلى ساعة'] },
   { f: 'meal_id', aliases: ['tamam_product_id', 'tamam', 'id المنتج'] },
-  { f: 'meal_name_snapshot', aliases: ['tamam_product_name', 'اسم تمام'] },
+  { f: 'meal_name_snapshot', aliases: ['tamam_product_name_reference', 'tamam_product_name', 'اسم تمام'] },
+  { f: 'meal_set_id', aliases: ['meal_set_id'] },
+  { f: 'meal_set_variant_id', aliases: ['meal_set_variant_id'] },
+  { f: 'tier', aliases: ['tier', 'الطبقة'] },
   { f: 'internal_notes', aliases: ['internal_notes', 'ملاحظات'] },
 ];
 
@@ -94,6 +107,57 @@ export default function RestaurantMenuImport() {
   const [tamamProducts, setTamamProducts] = useState([]);
   const [refSearch, setRefSearch] = useState('');
   const [refLoading, setRefLoading] = useState(false);
+  const [zipImages, setZipImages] = useState({});
+  const [zipName, setZipName] = useState('');
+  const [zipBusy, setZipBusy] = useState(false);
+
+  const onZip = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setZipName(f.name); setZipBusy(true);
+    try {
+      const zip = await JSZip.loadAsync(f);
+      const map = {};
+      for (const entry of Object.values(zip.files)) {
+        if (entry.dir) continue;
+        const name = entry.name.split('/').pop();
+        if (name) map[name.toLowerCase()] = entry;
+      }
+      setZipImages(map);
+    } catch { alert('ملف ZIP غير صالح'); setZipImages({}); setZipName(''); }
+    finally { setZipBusy(false); }
+  };
+
+  const resolveImageFromZip = async (fileName, sku) => {
+    if (!fileName && !sku) return null;
+    // exact filename
+    if (fileName) {
+      const entry = zipImages[fileName.toLowerCase()];
+      if (entry) {
+        try {
+          const blob = await entry.async('blob');
+          const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+          const res = await base44.integrations.Core.UploadFile({ file });
+          return res?.file_url || null;
+        } catch { return null; }
+      }
+    }
+    // by sku + extension
+    if (sku) {
+      for (const ext of ['jpg', 'jpeg', 'png', 'webp']) {
+        const entry = zipImages[`${sku}.${ext}`.toLowerCase()];
+        if (entry) {
+          try {
+            const blob = await entry.async('blob');
+            const file = new File([blob], `${sku}.${ext}`, { type: blob.type || 'image/jpeg' });
+            const res = await base44.integrations.Core.UploadFile({ file });
+            return res?.file_url || null;
+          } catch { return null; }
+        }
+      }
+    }
+    return null;
+  };
 
   const onFile = async (e) => {
     const f = e.target.files[0];
@@ -180,25 +244,36 @@ export default function RestaurantMenuImport() {
         const sku = d.restaurant_sku || '';
         const existingItem = sku ? skuIndex.get(sku) : null;
         const mapping = buildMappingFields({ tamam_product_id: d.meal_id, tier: d.tier, meal_set_variant_id: d.meal_set_variant_id, meal_set_id: d.meal_set_id });
-        const hasImage = !!d.primary_image;
+        // Image: ZIP file > URL > existing > (TAMAM fallback at display time)
+        let resolvedImage = d.primary_image || '';
+        if (!resolvedImage && (d.primary_image_file || sku) && Object.keys(zipImages).length) {
+          const z = await resolveImageFromZip(d.primary_image_file, sku);
+          if (z) resolvedImage = z;
+        }
+        const hasImage = !!resolvedImage;
         if (!hasImage) imageWarnings++;
         const fields = {
           restaurant_id: id, restaurant_menu_id: mId, import_batch_id: batch.id,
           restaurant_product_name: d.restaurant_product_name || '',
+          name_en: d.name_en || '',
           restaurant_sku: sku || undefined,
           price: Number(d.price),
+          compare_at_price: d.compare_at_price ? Number(d.compare_at_price) : undefined,
           currency: d.currency || 'ILS', tax_included: d.tax_included !== 'false',
           customer_visible_description: d.customer_visible_description || '',
           full_description_ar: d.full_description_ar || '',
           ingredients_ar: d.ingredients_ar || '', included_items: d.included_items || '', allergens_ar: d.allergens_ar || '',
           portion_description_ar: d.portion_description_ar || '', restaurant_category_name: d.restaurant_category_name || '',
           restaurant_subcategory_name: d.restaurant_subcategory_name || '', menu_section_name: d.menu_section_name || '',
-          primary_image: d.primary_image || '', available_quantity: d.available_quantity ? Number(d.available_quantity) : null,
+          primary_image: resolvedImage || '', available_quantity: d.available_quantity ? Number(d.available_quantity) : null,
           preparation_time_override: d.preparation_time_override ? Number(d.preparation_time_override) : null,
           delivery_fee_override: d.delivery_fee_override ? Number(d.delivery_fee_override) : null,
           minimum_order_override: d.minimum_order_override ? Number(d.minimum_order_override) : null,
           available_from_time: d.available_from_time || '', available_until_time: d.available_until_time || '',
-          meal_name_snapshot: d.meal_name_snapshot || '', active: true, available: true,
+          meal_name_snapshot: d.meal_name_snapshot || '',
+          active: d.active ? d.active !== 'false' : undefined,
+          available: d.available ? d.available !== 'false' : undefined,
+          sold_out: d.sold_out ? d.sold_out === 'true' : undefined,
           ...mapping,
         };
         // Remove undefined so we don't blank existing on update
@@ -259,6 +334,12 @@ export default function RestaurantMenuImport() {
             <p className="text-sm font-bold">اختر ملف CSV</p>
             <p className="text-xs text-on-surface-variant">UTF-8 — لا نشترط نفس عناوين القالب</p>
             <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
+          </label>
+          <label className="block border-2 border-dashed border-outline-variant/40 rounded-2xl p-4 text-center cursor-pointer hover:border-primary">
+            <Archive size={24} className="mx-auto text-on-surface-variant mb-1" />
+            <p className="text-sm font-bold">رفع صور الوجبات (ZIP — اختياري)</p>
+            <p className="text-xs text-on-surface-variant">يطابق primary_image_file أو restaurant_sku.{zipName && <span className="block mt-1 text-primary font-bold">{zipBusy ? 'عم نقرأ...' : `✓ ${zipName} (${Object.keys(zipImages).length} صورة)`}</span>}</p>
+            <input type="file" accept=".zip,application/zip" className="hidden" onChange={onZip} />
           </label>
           <HelpPanel onShowRef={() => { setShowTamamRef(true); loadTamamRef(''); }} />
         </div>
