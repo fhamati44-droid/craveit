@@ -1,0 +1,98 @@
+{
+  "name": "RestaurantSubOrder",
+  "type": "object",
+  "properties": {
+    "parent_order_id": {
+      "type": "string",
+      "title": "Supabase parent order id"
+    },
+    "parent_order_number": {
+      "type": "string"
+    },
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "restaurant_name_snapshot": {
+      "type": "string"
+    },
+    "restaurant_logo_snapshot": {
+      "type": "string"
+    },
+    "items_json": {
+      "type": "string",
+      "title": "JSON array of items"
+    },
+    "products_subtotal": {
+      "type": "number",
+      "default": 0
+    },
+    "delivery_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "restaurant_discount": {
+      "type": "number",
+      "default": 0
+    },
+    "total": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "preparing",
+        "ready",
+        "picked_up",
+        "on_the_way",
+        "delivered",
+        "rejected",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "preparation_time": {
+      "type": "number"
+    },
+    "delivery_time": {
+      "type": "number"
+    },
+    "restaurant_notes": {
+      "type": "string"
+    },
+    "customer_notes": {
+      "type": "string"
+    },
+    "customer_phone": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "parent_order_id",
+    "restaurant_id"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

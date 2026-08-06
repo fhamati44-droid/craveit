@@ -34,7 +34,7 @@ export default function CheckoutReview() {
   }, []);
 
   if (!form || !items.length) return null;
-  const fee = form.method === 'delivery' ? (restaurant?.delivery_fee ?? deliveryFee ?? 0) : 0;
+  const fee = form.method === 'delivery' ? (deliveryFee ?? 0) : 0;
   const base = subtotal + fee;
   const balance = account?.account?.balance || 0;
   const redeemValue = config?.redeem_value_per_point || 1;

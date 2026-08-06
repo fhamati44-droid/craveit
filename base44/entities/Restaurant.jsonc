@@ -1,0 +1,131 @@
+{
+  "name": "Restaurant",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Name"
+    },
+    "name_ar": {
+      "type": "string",
+      "title": "Arabic name"
+    },
+    "logo_url": {
+      "type": "string",
+      "title": "Logo image URL"
+    },
+    "cover_image_url": {
+      "type": "string",
+      "title": "Cover image URL"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "whatsapp": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "featured": {
+      "type": "boolean",
+      "default": false
+    },
+    "rating": {
+      "type": "number"
+    },
+    "minimum_order": {
+      "type": "number",
+      "default": 0
+    },
+    "delivery_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "free_delivery_threshold": {
+      "type": "number"
+    },
+    "preparation_time_min": {
+      "type": "number"
+    },
+    "preparation_time_max": {
+      "type": "number"
+    },
+    "delivery_time_min": {
+      "type": "number"
+    },
+    "delivery_time_max": {
+      "type": "number"
+    },
+    "accepts_orders": {
+      "type": "boolean",
+      "default": true
+    },
+    "current_status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "closed",
+        "busy",
+        "temporarily_unavailable"
+      ],
+      "default": "open"
+    },
+    "menu_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Assigned menu/category ids"
+    },
+    "supabase_restaurant_id": {
+      "type": "number",
+      "title": "Linked Supabase restaurant id (optional)"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

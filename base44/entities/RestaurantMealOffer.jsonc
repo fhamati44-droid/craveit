@@ -1,0 +1,115 @@
+{
+  "name": "RestaurantMealOffer",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "meal_id": {
+      "type": "number",
+      "title": "Supabase menu_item id"
+    },
+    "meal_name_snapshot": {
+      "type": "string",
+      "title": "TAMAM meal name snapshot"
+    },
+    "menu_id": {
+      "type": "number",
+      "title": "Supabase menu/category id (optional)"
+    },
+    "category_id": {
+      "type": "number",
+      "title": "Supabase category id (optional)"
+    },
+    "category_name_snapshot": {
+      "type": "string"
+    },
+    "package_id": {
+      "type": "string",
+      "title": "Classic / Mix / Plus (optional)"
+    },
+    "restaurant_product_name": {
+      "type": "string"
+    },
+    "restaurant_sku": {
+      "type": "string"
+    },
+    "price": {
+      "type": "number",
+      "title": "Actual restaurant price"
+    },
+    "compare_at_price": {
+      "type": "number"
+    },
+    "restaurant_discount": {
+      "type": "number",
+      "default": 0
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "available": {
+      "type": "boolean",
+      "default": true
+    },
+    "available_quantity": {
+      "type": "number"
+    },
+    "minimum_quantity": {
+      "type": "number",
+      "default": 1
+    },
+    "maximum_quantity": {
+      "type": "number"
+    },
+    "preparation_time_override": {
+      "type": "number"
+    },
+    "restaurant_notes": {
+      "type": "string"
+    },
+    "included_items": {
+      "type": "string"
+    },
+    "customer_visible_description": {
+      "type": "string"
+    },
+    "image_override_url": {
+      "type": "string"
+    },
+    "supports_classic": {
+      "type": "boolean"
+    },
+    "supports_mix": {
+      "type": "boolean"
+    },
+    "supports_plus": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "meal_id",
+    "price"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

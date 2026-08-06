@@ -55,6 +55,9 @@ export default function AdminRoute() {
             <Link to="/tamam-admin" className="text-on-surface-variant flex items-center gap-1">
               <Icon name="dashboard" className="text-[18px]" /> لوحة TAMAM
             </Link>
+            <Link to="/admin/restaurants" className="text-on-surface-variant flex items-center gap-1">
+              <Icon name="storefront" className="text-[18px]" /> المطاعم
+            </Link>
           </div>
         </div>
       </header>

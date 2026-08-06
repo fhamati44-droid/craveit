@@ -7,6 +7,7 @@ import { base44 } from '@/api/base44Client';
 import { genOrderNumber, genDeliveryRef, METHOD_LABELS, paymentStatusLabel } from '@/lib/orderUtils';
 import { recordPendingPoints, redeemPoints, markCouponUsed } from '@/lib/loyaltyApi';
 import { verifyStripeSession } from '@/lib/stripeApi';
+import { computeCartTotals } from '@/lib/restaurantOfferApi';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 const STEPS = ['عم نتأكد من الوجبات والأسعار', 'عم نأكد طريقة الدفع', 'عم نرسل الطلب للمطعم', 'عم ننشئ رقم الطلب', 'عم نجهز مرجع التوصيل'];
@@ -24,7 +25,7 @@ export default function CheckoutProcessing() {
 
   const buildOrderData = (form, paymentStatus) => {
     const isDelivery = form.method === 'delivery';
-    const fee = isDelivery ? (restaurant?.delivery_fee ?? deliveryFee ?? 0) : 0;
+    const fee = isDelivery ? (deliveryFee ?? 0) : 0;
     const couponDiscount = form.couponDiscount || 0;
     const pointsDiscount = form.pointsDiscount || 0;
     const grand = Math.max(0, subtotal + fee - couponDiscount - pointsDiscount);
@@ -74,6 +75,29 @@ export default function CheckoutProcessing() {
       restaurant_name: restaurant?.name || '',
       total: orderData.amount,
     }).catch(() => null);
+    // Restaurant sub-orders: one per fulfillment restaurant (snapshots, never recalculated)
+    try {
+      const subGroups = computeCartTotals(items, restaurant).groupDetails.filter((g) => !g.is_legacy);
+      for (const g of subGroups) {
+        await base44.entities.RestaurantSubOrder.create({
+          parent_order_id: String(order.id),
+          parent_order_number: orderData.order_number,
+          restaurant_id: g.restaurant_id,
+          restaurant_name_snapshot: g.restaurant_name || '',
+          restaurant_logo_snapshot: g.restaurant_logo || '',
+          items_json: JSON.stringify(g.items.map((i) => ({ name: i.name, quantity: i.quantity, price: i.restaurant_unit_price ?? i.price, extras: i.extras || [] }))),
+          products_subtotal: g.products_subtotal,
+          delivery_fee: g.delivery_fee,
+          restaurant_discount: 0,
+          total: g.total,
+          status: 'pending',
+          preparation_time: g.prep || null,
+          customer_phone: '972' + form.phone.replace(/^0/, '').replace(/[^\d]/g, ''),
+          customer_name: form.name,
+          customer_notes: form.restaurantNotes || '',
+        });
+      }
+    } catch (e) { console.error('sub-orders', e); }
     // Loyalty: coupon + points redemption + pending earn
     if (form.couponCode) await markCouponUsed(form.couponCode).catch(() => null);
     if (form.pointsUsed > 0) await redeemPoints({ phone, points: form.pointsUsed, order_id: order.id, order_number: orderData.order_number }).catch(() => null);
