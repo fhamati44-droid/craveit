@@ -58,6 +58,7 @@ import GameReferencesAdmin from '@/pages/admin/GameReferencesAdmin';
 import AdminRestaurants from '@/pages/admin/Restaurants';
 import RestaurantEdit from '@/pages/admin/RestaurantEdit';
 import RestaurantMeals from '@/pages/admin/RestaurantMeals';
+import RestaurantMenuItems from '@/pages/admin/RestaurantMenuItems';
 
 function App() {
   return (
@@ -122,6 +123,8 @@ function App() {
               <Route path="/admin/restaurants/new" element={<RestaurantEdit />} />
               <Route path="/admin/restaurants/:id/edit" element={<RestaurantEdit />} />
               <Route path="/admin/restaurants/:id/meals" element={<RestaurantMeals />} />
+              <Route path="/admin/restaurants/:id/menu" element={<RestaurantMenuItems />} />
+              <Route path="/admin/restaurants/:id/mapping" element={<RestaurantMenuItems />} />
               <Route path="/admin/system-check" element={<SystemCheck />} />
             </Route>
             <Route path="*" element={<PageNotFound />} />

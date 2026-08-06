@@ -286,6 +286,27 @@ Deno.serve(async (req) => {
         result = { total_orders: completed.length, unique_customers: phones.size, period_days: days };
         break;
       }
+      case 'searchMenuItems': {
+        const q = (payload?.query || '').trim();
+        const limit = Number(payload?.limit) || 30;
+        if (!q) { result = []; break; }
+        const like = `*${q}*`;
+        const orQ = `(name_ar.ilike.${like},name.ilike.${like})`;
+        const meals = await supaFetch(`/menu_items?select=id,name,name_ar,price,image_url,description_ar,category_id,restaurant_id,is_available&or=${encodeURIComponent(orQ)}&limit=${limit}`);
+        const catIds = [...new Set((meals || []).map((m) => m.category_id).filter(Boolean))];
+        const restIds = [...new Set((meals || []).map((m) => m.restaurant_id).filter(Boolean))];
+        let catMap = {}, restMap = {};
+        if (catIds.length) { const cats = await supaFetch(`/menu_categories?select=id,name,name_ar&id=in.(${catIds.join(',')})`); (cats || []).forEach((c) => { catMap[c.id] = c; }); }
+        if (restIds.length) { const rests = await supaFetch(`/restaurants?select=id,name,name_ar,active&id=in.(${restIds.join(',')})`); (rests || []).forEach((r) => { restMap[r.id] = r; }); }
+        result = (meals || []).map((m) => ({
+          id: m.id, name: m.name_ar || m.name, name_ar: m.name_ar, name_en: m.name,
+          price: m.price, image_url: m.image_url, description: m.description_ar || '',
+          category_id: m.category_id, category_name: catMap[m.category_id]?.name_ar || catMap[m.category_id]?.name || '',
+          restaurant_id: m.restaurant_id, restaurant_name: restMap[m.restaurant_id]?.name_ar || restMap[m.restaurant_id]?.name || '',
+          is_available: m.is_available !== false,
+        }));
+        break;
+      }
       default:
         return Response.json({ error: 'Unknown action' }, { status: 400 });
     }

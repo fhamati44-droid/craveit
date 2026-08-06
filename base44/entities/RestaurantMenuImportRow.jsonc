@@ -1,0 +1,72 @@
+{
+  "name": "RestaurantMenuImportRow",
+  "type": "object",
+  "properties": {
+    "import_batch_id": {
+      "type": "string",
+      "title": "RestaurantMenuImportBatch id"
+    },
+    "row_number": {
+      "type": "number"
+    },
+    "raw_data": {
+      "type": "string",
+      "title": "JSON of the original row"
+    },
+    "validation_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "valid",
+        "warning",
+        "error"
+      ],
+      "default": "pending"
+    },
+    "validation_errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "suggested_tamam_product_id": {
+      "type": "number"
+    },
+    "mapping_confidence": {
+      "type": "number"
+    },
+    "approved": {
+      "type": "boolean",
+      "default": false
+    },
+    "created_restaurant_menu_item_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "import_batch_id",
+    "row_number"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

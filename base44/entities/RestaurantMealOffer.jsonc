@@ -8,7 +8,7 @@
     },
     "meal_id": {
       "type": "number",
-      "title": "Supabase menu_item id"
+      "title": "Supabase menu_item id (TAMAM master product mapping)"
     },
     "meal_name_snapshot": {
       "type": "string",
@@ -87,11 +87,142 @@
     },
     "supports_plus": {
       "type": "boolean"
+    },
+    "restaurant_menu_id": {
+      "type": "string",
+      "title": "RestaurantMenu id"
+    },
+    "name_en": {
+      "type": "string"
+    },
+    "short_description_ar": {
+      "type": "string"
+    },
+    "full_description_ar": {
+      "type": "string"
+    },
+    "ingredients_ar": {
+      "type": "string"
+    },
+    "allergens_ar": {
+      "type": "string"
+    },
+    "portion_description_ar": {
+      "type": "string"
+    },
+    "packaging_description_ar": {
+      "type": "string"
+    },
+    "dietary_labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "primary_image": {
+      "type": "string"
+    },
+    "gallery_images": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "thumbnail_image": {
+      "type": "string"
+    },
+    "image_alt_ar": {
+      "type": "string"
+    },
+    "discount_amount": {
+      "type": "number"
+    },
+    "currency": {
+      "type": "string",
+      "default": "ILS"
+    },
+    "tax_included": {
+      "type": "boolean",
+      "default": true
+    },
+    "price_last_updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sold_out": {
+      "type": "boolean",
+      "default": false
+    },
+    "available_days": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "available_from_time": {
+      "type": "string"
+    },
+    "available_until_time": {
+      "type": "string"
+    },
+    "daily_capacity": {
+      "type": "number"
+    },
+    "delivery_fee_override": {
+      "type": "number"
+    },
+    "minimum_order_override": {
+      "type": "number"
+    },
+    "free_delivery_threshold_override": {
+      "type": "number"
+    },
+    "restaurant_category_name": {
+      "type": "string"
+    },
+    "restaurant_subcategory_name": {
+      "type": "string"
+    },
+    "menu_section_name": {
+      "type": "string"
+    },
+    "display_order": {
+      "type": "number",
+      "default": 0
+    },
+    "mapped_meal_set_variant_id": {
+      "type": "string"
+    },
+    "mapping_status": {
+      "type": "string",
+      "enum": [
+        "unmapped",
+        "suggested",
+        "mapped",
+        "needs_review",
+        "rejected"
+      ],
+      "default": "unmapped"
+    },
+    "mapping_confidence": {
+      "type": "number"
+    },
+    "mapped_by": {
+      "type": "string"
+    },
+    "mapped_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "import_batch_id": {
+      "type": "string"
+    },
+    "external_id": {
+      "type": "string"
     }
   },
   "required": [
     "restaurant_id",
-    "meal_id",
     "price"
   ],
   "rls": {

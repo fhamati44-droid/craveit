@@ -81,16 +81,28 @@ export default function ChangeRestaurantSheet({ open, item, allItems, onSelect, 
                   <button key={o.offer_id} onClick={() => choose(o)}
                     className={`w-full text-right rounded-2xl p-3 border transition-colors ${selected ? 'border-primary bg-primary/10' : 'border-outline-variant/30 bg-surface-container-low active:scale-[0.99]'}`}>
                     <div className="flex items-start gap-3">
-                      <div className="w-11 h-11 rounded-lg overflow-hidden bg-surface-variant flex-shrink-0">
-                        {o.restaurant_logo ? <img src={resolvePublicMedia(o.restaurant_logo)} onError={handleImageError} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-lg">🏪</div>}
+                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-surface-variant flex-shrink-0 relative">
+                        {o.restaurant_item_image ? (
+                          <img src={resolvePublicMedia(o.restaurant_item_image)} onError={handleImageError} alt="" className="w-full h-full object-cover" />
+                        ) : item.image_url ? (
+                          <img src={resolvePublicMedia(item.image_url)} onError={handleImageError} alt="" className="w-full h-full object-cover" />
+                        ) : <div className="w-full h-full flex items-center justify-center text-lg">🍔</div>}
+                        {o.restaurant_logo && (
+                          <img src={resolvePublicMedia(o.restaurant_logo)} alt="" className="absolute bottom-0 left-0 w-5 h-5 rounded-full border-2 border-surface object-cover" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-sm truncate">{o.restaurant_name}</span>
-                          {o.restaurant_verified && <Icon name="verified" className="text-primary text-[16px]" />}
-                          {selected && <Check size={15} className="text-primary" />}
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px] text-on-surface-variant mt-0.5">
+                        <p className="font-bold text-sm truncate">{o.restaurant_item_name || o.restaurant_name}</p>
+                        <p className="text-[11px] text-on-surface-variant truncate flex items-center gap-1">
+                          <Icon name="storefront" className="text-[12px]" /> {o.restaurant_name}
+                          {o.restaurant_verified && <Icon name="verified" className="text-primary text-[12px]" />}
+                          {selected && <Check size={13} className="text-primary" />}
+                        </p>
+                        {o.restaurant_item_description && <p className="text-[11px] text-on-surface-variant line-clamp-2 mt-0.5">{o.restaurant_item_description}</p>}
+                        {(o.included_items || o.portion_description_ar) && (
+                          <p className="text-[10px] text-on-surface-variant mt-0.5">{o.included_items ? `يشمل: ${o.included_items}` : ''}{o.portion_description_ar ? ` · ${o.portion_description_ar}` : ''}</p>
+                        )}
+                        <div className="flex items-center gap-2 text-[11px] text-on-surface-variant mt-1">
                           {o.restaurant_rating ? <span className="flex items-center gap-0.5"><Star size={11} className="fill-tertiary text-tertiary" /> {Number(o.restaurant_rating).toFixed(1)}</span> : null}
                           {(o.restaurant_delivery_time_min || o.restaurant_delivery_time_max) ? (
                             <span className="flex items-center gap-0.5"><Clock size={11} /> {o.restaurant_delivery_time_min || ''}{o.restaurant_delivery_time_max ? `–${o.restaurant_delivery_time_max}` : ''} د</span>
@@ -98,9 +110,9 @@ export default function ChangeRestaurantSheet({ open, item, allItems, onSelect, 
                           <span className="flex items-center gap-0.5"><Truck size={11} /> {o.incrementalDelivery === 0 ? 'بدون توصيل إضافي' : `+₪${Math.round(o.incrementalDelivery)}`}</span>
                         </div>
                       </div>
-                      <div className="text-left">
+                      <div className="text-left flex-shrink-0">
                         <div className="font-bold text-primary">₪{Math.round(o.price)}</div>
-                        <div className="text-[10px] text-on-surface-variant">للوجبة</div>
+                        <div className="text-[10px] text-on-surface-variant">سعر المطعم</div>
                       </div>
                     </div>
                     {badges.length > 0 && (

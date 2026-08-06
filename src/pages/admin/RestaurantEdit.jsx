@@ -129,6 +129,17 @@ export default function RestaurantEdit() {
         <button onClick={save} disabled={saving} className="w-full bg-primary text-on-primary h-12 rounded-full font-bold flex items-center justify-center gap-2 disabled:opacity-50">
           {saving ? 'عم نحفظ...' : <><Save size={18} /> حفظ</>}
         </button>
+
+        {isEdit && (
+          <div className="border-t border-outline-variant/20 pt-4 space-y-2">
+            <h3 className="font-bold text-sm">إعداد مينيو المطعم (الخطوة 2)</h3>
+            <p className="text-xs text-on-surface-variant">تم حفظ بيانات المطعم. إسا أضف المينيو الحقيقي للمطعم. المطعم بدون وجبات مربوطة يبقى مسودة ولا يظهر كموفّر تجهيز.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => navigate(`/admin/restaurants/${id}/menu`)} className="flex items-center justify-center gap-1.5 bg-primary/10 text-primary py-2.5 rounded-xl text-sm font-bold">إضافة وجبة يدويًا</button>
+              <button onClick={() => navigate(`/admin/restaurants/${id}/mapping`)} className="flex items-center justify-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 rounded-xl text-sm font-bold">ربط بالمينيو الرئيسي</button>
+            </div>
+          </div>
+        )}
       </div>
       <style>{`.inp{width:100%;background:var(--background);border:1px solid hsl(var(--outline-variant)/.4);border-radius:12px;padding:10px 12px;font-size:14px;color:inherit;outline:none}.inp:focus{border-color:hsl(var(--primary))}`}</style>
     </div>

@@ -1,0 +1,91 @@
+{
+  "name": "RestaurantMenuImportBatch",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "restaurant_menu_id": {
+      "type": "string"
+    },
+    "file_name": {
+      "type": "string"
+    },
+    "file_url": {
+      "type": "string"
+    },
+    "import_type": {
+      "type": "string",
+      "default": "csv"
+    },
+    "total_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "successful_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "warning_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "failed_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "imported_by": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "uploaded",
+        "validating",
+        "ready_for_review",
+        "importing",
+        "completed",
+        "completed_with_warnings",
+        "failed"
+      ],
+      "default": "uploaded"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error_report_url": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "restaurant_id"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
