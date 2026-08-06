@@ -36,6 +36,12 @@ export async function searchTamamProducts(query) {
   return res?.data?.data || [];
 }
 
+// Fetch the full TAMAM master product catalog (Supabase menu_items) for reference export.
+export async function fetchAllTamamProducts(limit = 2000) {
+  const res = await base44.functions.invoke('supabaseProxy', { action: 'getAllTamamProducts', payload: { limit } });
+  return res?.data?.data || [];
+}
+
 // ---- Mapping suggestions (never auto-applied — admin confirms) ----
 export function suggestMappings(itemName, tamamProducts, limit = 5) {
   if (!itemName || !tamamProducts?.length) return [];

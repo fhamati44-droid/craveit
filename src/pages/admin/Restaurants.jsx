@@ -88,7 +88,8 @@ export default function Restaurants() {
               </div>
               <div className="flex flex-wrap gap-1.5 mt-3">
                 <button onClick={() => navigate(`/admin/restaurants/${r.id}/edit`)} className="text-xs bg-surface-container-high text-on-surface font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><Pencil size={12} /> تعديل</button>
-                <button onClick={() => navigate(`/admin/restaurants/${r.id}/meals`)} className="text-xs bg-primary text-on-primary font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><UtensilsCrossed size={12} /> إدارة الوجبات</button>
+                <button onClick={() => navigate(`/admin/restaurants/${r.id}/menu`)} className="text-xs bg-primary text-on-primary font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><UtensilsCrossed size={12} /> مينيو المطعم</button>
+                <button onClick={() => navigate(`/admin/restaurants/${r.id}/edit`)} className="text-xs bg-surface-container-high text-on-surface font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><Pencil size={12} /> بيانات المطعم</button>
                 <button onClick={() => toggleActive(r)} className="text-xs bg-surface-container-high text-on-surface font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><Power size={12} /> {r.active ? 'تعطيل' : 'تفعيل'}</button>
                 {confirmId === r.id ? (
                   <button onClick={() => remove(r)} className="text-xs bg-error text-on-error font-bold px-3 py-1.5 rounded-lg">تأكيد الحذف</button>

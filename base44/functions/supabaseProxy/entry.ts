@@ -307,6 +307,23 @@ Deno.serve(async (req) => {
         }));
         break;
       }
+      case 'getAllTamamProducts': {
+        const limit = Number(payload?.limit) || 2000;
+        const meals = await supaFetch(`/menu_items?select=id,name,name_ar,price,image_url,description_ar,category_id,restaurant_id,is_available&order=id.asc&limit=${limit}`);
+        const catIds = [...new Set((meals || []).map((m) => m.category_id).filter(Boolean))];
+        let catMap = {};
+        if (catIds.length) {
+          const cats = await supaFetch(`/menu_categories?select=id,name,name_ar&id=in.(${catIds.join(',')})`);
+          (cats || []).forEach((c) => { catMap[c.id] = c; });
+        }
+        result = (meals || []).map((m) => ({
+          id: m.id, name: m.name_ar || m.name, name_ar: m.name_ar, name_en: m.name,
+          price: m.price, image_url: m.image_url, description: m.description_ar || '',
+          category_id: m.category_id, category_name: catMap[m.category_id]?.name_ar || catMap[m.category_id]?.name || '',
+          restaurant_id: m.restaurant_id, is_available: m.is_available !== false,
+        }));
+        break;
+      }
       default:
         return Response.json({ error: 'Unknown action' }, { status: 400 });
     }
