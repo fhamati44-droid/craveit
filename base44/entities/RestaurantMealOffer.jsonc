@@ -8,11 +8,32 @@
     },
     "meal_id": {
       "type": "number",
-      "title": "Supabase menu_item id (TAMAM master product mapping)"
+      "title": "Supabase menu_item id (TAMAM master product mapping \u2014 backward-compat alias of mapped_tamam_product_id)"
+    },
+    "mapped_tamam_product_id": {
+      "type": "number",
+      "title": "Primary mapping key \u2192 TAMAM Master Product id (Supabase menu_items)"
+    },
+    "mapped_meal_set_id": {
+      "type": "string",
+      "title": "Optional: MealSet id when the product belongs to a MealSet"
+    },
+    "mapped_meal_set_variant_id": {
+      "type": "string",
+      "title": "Optional: MealSetVariant id (Classic / Mix / Plus)"
+    },
+    "mapped_tier": {
+      "type": "string",
+      "enum": [
+        "classic",
+        "mix",
+        "plus"
+      ],
+      "title": "Tier (reference, derived from MealSetVariant)"
     },
     "meal_name_snapshot": {
       "type": "string",
-      "title": "TAMAM meal name snapshot"
+      "title": "TAMAM meal name snapshot (human reference only)"
     },
     "menu_id": {
       "type": "number",
@@ -189,9 +210,6 @@
     "display_order": {
       "type": "number",
       "default": 0
-    },
-    "mapped_meal_set_variant_id": {
-      "type": "string"
     },
     "mapping_status": {
       "type": "string",

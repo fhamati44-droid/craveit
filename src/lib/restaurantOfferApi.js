@@ -60,6 +60,8 @@ export async function getOffersForMeal(mealId) {
         included_items: o.included_items,
         portion_description_ar: o.portion_description_ar,
         allergens_ar: o.allergens_ar,
+        packaging_description_ar: o.packaging_description_ar,
+        dietary_labels: o.dietary_labels || [],
         gallery_images: o.gallery_images || [],
         sold_out: o.sold_out,
         available_days: o.available_days,
@@ -73,6 +75,10 @@ export async function getOffersForMeal(mealId) {
         mapped_meal_set_variant_id: o.mapped_meal_set_variant_id,
         restaurant_menu_item_id: o.id,
         restaurant_sku: o.restaurant_sku,
+        mapped_tamam_product_id: o.mapped_tamam_product_id || o.meal_id,
+        mapped_tier: o.mapped_tier || o.package_id,
+        mapped_meal_set_id: o.mapped_meal_set_id,
+        mapped_meal_set_variant_id: o.mapped_meal_set_variant_id,
       };
     });
 }

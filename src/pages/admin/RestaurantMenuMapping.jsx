@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowRight, Search, Link2, Unlink, Check, AlertTriangle } from 'lucide-react';
 import {
   getItemsForRestaurant, updateItem, searchTamamProducts, suggestMappings,
-  resolveItemDisplayImage,
+  resolveItemDisplayImage, buildMappingFields,
 } from '@/lib/restaurantMenuApi';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
@@ -40,20 +40,22 @@ export default function RestaurantMenuMapping() {
     try { setResults(await searchTamamProducts(q)); } finally { setSearching(false); }
   };
 
+  const mappedId = selected ? (selected.mapped_tamam_product_id || selected.meal_id) : null;
   useEffect(() => {
-    if (selected && !selected.meal_id) {
+    if (selected && !mappedId) {
       setSuggestions(selected.restaurant_product_name ? suggestMappings(selected.restaurant_product_name, results) : []);
     } else setSuggestions([]);
   }, [selectedId, results]);
 
   const map = async (product, confidence = 100) => {
-    await updateItem(selected.id, { meal_id: Number(product.id), meal_name_snapshot: product.name_ar || product.name, mapping_status: 'mapped', mapping_confidence: confidence });
+    const mapping = buildMappingFields({ tamam_product_id: product.id, tier: product.tier, meal_set_variant_id: product.meal_set_variant_id, meal_set_id: product.meal_set_id });
+    await updateItem(selected.id, { meal_name_snapshot: product.name_ar || product.name, ...mapping });
     setToast(`هذه الوجبة ستظهر كخيار مطعم للمنتج: ${product.name_ar || product.name}`);
     setTimeout(() => setToast(''), 3500);
     load();
   };
   const unmap = async () => {
-    await updateItem(selected.id, { meal_id: null, meal_name_snapshot: '', mapping_status: 'unmapped', mapping_confidence: 0 });
+    await updateItem(selected.id, { mapped_tamam_product_id: null, meal_id: null, meal_name_snapshot: '', mapped_meal_set_variant_id: null, mapped_meal_set_id: null, mapping_status: 'unmapped', mapping_confidence: 0 });
     load();
   };
   const setStatus = async (s) => { await updateItem(selected.id, { mapping_status: s }); load(); };

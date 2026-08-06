@@ -3,18 +3,42 @@ import { getOffersForMeal, pickDefaultOffer, computeCartTotals } from '@/lib/res
 
 const CartContext = createContext(null);
 
+// Capture the FULL restaurant-specific version of the meal (Part 2 / Part 15).
+// All snapshots are replaced together when the restaurant changes — never just the price.
 function applyOffer(item, o) {
+  const now = new Date().toISOString();
   return {
     ...item,
     selected_restaurant_id: o.restaurant_id,
     selected_restaurant_offer_id: o.offer_id,
+    restaurant_menu_item_id: o.restaurant_menu_item_id,
     restaurant_unit_price: o.price,
+    compare_at_price_snapshot: o.compare_at_price,
     restaurant_name_snapshot: o.restaurant_name,
     restaurant_logo_snapshot: o.restaurant_logo,
     restaurant_delivery_fee_snapshot: o.restaurant_delivery_fee,
     restaurant_free_delivery_threshold_snapshot: o.restaurant_free_delivery_threshold,
+    restaurant_delivery_time_min_snapshot: o.restaurant_delivery_time_min,
+    restaurant_delivery_time_max_snapshot: o.restaurant_delivery_time_max,
     restaurant_preparation_time_snapshot: o.preparation_time_override || o.restaurant_delivery_time_max || o.restaurant_delivery_time_min,
-    restaurant_price_updated_at: new Date().toISOString(),
+    // Restaurant-specific product snapshots
+    restaurant_item_image_snapshot: o.restaurant_item_image || o.restaurant_item_thumbnail || null,
+    restaurant_item_gallery_snapshot: o.gallery_images || [],
+    restaurant_item_name_snapshot: o.restaurant_item_name || o.restaurant_product_name || null,
+    restaurant_item_description_snapshot: o.restaurant_item_description || o.customer_visible_description || null,
+    restaurant_item_full_description_snapshot: o.full_description_ar || null,
+    ingredients_snapshot: o.ingredients_ar || null,
+    included_items_snapshot: o.included_items || null,
+    portion_snapshot: o.portion_description_ar || null,
+    packaging_snapshot: o.packaging_description_ar || null,
+    allergens_snapshot: o.allergens_ar || null,
+    dietary_labels_snapshot: o.dietary_labels || [],
+    restaurant_price_snapshot: o.price,
+    mapped_tamam_product_id_snapshot: o.mapped_tamam_product_id || o.mapped_tamam_product_id || item?.id,
+    selected_tier_snapshot: o.mapped_tier || null,
+    price_checked_at: now,
+    availability_checked_at: now,
+    restaurant_price_updated_at: now,
   };
 }
 
@@ -22,6 +46,7 @@ export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
   const [restaurant, setRestaurant] = useState(null); // primary source restaurant (for upsell / legacy display)
   const [isOpen, setIsOpen] = useState(false);
+  const [switching, setSwitching] = useState(false); // brief loading state while a restaurant switch settles
   const resolving = useRef(new Set());
 
   const addItem = useCallback((item, restaurant_info) => {
@@ -58,8 +83,13 @@ export function CartProvider({ children }) {
   }, [restaurant, items]);
 
   // Manually switch the fulfillment restaurant for one cart item.
+  // Replaces ALL restaurant-specific snapshots together (image, title, description,
+  // ingredients, price, restaurant info) in one transaction — never only the price.
   const setItemRestaurant = useCallback((cartId, offer) => {
+    setSwitching(true);
     setItems((prev) => prev.map((i) => (i.cartId === cartId ? applyOffer(i, offer) : i)));
+    // Brief loading state so the UI can animate the content transition together.
+    setTimeout(() => setSwitching(false), 350);
   }, []);
 
   const removeItem = useCallback((cartId) => {
@@ -87,7 +117,7 @@ export function CartProvider({ children }) {
     <CartContext.Provider value={{
       items, restaurant, isOpen, setIsOpen,
       addItem, removeItem, updateQuantity, clearCart,
-      setItemRestaurant, restaurantTotals,
+      setItemRestaurant, restaurantTotals, switching,
       totalItems, subtotal, deliveryFee, total,
     }}>
       {children}

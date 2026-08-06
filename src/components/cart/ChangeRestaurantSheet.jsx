@@ -10,6 +10,7 @@ export default function ChangeRestaurantSheet({ open, item, allItems, onSelect, 
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [preview, setPreview] = useState(null);
 
   useEffect(() => {
     if (!open || !item) return;
@@ -37,6 +38,7 @@ export default function ChangeRestaurantSheet({ open, item, allItems, onSelect, 
   const sorted = [...withImpact].sort((a, b) => a.impact - b.impact);
 
   const choose = (o) => { onSelect(o); onClose(); };
+  const previewImg = (o) => o.restaurant_item_image || o.restaurant_item_thumbnail || item?.image_url;
 
   return (
     <AnimatePresence>
@@ -54,6 +56,7 @@ export default function ChangeRestaurantSheet({ open, item, allItems, onSelect, 
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-lg overflow-hidden bg-surface-variant flex-shrink-0">
                   {item.image_url ? <img src={resolvePublicMedia(item.image_url)} onError={handleImageError} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xl">🍽️</div>}
+                  <span className="block text-[8px] text-center text-on-surface-variant mt-0.5">صورة TAMAM</span>
                 </div>
                 <div>
                   <h3 className="font-bold text-sm">اختار مين يجهّز هالوجبة</h3>
@@ -76,21 +79,21 @@ export default function ChangeRestaurantSheet({ open, item, allItems, onSelect, 
                 if (fastest && o.offer_id === fastest.offer_id) badges.push({ label: 'الأسرع', tone: 'teal' });
                 if (topRated && o.offer_id === topRated.offer_id && o.restaurant_rating) badges.push({ label: 'أفضل تقييم', tone: 'teal' });
                 const selected = item.selected_restaurant_offer_id === o.offer_id;
-                const newTotal = baseTotal + o.impact;
+                const newTotal = Math.round(baseTotal + o.impact);
+                const img = previewImg(o);
+                const isFallback = !o.restaurant_item_image && !o.restaurant_item_thumbnail && !!item?.image_url;
                 return (
-                  <button key={o.offer_id} onClick={() => choose(o)}
-                    className={`w-full text-right rounded-2xl p-3 border transition-colors ${selected ? 'border-primary bg-primary/10' : 'border-outline-variant/30 bg-surface-container-low active:scale-[0.99]'}`}>
+                  <div key={o.offer_id}
+                    className={`w-full text-right rounded-2xl p-3 border transition-colors ${selected ? 'border-primary bg-primary/10' : 'border-outline-variant/30 bg-surface-container-low'}`}>
                     <div className="flex items-start gap-3">
-                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-surface-variant flex-shrink-0 relative">
-                        {o.restaurant_item_image ? (
-                          <img src={resolvePublicMedia(o.restaurant_item_image)} onError={handleImageError} alt="" className="w-full h-full object-cover" />
-                        ) : item.image_url ? (
-                          <img src={resolvePublicMedia(item.image_url)} onError={handleImageError} alt="" className="w-full h-full object-cover" />
+                      <button onClick={() => setPreview(img)} className="w-14 h-14 rounded-lg overflow-hidden bg-surface-variant flex-shrink-0 relative active:scale-95">
+                        {img ? (
+                          <img src={resolvePublicMedia(img)} onError={handleImageError} alt="" className="w-full h-full object-cover" />
                         ) : <div className="w-full h-full flex items-center justify-center text-lg">🍔</div>}
                         {o.restaurant_logo && (
                           <img src={resolvePublicMedia(o.restaurant_logo)} alt="" className="absolute bottom-0 left-0 w-5 h-5 rounded-full border-2 border-surface object-cover" />
                         )}
-                      </div>
+                      </button>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm truncate">{o.restaurant_item_name || o.restaurant_name}</p>
                         <p className="text-[11px] text-on-surface-variant truncate flex items-center gap-1">
@@ -99,10 +102,9 @@ export default function ChangeRestaurantSheet({ open, item, allItems, onSelect, 
                           {selected && <Check size={13} className="text-primary" />}
                         </p>
                         {o.restaurant_item_description && <p className="text-[11px] text-on-surface-variant line-clamp-2 mt-0.5">{o.restaurant_item_description}</p>}
-                        {(o.included_items || o.portion_description_ar) && (
-                          <p className="text-[10px] text-on-surface-variant mt-0.5">{o.included_items ? `يشمل: ${o.included_items}` : ''}{o.portion_description_ar ? ` · ${o.portion_description_ar}` : ''}</p>
-                        )}
-                        <div className="flex items-center gap-2 text-[11px] text-on-surface-variant mt-1">
+                        {o.ingredients_ar && <p className="text-[10px] text-on-surface-variant line-clamp-1 mt-0.5">المكونات: {o.ingredients_ar}</p>}
+                        {o.included_items && <p className="text-[10px] text-on-surface-variant mt-0.5">يشمل: {o.included_items}</p>}
+                        <div className="flex items-center gap-2 text-[11px] text-on-surface-variant mt-1 flex-wrap">
                           {o.restaurant_rating ? <span className="flex items-center gap-0.5"><Star size={11} className="fill-tertiary text-tertiary" /> {Number(o.restaurant_rating).toFixed(1)}</span> : null}
                           {(o.restaurant_delivery_time_min || o.restaurant_delivery_time_max) ? (
                             <span className="flex items-center gap-0.5"><Clock size={11} /> {o.restaurant_delivery_time_min || ''}{o.restaurant_delivery_time_max ? `–${o.restaurant_delivery_time_max}` : ''} د</span>
@@ -115,6 +117,9 @@ export default function ChangeRestaurantSheet({ open, item, allItems, onSelect, 
                         <div className="text-[10px] text-on-surface-variant">سعر المطعم</div>
                       </div>
                     </div>
+                    {isFallback && (
+                      <p className="text-[9px] text-on-surface-variant mt-1 flex items-center gap-0.5"><Icon name="image" className="text-[11px]" /> صورة TAMAM مؤقتة — ارفع صورة المطعم لاستبدالها</p>
+                    )}
                     {badges.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {badges.map((b, i) => (
@@ -123,14 +128,27 @@ export default function ChangeRestaurantSheet({ open, item, allItems, onSelect, 
                       </div>
                     )}
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-outline-variant/20 text-[11px]">
-                      <span className="text-on-surface-variant">تأثيره على إجمالي السلة</span>
-                      <span className={`font-bold ${o.diff < 0 ? 'text-primary' : o.diff > 0 ? 'text-error' : 'text-on-surface'}`}>
-                        ₪{Math.round(o.impact)} {o.diff !== 0 && `(${o.diff > 0 ? '+' : ''}${Math.round(o.diff)})`}
-                      </span>
+                      <span className="text-on-surface-variant">إجمالي السلة بعد الاختيار</span>
+                      <span className="font-bold text-on-surface">₪{newTotal}</span>
                     </div>
-                  </button>
+                    <button onClick={() => choose(o)} className={`w-full mt-2 h-10 rounded-full font-bold text-sm flex items-center justify-center gap-1 ${selected ? 'bg-primary/20 text-primary' : 'bg-primary text-on-primary'}`}>
+                      {selected ? <><Check size={15} /> المطعم المختار حاليًا</> : <>اختيار {o.restaurant_name} — ₪{newTotal}</>}
+                    </button>
+                  </div>
                 );
               })}
+
+              {/* Large image preview */}
+              <AnimatePresence>
+                {preview && (
+                  <>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-6" onClick={() => setPreview(null)}>
+                      <button className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white"><X size={18} /></button>
+                      <motion.img initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} src={resolvePublicMedia(preview)} onError={handleImageError} alt="" className="max-w-full max-h-full rounded-2xl object-contain" onClick={(e) => e.stopPropagation()} />
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className="p-4 border-t border-outline-variant/30 bg-surface-container-low">

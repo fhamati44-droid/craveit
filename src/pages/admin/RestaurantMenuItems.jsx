@@ -5,7 +5,9 @@ import { base44 } from '@/api/base44Client';
 import RestaurantMenuItemEditor from '@/components/admin/restaurant/RestaurantMenuItemEditor';
 import {
   getItemsForRestaurant, getMenusForRestaurant, createMenu,
-  resolveItemDisplayImage, resolveItemDisplayTitle, resolveItemPayablePrice, downloadCsvTemplate,
+  resolveItemDisplayImage, resolveItemDisplayTitle, resolveItemPayablePrice,
+  downloadCsvTemplate, downloadCsvExample,
+  exportRestaurantMenuCsv, exportUnmappedCsv, exportNoImageCsv, exportPricesCsv,
 } from '@/lib/restaurantMenuApi';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
@@ -84,8 +86,17 @@ export default function RestaurantMenuItems() {
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setEditing({})} className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-on-primary py-2.5 rounded-xl font-bold text-sm"><Plus size={16} /> إضافة وجبة يدويًا</button>
         <button onClick={downloadCsvTemplate} className="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 px-3 rounded-xl text-sm font-bold"><Download size={15} /> قالب CSV</button>
+        <button onClick={downloadCsvExample} className="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 px-3 rounded-xl text-sm font-bold"><Download size={15} /> نموذج مع مثال</button>
         <button onClick={() => navigate(`/admin/restaurants/${id}/import`)} className="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 px-3 rounded-xl text-sm font-bold"><Upload size={15} /> استيراد CSV</button>
       </div>
+      {items.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => exportRestaurantMenuCsv(items)} className="text-[11px] bg-surface-container border border-outline-variant/30 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1"><Download size={12} /> تصدير المينيو</button>
+          <button onClick={() => exportUnmappedCsv(items)} className="text-[11px] bg-surface-container border border-outline-variant/30 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1"><Download size={12} /> غير المربوطة</button>
+          <button onClick={() => exportNoImageCsv(items)} className="text-[11px] bg-surface-container border border-outline-variant/30 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1"><Download size={12} /> بدون صور</button>
+          <button onClick={() => exportPricesCsv(items)} className="text-[11px] bg-surface-container border border-outline-variant/30 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1"><Download size={12} /> الأسعار والتوفر</button>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <button onClick={() => navigate(`/admin/restaurants/${id}/mapping`)} className="flex items-center justify-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 rounded-xl text-sm font-bold"><Link2 size={15} /> ربط بمينيو TAMAM</button>
         <button onClick={() => navigate(`/admin/restaurants/${id}/images`)} className="flex items-center justify-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 rounded-xl text-sm font-bold"><Upload size={15} /> رفع صور الوجبات</button>
