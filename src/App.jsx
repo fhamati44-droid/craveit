@@ -59,6 +59,9 @@ import AdminRestaurants from '@/pages/admin/Restaurants';
 import RestaurantEdit from '@/pages/admin/RestaurantEdit';
 import RestaurantMeals from '@/pages/admin/RestaurantMeals';
 import RestaurantMenuItems from '@/pages/admin/RestaurantMenuItems';
+import RestaurantMenuImport from '@/pages/admin/RestaurantMenuImport';
+import RestaurantMenuMapping from '@/pages/admin/RestaurantMenuMapping';
+import RestaurantMenuImages from '@/pages/admin/RestaurantMenuImages';
 
 function App() {
   return (
@@ -124,7 +127,9 @@ function App() {
               <Route path="/admin/restaurants/:id/edit" element={<RestaurantEdit />} />
               <Route path="/admin/restaurants/:id/meals" element={<RestaurantMeals />} />
               <Route path="/admin/restaurants/:id/menu" element={<RestaurantMenuItems />} />
-              <Route path="/admin/restaurants/:id/mapping" element={<RestaurantMenuItems />} />
+              <Route path="/admin/restaurants/:id/import" element={<RestaurantMenuImport />} />
+              <Route path="/admin/restaurants/:id/mapping" element={<RestaurantMenuMapping />} />
+              <Route path="/admin/restaurants/:id/images" element={<RestaurantMenuImages />} />
               <Route path="/admin/system-check" element={<SystemCheck />} />
             </Route>
             <Route path="*" element={<PageNotFound />} />

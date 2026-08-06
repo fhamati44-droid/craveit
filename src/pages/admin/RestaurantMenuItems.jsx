@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowRight, Plus, Pencil, Download, AlertCircle, Check, Link2 } from 'lucide-react';
+import { ArrowRight, Plus, Pencil, Download, Upload, AlertCircle, Check, Link2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import RestaurantMenuItemEditor from '@/components/admin/restaurant/RestaurantMenuItemEditor';
 import {
@@ -84,7 +84,11 @@ export default function RestaurantMenuItems() {
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setEditing({})} className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-on-primary py-2.5 rounded-xl font-bold text-sm"><Plus size={16} /> إضافة وجبة يدويًا</button>
         <button onClick={downloadCsvTemplate} className="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 px-3 rounded-xl text-sm font-bold"><Download size={15} /> قالب CSV</button>
-        <button onClick={() => alert('استيراد CSV — قيد الإنجاز')} className="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 px-3 rounded-xl text-sm font-bold">استيراد CSV</button>
+        <button onClick={() => navigate(`/admin/restaurants/${id}/import`)} className="flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 px-3 rounded-xl text-sm font-bold"><Upload size={15} /> استيراد CSV</button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={() => navigate(`/admin/restaurants/${id}/mapping`)} className="flex items-center justify-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 rounded-xl text-sm font-bold"><Link2 size={15} /> ربط بمينيو TAMAM</button>
+        <button onClick={() => navigate(`/admin/restaurants/${id}/images`)} className="flex items-center justify-center gap-1.5 bg-surface-container border border-outline-variant/30 py-2.5 rounded-xl text-sm font-bold"><Upload size={15} /> رفع صور الوجبات</button>
       </div>
 
       {/* Filters */}
