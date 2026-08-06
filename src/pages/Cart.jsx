@@ -4,6 +4,9 @@ import { useCart } from '@/lib/CartContext';
 import { getMenuItemsByRestaurant } from '@/lib/api';
 import { resolvePublicMedia, handleImageError } from '@/lib/imageUtils';
 import ChangeRestaurantSheet from '@/components/cart/ChangeRestaurantSheet';
+import ConsolidationCard from '@/components/cart/ConsolidationCard';
+import { findConsolidation } from '@/lib/restaurantOfferApi';
+import { useToast } from '@/components/ui/use-toast';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 
@@ -13,6 +16,9 @@ export default function Cart() {
   const [upsell, setUpsell] = useState([]);
   const [changing, setChanging] = useState(null);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [consolidation, setConsolidation] = useState(null);
+  const [consolidationLoading, setConsolidationLoading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!restaurant?.id) { setUpsell([]); return; }
@@ -27,6 +33,25 @@ export default function Cart() {
   const restaurantCount = realGroups.length || 1;
   const hasPendingRestaurant = groups.some((g) => g.is_legacy && !g.restaurant_name);
   const singleFulfillment = realGroups.length <= 1;
+
+  // Smart consolidation — only relevant when items are spread across 2+ restaurants
+  useEffect(() => {
+    if (realGroups.length < 2) { setConsolidation(null); return; }
+    let active = true;
+    setConsolidationLoading(true);
+    findConsolidation(items)
+      .then((opp) => { if (active) setConsolidation(opp); })
+      .catch(() => { if (active) setConsolidation(null); })
+      .finally(() => { if (active) setConsolidationLoading(false); });
+    return () => { active = false; };
+  }, [items]);
+
+  const applyConsolidation = () => {
+    if (!consolidation) return;
+    consolidation.changes.forEach((c) => setItemRestaurant(c.cartId, c.offer));
+    setConsolidation(null);
+    toast({ title: 'تم تجميع الطلب وتحديث الأسعار' });
+  };
 
   if (!items.length) {
     return (
@@ -109,6 +134,9 @@ export default function Cart() {
           );
         })}
       </div>
+
+      {/* Smart consolidation offer */}
+      <ConsolidationCard opportunity={consolidation} loading={consolidationLoading} onAccept={applyConsolidation} />
 
       {/* Upsell */}
       {upsell.length > 0 && (
@@ -193,7 +221,7 @@ function FulfillmentCard({ single, groups, totalProducts, hasPending, primaryLog
     // single restaurant or legacy-only
     const g = groups[0];
     return (
-      <div className="rounded-xl bg-surface-container p-3 flex items-center gap-3 border border-outline-variant/20">
+      <div className="rounded-xl bg-surface-container p-3 flex items-center gap-3 border border-primary/30">
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-surface-variant flex-shrink-0">
           {g?.restaurant_logo || primaryLogo ? <img src={resolvePublicMedia(g?.restaurant_logo || primaryLogo)} onError={handleImageError} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xl">🛍️</div>}
         </div>
@@ -210,7 +238,7 @@ function FulfillmentCard({ single, groups, totalProducts, hasPending, primaryLog
   }
   // multiple restaurants
   return (
-    <div className="rounded-xl bg-surface-container p-3 border border-outline-variant/20">
+    <div className="rounded-xl bg-surface-container p-3 border border-primary/30">
       <div className="flex items-center gap-3">
         <div className="flex -space-x-2 flex-shrink-0">
           {groups.slice(0, 3).map((g, i) => (

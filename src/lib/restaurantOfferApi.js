@@ -163,3 +163,88 @@ export function offerImpact(offer, item, allItems) {
 
   return { impact, diff, incrementalDelivery, itemTotal, sameRestaurant: otherRestaurantIds.has(offer.restaurant_id) };
 }
+
+/**
+ * Smart consolidation: find a single restaurant (already serving the cart or another
+ * active one) that can ALSO fulfill items currently spread across other restaurants,
+ * so consolidating reduces the restaurant count and the total (mainly delivery fees).
+ * Returns null when there's no meaningful saving. Pure data — no UI.
+ */
+export async function findConsolidation(items) {
+  const realItems = (items || []).filter((i) => i.selected_restaurant_id && i.id != null);
+  if (realItems.length < 2) return null;
+  const restIds = [...new Set(realItems.map((i) => i.selected_restaurant_id))];
+  if (restIds.length < 2) return null;
+
+  const offerCache = {};
+  for (const it of realItems) {
+    if (offerCache[it.id] == null) {
+      try { offerCache[it.id] = await getOffersForMeal(it.id); } catch { offerCache[it.id] = []; }
+    }
+  }
+
+  const candidateIds = new Set();
+  Object.values(offerCache).forEach((list) => (list || []).forEach((o) => candidateIds.add(o.restaurant_id)));
+
+  const currentTotals = computeCartTotals(items);
+  let best = null;
+
+  for (const targetId of candidateIds) {
+    const plan = realItems.map((it) => {
+      const off = (offerCache[it.id] || []).find((o) => o.restaurant_id === targetId);
+      return { cartId: it.cartId, item: it, offer: off || null };
+    });
+    const movable = plan.filter((p) => p.offer);
+    if (movable.length < 1) continue;
+
+    const remaining = new Set();
+    plan.forEach((p) => remaining.add(p.offer ? targetId : p.item.selected_restaurant_id));
+    if (remaining.size >= restIds.length) continue; // no restaurant reduction
+
+    const simItems = items.map((i) => {
+      const p = plan.find((x) => x.item.cartId === i.cartId);
+      if (p && p.offer) {
+        return {
+          ...i,
+          selected_restaurant_id: targetId,
+          selected_restaurant_offer_id: p.offer.offer_id,
+          restaurant_unit_price: p.offer.price,
+          restaurant_name_snapshot: p.offer.restaurant_name,
+          restaurant_logo_snapshot: p.offer.restaurant_logo,
+          restaurant_delivery_fee_snapshot: p.offer.restaurant_delivery_fee,
+          restaurant_free_delivery_threshold_snapshot: p.offer.restaurant_free_delivery_threshold,
+          restaurant_preparation_time_snapshot: p.offer.preparation_time_override || p.offer.restaurant_delivery_time_min,
+        };
+      }
+      return i;
+    });
+    const newTotals = computeCartTotals(simItems);
+    const saving = currentTotals.total - newTotals.total;
+    if (saving <= 0) continue;
+
+    const name = movable[0].offer.restaurant_name;
+    if (!best || saving > best.saving) {
+      best = {
+        targetId,
+        targetName: name,
+        targetLogo: movable[0].offer.restaurant_logo,
+        movedCount: movable.length,
+        totalCount: realItems.length,
+        currentTotal: currentTotals.total,
+        newTotal: newTotals.total,
+        saving,
+        remainingCount: remaining.size,
+        changes: movable.map((p) => ({
+          cartId: p.cartId,
+          name: p.item.name,
+          fromRestaurant: p.item.restaurant_name_snapshot,
+          toRestaurant: name,
+          oldPrice: p.item.restaurant_unit_price,
+          newPrice: p.offer.price,
+          offer: p.offer,
+        })),
+      };
+    }
+  }
+  return best;
+}
