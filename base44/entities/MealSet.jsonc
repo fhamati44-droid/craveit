@@ -1,0 +1,105 @@
+{
+  "name": "MealSet",
+  "type": "object",
+  "properties": {
+    "internal_name": {
+      "type": "string",
+      "title": "Internal name"
+    },
+    "display_name_ar": {
+      "type": "string",
+      "title": "Display name (Arabic)"
+    },
+    "slug": {
+      "type": "string",
+      "title": "Slug"
+    },
+    "category_id": {
+      "type": "number",
+      "title": "Category id (Supabase, optional)"
+    },
+    "menu_id": {
+      "type": "number",
+      "title": "Menu id (Supabase, optional)"
+    },
+    "hero_meal_id": {
+      "type": "number",
+      "title": "Hero meal id (optional)"
+    },
+    "active": {
+      "type": "boolean",
+      "default": false,
+      "title": "Active (public only when valid)"
+    },
+    "featured": {
+      "type": "boolean",
+      "default": false
+    },
+    "display_priority": {
+      "type": "number",
+      "default": 0
+    },
+    "available_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "available_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "available_days": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "internal_notes": {
+      "type": "string"
+    },
+    "set_cover_image": {
+      "type": "string"
+    },
+    "set_short_description_ar": {
+      "type": "string"
+    },
+    "set_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommended_times": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "audience_size_min": {
+      "type": "number"
+    },
+    "audience_size_max": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "internal_name"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

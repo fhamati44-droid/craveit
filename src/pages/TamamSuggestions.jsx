@@ -1,63 +1,96 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { getMoodWithSuggestions, trackEvent, normalizePackage } from '@/lib/tamamApi';
+import { getMoodMealSets, pickNextMealSet, resolveDefaultTier, TIERS } from '@/lib/mealSetApi';
+import { useCart } from '@/lib/CartContext';
 import { moodIconFor } from '@/lib/moodIcons';
 import { resolvePublicImage, handleImageError } from '@/lib/imageUtils';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 const TIER_LABEL = { classic: 'كلاسيك', mix: 'ميكس', plus: 'بلس' };
-const TIERS = ['classic', 'mix', 'plus'];
 
 export default function TamamSuggestions() {
   const { moodId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { addItem } = useCart();
+
   const [mood, setMood] = useState(null);
-  const [sets, setSets] = useState({ classic: [], mix: [], plus: [] });
-  const [itemsBySet, setItemsBySet] = useState({});
-  const [idx, setIdx] = useState({ classic: 0, mix: 0, plus: 0 });
-  const [tier, setTier] = useState('mix');
-  const [meals, setMeals] = useState([]);
-  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [moodNotFound, setMoodNotFound] = useState(false);
   const [noSuggestions, setNoSuggestions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
+  // MealSet model state
+  const [mealSets, setMealSets] = useState({ sets: [], variantsBySet: {}, assignments: [] });
+  const [currentSetId, setCurrentSetId] = useState(null);
+  const [tier, setTier] = useState('mix');
+  const [seenIds, setSeenIds] = useState([]);
+
+  // Legacy model state (fallback)
+  const [legacySets, setLegacySets] = useState({ classic: [], mix: [], plus: [] });
+  const [legacyItems, setLegacyItems] = useState({});
+  const [legacyIdx, setLegacyIdx] = useState({ classic: 0, mix: 0, plus: 0 });
+  const [legacyMeals, setLegacyMeals] = useState([]);
+
+  const useMealSetMode = mealSets.assignments.length > 0;
+
   const load = async () => {
     setLoading(true); setError(false); setMoodNotFound(false); setNoSuggestions(false);
     try {
-      const { mood: m, sets: allSets, items: allItems } = await getMoodWithSuggestions(moodId);
-      if (!m) { setMoodNotFound(true); setLoading(false); return; }
-      setMood(m);
-      trackEvent({ action: 'mood_selected', mood_id: moodId });
+      const urlTier = searchParams.get('tier');
+      const urlSet = searchParams.get('set');
+
+      const legacy = await getMoodWithSuggestions(moodId).catch(() => ({ mood: null, sets: [], items: [] }));
+      const ms = await getMoodMealSets(moodId).catch(() => ({ sets: [], variantsBySet: {}, assignments: [] }));
+
+      if (!legacy.mood && !ms.assignments.length && !legacy.sets.length) {
+        setMoodNotFound(true); setLoading(false); return;
+      }
+      setMood(legacy.mood || null);
+
+      if (ms.assignments.length) {
+        setMealSets(ms);
+        let initTier = (urlTier && TIERS.includes(urlTier)) ? urlTier : resolveDefaultTier(ms.assignments[0], null);
+        const urlSetValid = urlSet && ms.assignments.find((a) => a.meal_set_id === urlSet);
+        const firstValid = ms.assignments.find((a) => ms.variantsBySet[a.meal_set_id]?.[initTier]);
+        let initSet = urlSetValid ? urlSet : (firstValid?.meal_set_id || ms.assignments[0]?.meal_set_id);
+        if (initSet && !ms.variantsBySet[initSet]?.[initTier]) {
+          const alt = TIERS.find((t) => ms.variantsBySet[initSet]?.[t]);
+          if (alt) initTier = alt;
+        }
+        setTier(initTier);
+        setCurrentSetId(initSet);
+        trackEvent({ action: 'mood_selected', mood_id: moodId });
+        setLoading(false);
+        return;
+      }
+
+      // Legacy fallback
+      if (!legacy.mood) { setMoodNotFound(true); setLoading(false); return; }
       const grouped = { classic: [], mix: [], plus: [] };
-      allSets.forEach(s => {
-        const pkg = normalizePackage(s.package_level);
-        if (grouped[pkg]) grouped[pkg].push(s);
-      });
-      Object.values(grouped).forEach(a => a.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
-      setSets(grouped);
-      if (!grouped.mix.length && grouped.classic.length) setTier('classic');
-      else if (!grouped.mix.length && grouped.plus.length) setTier('plus');
+      legacy.sets.forEach((s) => { const pkg = normalizePackage(s.package_level); if (grouped[pkg]) grouped[pkg].push(s); });
+      Object.values(grouped).forEach((a) => a.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
+      setLegacySets(grouped);
+      let initTier = (urlTier && TIERS.includes(urlTier)) ? urlTier : 'mix';
+      if (!grouped[initTier].length) {
+        if (grouped.classic.length) initTier = 'classic';
+        else if (grouped.plus.length) initTier = 'plus';
+      }
+      setTier(initTier);
+      if (urlSet && grouped[initTier].some((s) => s.id === urlSet)) {
+        const i = grouped[initTier].findIndex((s) => s.id === urlSet);
+        setLegacyIdx((p) => ({ ...p, [initTier]: Math.max(0, i) }));
+      }
       const bySet = {};
-      (allItems || []).forEach(i => {
-        const sid = i.suggestion_set_id;
-        if (!bySet[sid]) bySet[sid] = [];
-        bySet[sid].push(i);
-      });
-      setItemsBySet(bySet);
-      if (allSets.length === 0) setNoSuggestions(true);
+      (legacy.items || []).forEach((i) => { const sid = i.suggestion_set_id; if (!bySet[sid]) bySet[sid] = []; bySet[sid].push(i); });
+      setLegacyItems(bySet);
+      if (!legacy.sets.length) setNoSuggestions(true);
+      trackEvent({ action: 'mood_selected', mood_id: moodId });
     } catch (e) {
-      console.error('PUBLIC_MOOD_DATA_LOAD_FAILED', {
-        moodId,
-        entityName: 'TamamMood',
-        errorName: e?.name,
-        errorMessage: e?.message,
-        status: e?.status,
-        code: e?.code,
-      });
+      console.error('PUBLIC_MOOD_DATA_LOAD_FAILED', { moodId, error: e?.message });
       setError(true);
     } finally {
       setLoading(false);
@@ -65,31 +98,89 @@ export default function TamamSuggestions() {
   };
   useEffect(() => { load(); }, [moodId]);
 
-  const current = sets[tier]?.[idx[tier] % Math.max(1, sets[tier].length)] || null;
+  // Persist MealSet mode state in URL (refresh-safe)
+  useEffect(() => {
+    if (!useMealSetMode || !currentSetId) return;
+    const p = new URLSearchParams(searchParams);
+    p.set('set', currentSetId); p.set('tier', tier);
+    setSearchParams(p, { replace: true });
+  }, [currentSetId, tier, useMealSetMode]);
+
+  // Current variant (MealSet mode)
+  const currentVariant = useMealSetMode ? (mealSets.variantsBySet[currentSetId]?.[tier] || null) : null;
+  const currentSet = useMealSetMode ? mealSets.sets.find((s) => s.id === currentSetId) : null;
+  const tierAvailable = useMealSetMode ? mealSets.assignments.some((a) => mealSets.variantsBySet[a.meal_set_id]?.[tier]) : false;
+
+  // Legacy current
+  const legacyCurrent = !useMealSetMode ? (legacySets[tier]?.[legacyIdx[tier] % Math.max(1, legacySets[tier].length)] || null) : null;
 
   useEffect(() => {
-    if (!current) { setMeals([]); setItems([]); return; }
+    if (useMealSetMode || !legacyCurrent) { setLegacyMeals([]); return; }
     (async () => {
       try {
-        const its = itemsBySet[current.id] || [];
-        setItems(its);
-        const ids = [...new Set(its.map(i => i.meal_id).filter(Boolean))];
-        if (!ids.length) { setMeals([]); return; }
+        const its = legacyItems[legacyCurrent.id] || [];
+        const ids = [...new Set(its.map((i) => i.meal_id).filter(Boolean))];
+        if (!ids.length) { setLegacyMeals([]); return; }
         const res = await base44.functions.invoke('supabaseProxy', { action: 'getMenuItemsByIds', payload: { ids } });
-        setMeals((res?.data?.data || []));
-      } catch { setMeals([]); }
+        setLegacyMeals(res?.data?.data || []);
+      } catch { setLegacyMeals([]); }
     })();
-  }, [current?.id, itemsBySet]);
+  }, [legacyCurrent?.id, legacyItems, useMealSetMode]);
 
+  // Missing-variant rule: current set lacks the selected tier → move to another set that has it
+  useEffect(() => {
+    if (!useMealSetMode || !currentSetId || currentVariant) return;
+    if (!tierAvailable) return;
+    const alt = mealSets.assignments.find((a) => a.meal_set_id !== currentSetId && mealSets.variantsBySet[a.meal_set_id]?.[tier]);
+    if (alt) setCurrentSetId(alt.meal_set_id);
+  }, [useMealSetMode, currentSetId, tier, currentVariant, tierAvailable, mealSets]);
+
+  // "اقتراح آخر" — changes the MealSet, preserves the tier
   const refresh = () => {
-    const arr = sets[tier];
-    if (arr.length > 1) setIdx(p => ({ ...p, [tier]: (p[tier] + 1) % arr.length }));
-    trackEvent({ action: 'suggestion_refreshed', mood_id: moodId, package_level: tier });
+    if (useMealSetMode) {
+      const next = pickNextMealSet(mealSets.assignments, mealSets.variantsBySet, currentSetId, tier, seenIds);
+      if (next) {
+        setCurrentSetId(next.meal_set_id);
+        setSeenIds((prev) => (prev.includes(next.meal_set_id) ? prev : [...prev, next.meal_set_id]));
+      }
+      trackEvent({ action: 'suggestion_refreshed', mood_id: moodId, package_level: tier });
+    } else {
+      const arr = legacySets[tier];
+      if (arr.length > 1) setLegacyIdx((p) => ({ ...p, [tier]: (p[tier] + 1) % arr.length }));
+      trackEvent({ action: 'suggestion_refreshed', mood_id: moodId, package_level: tier });
+    }
   };
+
+  // Tier switch — keeps the current MealSet
+  const switchTier = (t) => {
+    setTier(t);
+    trackEvent({ action: 'tier_switched', mood_id: moodId, package_level: t });
+  };
+
   const choose = () => {
-    trackEvent({ action: 'package_selected', suggestion_set_id: current?.id, package_level: tier });
-    trackEvent({ action: 'order_started', suggestion_set_id: current?.id, package_level: tier });
-    navigate(`/tamam-order/${current.id}`);
+    if (useMealSetMode && currentVariant) {
+      trackEvent({ action: 'package_selected', meal_set_id: currentSetId, meal_set_variant_id: currentVariant.id, package_level: tier });
+      trackEvent({ action: 'order_started', meal_set_id: currentSetId, package_level: tier });
+      addItem({
+        id: currentVariant.existing_product_id || null,
+        name: currentVariant.title_ar || currentSet?.display_name_ar || 'وجبة TAMAM',
+        price: currentVariant.marketing_price || currentVariant.starting_price || 0,
+        image_url: currentVariant.image || currentSet?.set_cover_image || null,
+        quantity: 1,
+        extras: [],
+        mood_id: moodId,
+        meal_set_id: currentSetId,
+        meal_set_variant_id: currentVariant.id,
+        selected_tier: tier,
+      });
+      navigate('/cart');
+      return;
+    }
+    if (legacyCurrent) {
+      trackEvent({ action: 'package_selected', suggestion_set_id: legacyCurrent.id, package_level: tier });
+      trackEvent({ action: 'order_started', suggestion_set_id: legacyCurrent.id, package_level: tier });
+      navigate(`/tamam-order/${legacyCurrent.id}`);
+    }
   };
 
   if (loading) return (
@@ -131,6 +222,22 @@ export default function TamamSuggestions() {
     </div>
   );
 
+  // MealSet mode — no set has the selected tier at all
+  const showMissingTier = useMealSetMode && !tierAvailable;
+  const altTiers = TIERS.filter((t) => t !== tier && mealSets.assignments.some((a) => mealSets.variantsBySet[a.meal_set_id]?.[t]));
+
+  // Resolve the visible card data
+  const card = useMealSetMode && currentVariant ? {
+    title: currentVariant.title_ar || currentSet?.display_name_ar || 'اقتراح TAMAM',
+    image: currentVariant.image || currentSet?.set_cover_image,
+    description: currentVariant.short_description_ar || currentSet?.set_short_description_ar,
+    price: currentVariant.marketing_price,
+    included: currentVariant.included_items_ar,
+    audience: currentSet?.audience_size_min ? `${currentSet.audience_size_min}${currentSet.audience_size_max ? '–' + currentSet.audience_size_max : '+'} أشخاص` : '2–3 أشخاص',
+    details: currentVariant.full_description_ar || currentVariant.ingredients_ar,
+  } : null;
+  const legacyCard = !useMealSetMode && legacyCurrent ? legacyCurrent : null;
+
   return (
     <div className="pb-32">
       {/* Mood summary */}
@@ -154,8 +261,8 @@ export default function TamamSuggestions() {
         </div>
         <div className="sticky top-14 z-50 bg-surface/95 backdrop-blur-md border-b border-white/5">
           <div className="flex items-center justify-around">
-            {TIERS.map(t => (
-              <button key={t} onClick={() => setTier(t)}
+            {TIERS.map((t) => (
+              <button key={t} onClick={() => switchTier(t)}
                 className={`flex-1 py-4 text-sm border-b-2 relative ${tier === t ? 'font-bold border-primary' : 'font-medium text-on-surface-variant border-transparent'}`}>
                 {TIER_LABEL[t]}
                 {t === 'mix' && <span className="absolute top-1 left-1/2 -translate-x-1/2 -translate-y-full text-[8px] bg-primary text-on-primary px-1.5 rounded-full py-0.5">الأنسب</span>}
@@ -166,31 +273,62 @@ export default function TamamSuggestions() {
       </section>
 
       <section className="px-4 mt-8">
-        {current ? (
+        {showMissingTier ? (
+          <div className="text-center py-16 text-on-surface-variant">
+            <p className="text-4xl mb-2">🛠️</p>
+            <p className="mb-4 font-bold">ما في اقتراحات {TIER_LABEL[tier]} متوفرة بهذا المود إسا</p>
+            <div className="flex gap-2 justify-center">
+              {altTiers.map((t) => (
+                <button key={t} onClick={() => switchTier(t)} className="px-4 py-2 bg-primary/10 border border-primary/30 text-primary rounded-full text-sm font-bold">شوف {TIER_LABEL[t]}</button>
+              ))}
+              {altTiers.length === 0 && (
+                <button onClick={() => navigate('/tamam-suggestions?package=all')} className="px-4 py-2 bg-primary text-on-primary rounded-full text-sm font-bold">شوف كل الاقتراحات</button>
+              )}
+            </div>
+          </div>
+        ) : card ? (
           <div className="bg-surface-container-high rounded-3xl overflow-hidden shadow-2xl border border-white/5">
             <div className="relative aspect-[4/3] w-full">
-              {current.hero_image_url ? <img alt={current.title_ar} className="w-full h-full object-cover" src={resolvePublicImage(current.hero_image_url)} onError={handleImageError} /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-5xl">🍽️</div>}
+              {card.image ? <img alt={card.title} className="w-full h-full object-cover" src={resolvePublicImage(card.image)} onError={handleImageError} /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-5xl">🍽️</div>}
               <div className="absolute inset-0 bg-gradient-to-t from-surface-container-high via-transparent to-transparent" />
-              {current.restaurant_name && (
-                <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
-                  <Icon name="store" className="text-primary text-sm" /><span className="text-[11px] font-medium text-white">{current.restaurant_name}</span>
-                </div>
-              )}
             </div>
             <div className="p-5">
               <div className="flex justify-between items-start mb-2">
-                <h3 className="text-xl font-bold text-white">{current.title_ar || 'اقتراح TAMAM'}</h3>
-                {current.display_price != null && <div className="text-primary font-bold text-xl">₪{Math.round(current.display_price)}</div>}
+                <h3 className="text-xl font-bold text-white">{card.title}</h3>
+                {card.price != null && <div className="text-primary font-bold text-xl">₪{Math.round(card.price)}</div>}
               </div>
-              {current.description_ar && <p className="text-sm text-on-surface-variant mb-4">{current.description_ar}</p>}
-              {meals.length > 0 && (
+              {card.description && <p className="text-sm text-on-surface-variant mb-4">{card.description}</p>}
+              <div className="space-y-2 mb-6">
+                {card.included && <div className="flex items-center gap-2 text-sm text-on-surface"><Icon name="check_circle" className="text-primary text-lg" /><span>{card.included}</span></div>}
+                <div className="flex items-center gap-2 text-sm text-on-surface"><Icon name="group" className="text-primary text-lg" /><span>مناسب لـ {card.audience}</span></div>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button onClick={choose} className="w-full bg-primary text-on-primary h-14 rounded-2xl flex items-center justify-center font-bold text-lg active:scale-[0.98] transition-transform">اختار هذا</button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={refresh} className="h-12 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-sm font-medium active:bg-white/5"><Icon name="refresh" className="text-sm" />اقتراح آخر</button>
+                  <button onClick={() => setShowDetails(true)} className="h-12 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-sm font-medium active:bg-white/5"><Icon name="info" className="text-sm" />شوف التفاصيل</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : legacyCard ? (
+          <div className="bg-surface-container-high rounded-3xl overflow-hidden shadow-2xl border border-white/5">
+            <div className="relative aspect-[4/3] w-full">
+              {legacyCard.hero_image_url ? <img alt={legacyCard.title_ar} className="w-full h-full object-cover" src={resolvePublicImage(legacyCard.hero_image_url)} onError={handleImageError} /> : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-5xl">🍽️</div>}
+              <div className="absolute inset-0 bg-gradient-to-t from-surface-container-high via-transparent to-transparent" />
+            </div>
+            <div className="p-5">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-xl font-bold text-white">{legacyCard.title_ar || 'اقتراح TAMAM'}</h3>
+                {legacyCard.display_price != null && <div className="text-primary font-bold text-xl">₪{Math.round(legacyCard.display_price)}</div>}
+              </div>
+              {legacyCard.description_ar && <p className="text-sm text-on-surface-variant mb-4">{legacyCard.description_ar}</p>}
+              {legacyMeals.length > 0 && (
                 <div className="space-y-2 mb-6">
-                  {meals.map(m => (
-                    <div key={m.id} className="flex items-center gap-2 text-sm text-on-surface">
-                      <Icon name="check_circle" className="text-primary text-lg" /><span>{m.name}</span>
-                    </div>
+                  {legacyMeals.map((m) => (
+                    <div key={m.id} className="flex items-center gap-2 text-sm text-on-surface"><Icon name="check_circle" className="text-primary text-lg" /><span>{m.name}</span></div>
                   ))}
-                  <div className="flex items-center gap-2 text-sm text-on-surface"><Icon name="group" className="text-primary text-lg" /><span>مناسب لـ {current.people_count || '2–3'} أشخاص</span></div>
+                  <div className="flex items-center gap-2 text-sm text-on-surface"><Icon name="group" className="text-primary text-lg" /><span>مناسب لـ {legacyCard.people_count || '2–3'} أشخاص</span></div>
                 </div>
               )}
               <div className="flex flex-col gap-3">
@@ -207,10 +345,10 @@ export default function TamamSuggestions() {
             <p className="text-4xl mb-2">🛠️</p>
             <p className="mb-4">ما في اقتراح متاح لهاي الباقة هسا.</p>
             <div className="flex gap-2 justify-center">
-              {TIERS.filter(t => t !== tier && sets[t]?.length > 0).map(t => (
-                <button key={t} onClick={() => setTier(t)} className="px-4 py-2 bg-primary/10 border border-primary/30 text-primary rounded-full text-sm font-bold">{TIER_LABEL[t]}</button>
+              {TIERS.filter((t) => t !== tier && (useMealSetMode ? mealSets.assignments.some((a) => mealSets.variantsBySet[a.meal_set_id]?.[t]) : legacySets[t]?.length > 0)).map((t) => (
+                <button key={t} onClick={() => switchTier(t)} className="px-4 py-2 bg-primary/10 border border-primary/30 text-primary rounded-full text-sm font-bold">{TIER_LABEL[t]}</button>
               ))}
-              {TIERS.filter(t => t !== tier && sets[t]?.length > 0).length === 0 && (
+              {TIERS.filter((t) => t !== tier && (useMealSetMode ? mealSets.assignments.some((a) => mealSets.variantsBySet[a.meal_set_id]?.[t]) : legacySets[t]?.length > 0)).length === 0 && (
                 <button onClick={() => navigate('/tamam-suggestions?package=all')} className="px-4 py-2 bg-primary text-on-primary rounded-full text-sm font-bold">شوف كل الاقتراحات</button>
               )}
             </div>
@@ -221,11 +359,17 @@ export default function TamamSuggestions() {
       {showDetails && (
         <div className="fixed inset-0 z-[100]" onClick={() => setShowDetails(false)}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className="absolute bottom-0 left-0 w-full bg-surface-container-high rounded-t-[32px] p-6 max-w-[480px] mx-auto" onClick={e => e.stopPropagation()}>
+          <div className="absolute bottom-0 left-0 w-full bg-surface-container-high rounded-t-[32px] p-6 max-w-[480px] mx-auto" onClick={(e) => e.stopPropagation()}>
             <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6" />
             <h3 className="text-xl font-bold mb-4">تفاصيل الوجبة</h3>
             <div className="space-y-4 mb-8 max-h-[50vh] overflow-auto">
-              {meals.length ? meals.map(m => (
+              {card ? (
+                <>
+                  {card.description && <p className="text-sm text-on-surface-variant">{card.description}</p>}
+                  {card.details && <div className="border-t border-white/5 pt-3"><p className="text-xs text-on-surface-variant mb-1">المكونات / التفاصيل</p><p className="text-sm text-white whitespace-pre-line">{card.details}</p></div>}
+                  {card.included && <div className="border-t border-white/5 pt-3"><p className="text-xs text-on-surface-variant mb-1">العناصر المشمولة</p><p className="text-sm text-white">{card.included}</p></div>}
+                </>
+              ) : legacyMeals.length ? legacyMeals.map((m) => (
                 <div key={m.id} className="flex justify-between items-center py-3 border-b border-white/5">
                   <span className="text-on-surface-variant">{m.name}</span>
                   <span className="font-medium text-white">{m.price != null ? `₪${m.price}` : '—'}</span>

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Trash2, ArrowRight, BarChart3, FolderTree, Sparkles } from 'lucide-react';
 import SuggestionSetManager from '@/components/tamam/SuggestionSetManager';
+import MealSetsManager from '@/components/tamam/MealSetsManager';
+import MoodMealSetsSection from '@/components/tamam/MoodMealSetsSection';
 import {
   getAllMoods, createMood, updateMood, deleteMood,
 } from '@/lib/tamamApi';
@@ -122,6 +124,10 @@ export default function TamamAdmin() {
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold ${tab === 'sets' ? 'bg-white shadow text-blue' : 'text-gray-500'}`}>
             <FolderTree size={14} /> סטים
           </button>
+          <button onClick={() => setTab('mealsets')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold ${tab === 'mealsets' ? 'bg-white shadow text-blue' : 'text-gray-500'}`}>
+            🍱 مجموعات
+          </button>
           <button onClick={() => setTab('analytics')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold ${tab === 'analytics' ? 'bg-white shadow text-blue' : 'text-gray-500'}`}>
             <BarChart3 size={14} /> אנליטיקה
@@ -187,6 +193,7 @@ export default function TamamAdmin() {
                     onChange={e => setEditing({ ...editing, is_active: e.target.checked })} />
                   פעיל
                 </label>
+                {editing.id && <MoodMealSetsSection moodId={editing.id} />}
                 <button onClick={saveMood} className="w-full bg-blue text-white py-2 rounded-lg font-bold text-sm">שמור מוד</button>
               </div>
             )}
@@ -220,6 +227,9 @@ export default function TamamAdmin() {
             {!selectedMoodId && <p className="text-center text-gray-400 py-10 text-sm">בחר מוד כדי לנהל את הסטים</p>}
           </>
         )}
+
+        {/* MEALSETS TAB */}
+        {tab === 'mealsets' && <MealSetsManager />}
 
         {/* ANALYTICS TAB */}
         {tab === 'analytics' && (

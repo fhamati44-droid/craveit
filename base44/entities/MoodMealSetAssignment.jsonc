@@ -1,0 +1,85 @@
+{
+  "name": "MoodMealSetAssignment",
+  "type": "object",
+  "properties": {
+    "mood_id": {
+      "type": "string",
+      "title": "TamamMood id"
+    },
+    "meal_set_id": {
+      "type": "string",
+      "title": "MealSet id"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "display_priority": {
+      "type": "number",
+      "default": 0
+    },
+    "recommendation_weight": {
+      "type": "number",
+      "default": 0
+    },
+    "available_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "available_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "available_days": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "time_window_start": {
+      "type": "string",
+      "title": "HH:MM"
+    },
+    "time_window_end": {
+      "type": "string",
+      "title": "HH:MM"
+    },
+    "default_tier": {
+      "type": "string",
+      "enum": [
+        "classic",
+        "mix",
+        "plus"
+      ]
+    },
+    "featured_for_mood": {
+      "type": "boolean",
+      "default": false
+    },
+    "internal_notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "mood_id",
+    "meal_set_id"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

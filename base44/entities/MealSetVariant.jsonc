@@ -1,0 +1,93 @@
+{
+  "name": "MealSetVariant",
+  "type": "object",
+  "properties": {
+    "meal_set_id": {
+      "type": "string",
+      "title": "MealSet id"
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "classic",
+        "mix",
+        "plus"
+      ],
+      "title": "Tier"
+    },
+    "existing_product_id": {
+      "type": "number",
+      "title": "Existing TAMAM product id (Supabase menu_item, optional)"
+    },
+    "title_ar": {
+      "type": "string"
+    },
+    "short_description_ar": {
+      "type": "string"
+    },
+    "full_description_ar": {
+      "type": "string"
+    },
+    "image": {
+      "type": "string"
+    },
+    "gallery": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ingredients_ar": {
+      "type": "string"
+    },
+    "included_items_ar": {
+      "type": "string"
+    },
+    "serving_description_ar": {
+      "type": "string"
+    },
+    "marketing_price": {
+      "type": "number"
+    },
+    "starting_price": {
+      "type": "number"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "available": {
+      "type": "boolean",
+      "default": true
+    },
+    "display_priority": {
+      "type": "number",
+      "default": 0
+    },
+    "internal_notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "meal_set_id",
+    "tier"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
