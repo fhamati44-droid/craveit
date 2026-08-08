@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { getRestaurants, getMenuItemsByRestaurant } from '@/lib/api';
 import { saveDraft, loadDraft, deleteDraft, submitProposal, getConfig } from '@/lib/communityMoodApi';
 import { detectQualityMode, getQualitySettings, QUALITY_LABELS_AR } from '@/lib/gameQuality';
 import { track } from '@/lib/analytics';
 import { resolvePublicImage } from '@/lib/imageUtils';
-import { ZONES, MAX_MEALS, categoryToZone, calculateScore, calculateCombo, calculateProgress, getStageNumber, getTransformation, isTableComplete, getTotalPrice } from '@/lib/moodGameEngine';
+import { ZONES, MAX_MEALS, MIN_MEALS, categoryToZone, calculateScore, calculateCombo, calculateProgress, getStageNumber, getTransformation, canCompleteMood, isMoodFull, getTotalPrice } from '@/lib/moodGameEngine';
 import MoodGameHUD from '@/components/moodgame/MoodGameHUD';
 import MoodGameRestaurantSwitcher from '@/components/moodgame/MoodGameRestaurantSwitcher';
 import MoodGameTable from '@/components/moodgame/MoodGameTable';
@@ -17,6 +17,7 @@ import MoodGamePowerUps from '@/components/moodgame/MoodGamePowerUps';
 import MoodGameReviewSheet from '@/components/moodgame/MoodGameReviewSheet';
 import MoodGamePauseSheet from '@/components/moodgame/MoodGamePauseSheet';
 import MealDetailSheet from '@/components/moodgame/MealDetailSheet';
+import MoodGameCompleteBar from '@/components/moodgame/MoodGameCompleteBar';
 
 export default function MoodGame() {
   const navigate = useNavigate();
@@ -31,7 +32,6 @@ export default function MoodGame() {
   const [score, setScore] = useState(0);
   const [showPause, setShowPause] = useState(false);
   const [showReview, setShowReview] = useState(false);
-  const [showComplete, setShowComplete] = useState(false);
   const [qualityMode, setQualityMode] = useState('auto');
   const [dragState, setDragState] = useState(null);
   const [detailMeal, setDetailMeal] = useState(null);
@@ -104,14 +104,6 @@ export default function MoodGame() {
     setScore(calculateScore(placedMeals));
   }, [placedMeals]);
 
-  // --- Show completion overlay ---
-  useEffect(() => {
-    if (isTableComplete(placedMeals) && !showReview) {
-      setShowComplete(true);
-      track('community_game_table_complete', { meals: placedMeals.length, score });
-    }
-  }, [placedMeals]);
-
   // --- Debounced draft save ---
   const saveTimer = useRef(null);
   useEffect(() => {
@@ -141,14 +133,14 @@ export default function MoodGame() {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
-  // --- Place a meal on the table ---
+  // --- Place a meal on the table (max 6, allow stacking per zone) ---
   const placeMeal = useCallback((meal, zoneKey) => {
+    if (placedMeals.length >= MAX_MEALS) return;
     const zone = zoneKey || categoryToZone(meal.category || meal.category_name);
-    // If zone is occupied, replace
     setUndoStack((s) => [...s, placedMeals]);
     setPlacedMeals((prev) => {
-      const filtered = prev.filter((m) => m.zone !== zone);
-      return [...filtered, {
+      // Allow stacking: don't replace existing zone meals
+      return [...prev, {
         id: meal.id,
         name: meal.name_ar || meal.name,
         price: meal.price,
@@ -317,7 +309,6 @@ export default function MoodGame() {
     setShuffles(2);
     setUndoStack([]);
     setShowPause(false);
-    setShowComplete(false);
     deleteDraft().catch(() => {});
     track('community_game_restarted', {});
   }, []);
@@ -381,37 +372,13 @@ export default function MoodGame() {
         </div>
       )}
 
-      {/* Completion overlay */}
-      <AnimatePresence>
-        {showComplete && !showReview && (
-          <>
-            <div className="fixed inset-0 bg-tamam-ink/70 z-40" onClick={() => setShowComplete(false)} />
-            <motion.div
-              initial={{ scale: 0, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0, y: 20 }}
-              className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 bg-tamam-surface rounded-2xl p-5 max-w-[320px] w-[calc(100%-32px)] text-center border border-tamam-gold/30"
-              dir="rtl"
-              style={{ boxShadow: '0 0 30px rgba(234,196,92,0.2)' }}
-            >
-              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring' }}
-                className="w-14 h-14 rounded-full bg-tamam-gold/20 flex items-center justify-center mx-auto mb-3">
-                <Check size={28} className="text-tamam-gold" />
-              </motion.div>
-              <h3 className="text-tamam-text font-bold text-base mb-1">المود جاهز!</h3>
-              <p className="text-tamam-text-muted text-[11px] mb-4">ركّبت {placedMeals.length} أصناف بـ {combo} أنواع. الإجمالي ₪{Math.round(getTotalPrice(placedMeals))}</p>
-              <div className="flex gap-2">
-                <button onClick={() => { setShowComplete(false); setShowReview(true); }} className="flex-1 bg-tamam-green text-tamam-ink font-bold text-sm py-2.5 rounded-xl flex items-center justify-center gap-1">
-                  انشر المود <ChevronRight size={14} />
-                </button>
-                <button onClick={() => setShowComplete(false)} className="px-4 bg-tamam-surface-high text-tamam-text-muted font-bold text-sm py-2.5 rounded-xl">
-                  عدّل
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* Persistent completion CTA — enabled after 1st food, blocks at 6 */}
+      <MoodGameCompleteBar
+        count={placedMeals.length}
+        canComplete={canCompleteMood(placedMeals)}
+        isFull={isMoodFull(placedMeals)}
+        onComplete={() => setShowReview(true)}
+      />
 
       {/* Meal detail sheet (tap to add) */}
       <MealDetailSheet

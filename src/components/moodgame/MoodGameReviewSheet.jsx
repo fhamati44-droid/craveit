@@ -4,6 +4,9 @@ import { X, Rocket, ClipboardList } from 'lucide-react';
 import { resolvePublicImage } from '@/lib/imageUtils';
 import { getTotalPrice, getRestaurantNames, calculateScore } from '@/lib/moodGameEngine';
 
+const MIN_TITLE = 2;
+const MAX_TITLE = 36;
+
 export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubmit, submitting, draftSaving, error }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -11,9 +14,12 @@ export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubm
   const restaurants = getRestaurantNames(placedMeals);
   const score = calculateScore(placedMeals);
 
+  const trimmed = title.trim();
+  const titleValid = trimmed.length >= MIN_TITLE && trimmed.length <= MAX_TITLE;
+
   const handlePublish = () => {
-    if (!title.trim()) return;
-    onSubmit({ title_ar: title.trim(), description_ar: description.trim() });
+    if (!titleValid) return;
+    onSubmit({ title_ar: trimmed, description_ar: description.trim() });
   };
 
   return (
@@ -47,13 +53,13 @@ export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubm
                 </div>
               </div>
 
-              <p className="text-tamam-text-muted text-[11px]">قم بتسمية المود الخاص بك ومراجعته قبل النشر.</p>
+              <p className="text-tamam-text-muted text-[11px]">سمّي المود تبعك ومراجعه قبل النشر.</p>
 
               {/* Hero preview — circular frame with meal thumbnails */}
               <div className="flex justify-center py-2">
                 <div className="relative w-32 h-32 rounded-full border-2 border-tamam-green-bright/50 bg-tamam-surface-low flex items-center justify-center" style={{ boxShadow: '0 0 20px rgba(137,219,120,0.2)' }}>
-                  {placedMeals.slice(0, 4).map((m, i) => {
-                    const angle = (i * 90 - 90) * Math.PI / 180;
+                  {placedMeals.slice(0, 6).map((m, i) => {
+                    const angle = (i * 60 - 90) * Math.PI / 180;
                     const r = 40;
                     const x = Math.cos(angle) * r;
                     const y = Math.sin(angle) * r;
@@ -70,13 +76,20 @@ export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubm
 
               {/* Form */}
               <div>
-                <label className="text-tamam-text text-[11px] font-semibold mb-1 block">اسم المود *</label>
+                <label className="text-tamam-text text-[11px] font-semibold mb-1 block">سمّي المود تبعك *</label>
                 <input
                   value={title}
-                  onChange={(e) => setTitle(e.target.value.slice(0, 60))}
-                  placeholder="مثال: ليلة الأبطال، عشاء هادئ..."
+                  onChange={(e) => setTitle(e.target.value.slice(0, MAX_TITLE))}
+                  placeholder="مثال: مود آخر الليل"
                   className="w-full bg-tamam-surface-low text-tamam-text text-sm rounded-lg px-3 py-2.5 border border-tamam-outline/30 focus:outline-none focus:border-tamam-green"
+                  maxLength={MAX_TITLE}
                 />
+                <div className="flex justify-between mt-1">
+                  <span className={`text-[9px] ${trimmed.length === 0 ? 'text-tamam-text-muted' : titleValid ? 'text-tamam-green-bright' : 'text-tamam-error'}`}>
+                    {trimmed.length === 0 ? 'بين 2 و 36 حرف' : titleValid ? '✓ اسم مناسب' : `لازم على الأقل ${MIN_TITLE} أحرف`}
+                  </span>
+                  <span className="text-[9px] text-tamam-text-muted tabular-nums">{trimmed.length}/{MAX_TITLE}</span>
+                </div>
               </div>
 
               <div>
@@ -118,7 +131,7 @@ export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubm
               {/* Publish */}
               <button
                 onClick={handlePublish}
-                disabled={!title.trim() || submitting}
+                disabled={!titleValid || submitting}
                 className="w-full bg-tamam-green text-tamam-ink font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-40 active:scale-95 transition-transform"
               >
                 {submitting ? 'جاري الإرسال...' : <><Rocket size={16} /> انشر المود</>}

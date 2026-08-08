@@ -356,9 +356,11 @@ export default async function(req) {
       const config = (await base44.asServiceRole.entities.CommunityMoodConfig.list('-created_date', 5).catch(() => []))?.[0] || {};
       const avatar = getAvatarInfo(user);
 
-      const titleAr = sanitizeText(payload.mood_title_ar, 80);
-      if (!titleAr) return Response.json({ error: 'mood_title_ar required' }, { status: 400 });
-      if (!payload.meal_ids?.length) return Response.json({ error: 'meals required' }, { status: 400 });
+      const titleAr = sanitizeText(payload.mood_title_ar, 36);
+      if (!titleAr || titleAr.length < 2) return Response.json({ error: 'mood_title_ar must be 2-36 chars' }, { status: 400 });
+      const mealIds = payload.meal_ids || [];
+      if (!mealIds.length) return Response.json({ error: 'meals required' }, { status: 400 });
+      if (mealIds.length > 6) return Response.json({ error: 'max 6 meals allowed' }, { status: 400 });
       if (!payload.restaurant_ids?.length) return Response.json({ error: 'restaurant required' }, { status: 400 });
 
       const status = config.trusted_user_auto_publish ? 'published' : 'pending_review';

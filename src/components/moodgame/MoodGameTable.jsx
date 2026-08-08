@@ -61,7 +61,13 @@ export default function MoodGameTable({ placedMeals, dragActive, onRemoveMeal })
             >
               <AnimatePresence mode="wait">
                 {isFilled ? (
-                  <PlacedMeal key="filled" meal={zoneMeals[0]} onRemove={() => onRemoveMeal(zoneMeals[0].id)} glow={transform.glow} />
+                  <PlacedMeal
+                    key="filled"
+                    meal={zoneMeals[0]}
+                    stackCount={zoneMeals.length}
+                    onRemove={() => onRemoveMeal(zoneMeals[0].id)}
+                    glow={transform.glow}
+                  />
                 ) : (
                   <DropZone key="empty" zone={zone} visible={visible} dragActive={dragActive} />
                 )}
@@ -82,9 +88,6 @@ export default function MoodGameTable({ placedMeals, dragActive, onRemoveMeal })
               <div className="bg-tamam-gold/15 text-tamam-gold text-[9px] font-bold px-2 py-1 rounded-full backdrop-blur-sm whitespace-nowrap">
                 كومبو رائع! +{calculateScore(placedMeals)} 🪙
               </div>
-              {placedMeals.length >= 4 && (
-                <div className="text-tamam-gold text-xs mt-1">المود جاهز</div>
-              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -113,7 +116,7 @@ function DropZone({ zone, visible, dragActive }) {
   );
 }
 
-function PlacedMeal({ meal, onRemove, glow }) {
+function PlacedMeal({ meal, stackCount = 1, onRemove, glow }) {
   const img = resolvePublicImage(meal.image_url, null);
   return (
     <motion.div
@@ -134,6 +137,12 @@ function PlacedMeal({ meal, onRemove, glow }) {
       ) : (
         <div className="w-full h-full rounded-full bg-tamam-surface-high flex items-center justify-center text-xl border-2 border-tamam-green-bright">
           🍽️
+        </div>
+      )}
+      {/* Stack badge — shows count when multiple meals share a zone */}
+      {stackCount > 1 && (
+        <div className="absolute -top-1.5 -left-1.5 bg-tamam-green-bright text-tamam-ink text-[9px] font-bold w-5 h-5 rounded-full flex items-center justify-center border border-tamam-ink">
+          ×{stackCount}
         </div>
       )}
       {/* Score badge */}

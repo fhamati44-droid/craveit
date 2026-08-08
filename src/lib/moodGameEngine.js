@@ -11,7 +11,8 @@ export const ZONES = [
   { key: 'dessert', label: 'حلى', icon: '🍰', angle: 270, color: '#EAC45C' },
 ];
 
-export const MAX_MEALS = 4;
+export const MAX_MEALS = 6;
+export const MIN_MEALS = 1;
 
 const DESSERT_KEYS = ['حلويات', 'كيك', 'كنافة', 'آيس كريم', 'بوظة', 'شوكولاتة', 'تسالي', 'حلى', 'dessert', 'كناف', 'مهلبية', 'قطايف'];
 const DRINK_KEYS = ['مشروبات', 'عصائر', 'مشروب', 'قهوة', 'شاي', 'بيبسي', 'كولا', 'water', 'drink', 'مي', 'عصير', 'ليموناضة'];
@@ -60,7 +61,7 @@ export function calculateMood(placedMeals) {
   const count = placedMeals.length;
   const variety = new Set(placedMeals.map((m) => m.zone)).size;
   if (count === 0) return MOOD_LEVELS[0];
-  if (count >= 4 && variety >= 3) return MOOD_LEVELS[4];
+  if (count >= 5 && variety >= 3) return MOOD_LEVELS[4];
   if (count >= 3 && variety >= 2) return MOOD_LEVELS[3];
   if (count >= 2) return MOOD_LEVELS[2];
   return MOOD_LEVELS[1];
@@ -71,7 +72,7 @@ export function getTransformation(placedMeals) {
   const variety = new Set(placedMeals.map((m) => m.zone)).size;
   const mainCount = placedMeals.filter((m) => m.zone === 'main').length;
   if (count === 0) return { name: 'empty', label: '', tableScale: 0.75, showZones: 0, glow: 'none' };
-  if (count >= 4 && variety >= 3 && mainCount >= 1) return { name: 'plus', label: 'بلس', tableScale: 1.0, showZones: 4, glow: 'gold' };
+  if (count >= 5 && variety >= 3 && mainCount >= 1) return { name: 'plus', label: 'بلس', tableScale: 1.0, showZones: 4, glow: 'gold' };
   if (count >= 2 && variety >= 2) return { name: 'mix', label: 'ميكس', tableScale: 0.88, showZones: 3, glow: 'green' };
   return { name: 'classic', label: 'كلاسيك', tableScale: 0.78, showZones: 1, glow: 'soft' };
 }
@@ -80,8 +81,12 @@ export function getStageNumber(placedMeals) {
   return Math.min(20, 1 + placedMeals.length * 2);
 }
 
-export function isTableComplete(placedMeals, max = MAX_MEALS) {
-  return placedMeals.length >= max;
+export function canCompleteMood(placedMeals) {
+  return placedMeals.length >= MIN_MEALS && placedMeals.length <= MAX_MEALS;
+}
+
+export function isMoodFull(placedMeals) {
+  return placedMeals.length >= MAX_MEALS;
 }
 
 export function getTotalPrice(placedMeals) {
