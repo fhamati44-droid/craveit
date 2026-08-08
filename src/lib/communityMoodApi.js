@@ -1,8 +1,9 @@
 import { base44 } from '@/api/base44Client';
 
 export async function getHomepageSection() {
-  const res = await base44.functions.invoke('communityMoodEngine', { action: 'getHomepageSection' });
-  return res?.data ?? res;
+  const raw = await base44.functions.invoke('communityMoodEngine', { action: 'getHomepageSection' });
+  // Same double-envelope normalization as getPublishedProposals.
+  return raw?.data?.data ?? raw?.data ?? raw;
 }
 
 export async function getConfig() {
@@ -11,8 +12,14 @@ export async function getConfig() {
 }
 
 export async function getPublishedProposals(filter = 'new', limit = 20, extra = {}) {
-  const res = await base44.functions.invoke('communityMoodEngine', { action: 'getPublishedProposals', payload: { filter, limit, ...extra } });
-  return res?.data ?? res;
+  const raw = await base44.functions.invoke('communityMoodEngine', { action: 'getPublishedProposals', payload: { filter, limit, ...extra } });
+  // Base44 browser SDK can double-wrap as { data: { data: [...] } }; unwrap both layers.
+  const proposals = raw?.data?.data ?? raw?.data ?? raw;
+  if (!Array.isArray(proposals)) {
+    console.error('[getPublishedProposals] invalid response', raw);
+    throw new Error('invalid_published_moods_response');
+  }
+  return proposals;
 }
 
 export async function getProposalDetail(proposalId) {
