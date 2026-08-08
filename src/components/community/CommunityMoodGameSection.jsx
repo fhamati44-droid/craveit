@@ -15,10 +15,10 @@ const TEXT = {
     subtitle: 'اختار المطاعم والوجبات، رتّبها على الطاولة، واعمل المود بطريقتك.',
     ctaPrimary: 'ادخل على مود جيم',
     ctaSecondary: 'شوف مودات الناس',
-    listHeading: 'مودات عملها الناس',
+    listHeading: 'مودات مولّعة 🔥',
     listSubtitle: 'شوف المودات اللي عملها الناس وادعم المود اللي عجبك.',
-    viewAll: 'شوف الكل',
-    empty: 'لسه ما في مودات منشورة. ممكن مودك يكون الأول.',
+    viewAll: 'شوف كل مودات الناس',
+    empty: 'أول مود للناس لسه بالطريق 👀',
     emptyCta: 'ابدأ اللعبة',
     errorRetry: 'إعادة المحاولة',
     proposalsError: 'ما قدرنا نحمّل المودات',
@@ -165,7 +165,7 @@ export default function CommunityMoodGameSection() {
             {t.listSubtitle && <p className="text-tamam-text-muted text-[10px] mt-0.5">{t.listSubtitle}</p>}
           </div>
           <div id="community-mood-list" className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-            {proposals.map((p) => (
+            {proposals.slice(0, 3).map((p) => (
               <CommunityMoodCard key={p.id} proposal={p} onShare={setShareProposal} />
             ))}
           </div>

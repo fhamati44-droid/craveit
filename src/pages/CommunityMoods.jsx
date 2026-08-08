@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import CommunityMoodCard from '@/components/community/CommunityMoodCard';
 import ShareSheet from '@/components/community/ShareSheet';
 import { getPublishedProposals } from '@/lib/communityMoodApi';
@@ -18,18 +17,20 @@ export default function CommunityMoods() {
   const [filter, setFilter] = useState('new');
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [shareProposal, setShareProposal] = useState(null);
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(false);
     getPublishedProposals(filter, 50)
-      .then((data) => setProposals(data || []))
-      .catch(() => setProposals([]))
+      .then((data) => { setProposals(Array.isArray(data) ? data : []); })
+      .catch(() => { setProposals([]); setLoadError(true); })
       .finally(() => setLoading(false));
   }, [filter]);
 
   return (
-    <div className="min-h-screen bg-tamam-bg text-tamam-text font-tamam pt-safe pb-safe" dir="rtl">
+    <div className="bg-tamam-bg text-tamam-text font-tamam pb-safe" dir="rtl">
       <div className="max-w-[430px] mx-auto px-4 pt-4 pb-6">
         <h1 className="text-tamam-text font-bold text-xl mb-1">مودات الناس</h1>
         <p className="text-tamam-text-muted text-xs mb-4">شوف المودات اللي عملها الناس وادعم اللي يعجبك</p>
@@ -49,12 +50,14 @@ export default function CommunityMoods() {
 
         {loading ? (
           <div className="text-center text-tamam-text-muted text-sm py-8">جاري التحميل...</div>
+        ) : loadError ? (
+          <ErrorState title="ما قدرنا نحمّل المودات" actionLabel="إعادة المحاولة" onAction={() => setFilter(f => f)} />
         ) : proposals.length === 0 ? (
           <ErrorState icon="🎨" title="لسه ما في مودات" subtitle="كن أول واحد ينشر مود!" actionLabel="ابدأ اللعبة" onAction={() => navigate('/mood-game')} />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             {proposals.map((p) => (
-              <CommunityMoodCard key={p.id} proposal={p} onShare={setShareProposal} />
+              <CommunityMoodCard key={p.id} proposal={p} onShare={setShareProposal} variant="feed" />
             ))}
           </div>
         )}

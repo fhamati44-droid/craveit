@@ -17,7 +17,7 @@ const PACKAGE_COLORS = {
   plus: 'bg-tamam-gold/20 text-tamam-gold',
 };
 
-export default function CommunityMoodCard({ proposal, onShare }) {
+export default function CommunityMoodCard({ proposal, onShare, variant = 'carousel' }) {
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(proposal.valid_likes_count || 0);
@@ -100,7 +100,7 @@ export default function CommunityMoodCard({ proposal, onShare }) {
     <>
       <div
         onClick={open}
-        className="flex-shrink-0 w-[280px] bg-tamam-surface rounded-2xl overflow-hidden border border-tamam-outline/20 active:scale-[0.98] transition-transform cursor-pointer"
+        className={`${variant === 'feed' ? 'w-full' : 'flex-shrink-0 w-[280px]'} bg-tamam-surface rounded-2xl overflow-hidden border border-tamam-outline/20 active:scale-[0.98] transition-transform cursor-pointer`}
       >
         {/* Cover */}
         <div className="relative h-32 bg-tamam-surface-low">
