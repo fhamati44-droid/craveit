@@ -358,10 +358,11 @@ export default async function(req) {
 
       const titleAr = sanitizeText(payload.mood_title_ar, 36);
       if (!titleAr || titleAr.length < 1) return Response.json({ error: 'mood_title_ar must not be empty' }, { status: 400 });
-      const mealIds = payload.meal_ids || [];
+      const mealIds = (payload.meal_ids || []).filter(Boolean);
       if (!mealIds.length) return Response.json({ error: 'meals required' }, { status: 400 });
       if (mealIds.length > 6) return Response.json({ error: 'max 6 meals allowed' }, { status: 400 });
-      if (!payload.restaurant_ids?.length) return Response.json({ error: 'restaurant required' }, { status: 400 });
+      // Restaurant is OPTIONAL for Community Mood creation — never block on it
+      const restaurantIds = (payload.restaurant_ids || []).filter(Boolean);
 
       const status = config.trusted_user_auto_publish ? 'published' : 'pending_review';
       const moderationStatus = config.trusted_user_auto_publish ? 'approved' : 'pending';
@@ -380,8 +381,8 @@ export default async function(req) {
         existing_mood_id: payload.existing_mood_id || null,
         occasion_key: payload.occasion_key || null,
         num_people: payload.num_people || null,
-        restaurant_ids: payload.restaurant_ids,
-        meal_ids: payload.meal_ids,
+        restaurant_ids: restaurantIds,
+        meal_ids: mealIds,
         table_layout_json: JSON.stringify(payload.table_layout || {}),
         package_type: payload.package_type || 'classic',
         cover_layout: payload.cover_layout || 'table_top',
@@ -400,16 +401,22 @@ export default async function(req) {
         is_featured: false,
       });
 
-      // Delete the user's draft
-      const drafts = await base44.asServiceRole.entities.CommunityMoodGameDraft.filter({ user_id: user.id }).catch(() => []);
-      if (drafts?.length) await base44.asServiceRole.entities.CommunityMoodGameDraft.delete(drafts[0].id).catch(() => {});
-
-      await base44.asServiceRole.entities.CommunityMoodAuditLog.create({
-        proposal_id: proposal.id,
-        action: 'submitted',
-        admin_name: avatar.display_name,
-        new_value: status,
-      });
+      // Best-effort post-create cleanup + audit log.
+      // These MUST NEVER fail the response — the proposal record already exists
+      // in the DB at this point, so any throw here would make the frontend show a
+      // "save failed" error while the proposal was secretly created.
+      try {
+        const drafts = await base44.asServiceRole.entities.CommunityMoodGameDraft.filter({ user_id: user.id }).catch(() => []);
+        if (drafts?.length) await base44.asServiceRole.entities.CommunityMoodGameDraft.delete(drafts[0].id).catch(() => {});
+      } catch (e) { console.error('[communityMoodEngine] submitProposal draft cleanup failed', e); }
+      try {
+        await base44.asServiceRole.entities.CommunityMoodAuditLog.create({
+          proposal_id: proposal.id,
+          action: 'submitted',
+          admin_name: avatar.display_name,
+          new_value: status,
+        });
+      } catch (e) { console.error('[communityMoodEngine] submitProposal audit log failed', e); }
 
       return Response.json({ data: { id: proposal.id, status } });
     }

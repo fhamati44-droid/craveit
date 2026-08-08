@@ -257,20 +257,32 @@ export default function MoodGame() {
   }, [placeMeal, selectedRestaurant]);
 
   // --- Publish proposal ---
+  const submittingRef = useRef(false);
   const handlePublish = useCallback(async ({ title_ar, description_ar }) => {
     setPublishError(null);
     if (!placedMeals.length) { setPublishError('لازم تختار وجبة واحدة على الأقل'); return; }
+    // Guard against double-submit (double-click / effect re-fire)
+    if (submittingRef.current) return;
+    // Safe food ID extraction — drop any undefined/null IDs
+    const mealIds = placedMeals.map((m) => m.id).filter(Boolean);
+    if (!mealIds.length) {
+      console.error('[MoodGame] no valid meal IDs in placedMeals', placedMeals);
+      setPublishError('في وجبة بدون معرف، شيلها وحاول مرة ثانية');
+      return;
+    }
+    // Restaurant is OPTIONAL for Community Mood creation — do NOT block save
     const restaurantIds = [...new Set(placedMeals.map((m) => m.restaurant_id))].filter(Boolean);
-    if (!restaurantIds.length) { setPublishError('المطعم أو الوجبة مش متاحين حاليًا'); return; }
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       const isAuth = await base44.auth.isAuthenticated();
       if (!isAuth) {
+        // Preserve the entered name + selected foods for after login
+        try { localStorage.setItem('tamam_mood_pending_name', title_ar || ''); } catch {}
         await base44.auth.redirectToLogin('/mood-game');
         return;
       }
-      const mealIds = placedMeals.map((m) => m.id);
-      const result = await submitProposal({
+      const raw = await submitProposal({
         mood_title_ar: title_ar,
         description_ar: description_ar || null,
         restaurant_ids: restaurantIds,
@@ -281,22 +293,29 @@ export default function MoodGame() {
         meal_snapshots: placedMeals.map((m) => ({ id: m.id, name: m.name, price: m.price, image_url: m.image_url, category: m.category })),
         restaurant_snapshots: restaurants.filter((r) => restaurantIds.includes(r.id)).map((r) => ({ id: r.id, name: r.name_ar || r.name, image_url: r.image_url })),
       });
-      if (!result?.id) {
-        setPublishError(result?.error || result?.message || 'ما قدرنا نحفظ المود، جرّب مرة ثانية');
+      // Detect the REAL response shape — backend returns { data: { id, status } }
+      const proposal = raw?.data ?? raw?.proposal ?? raw;
+      if (!proposal?.id) {
+        console.error('[MoodGame] submitProposal returned no id', { raw });
+        setPublishError(raw?.error || raw?.message || 'ما قدرنا نحفظ المود، جرّب مرة ثانية');
         return;
       }
       await deleteDraft();
-      track('community_mood_submitted', { proposal_id: result.id });
-      setLastProposalId(result.id);
+      try { localStorage.removeItem('tamam_mood_pending_name'); } catch {}
+      track('community_mood_submitted', { proposal_id: proposal.id });
+      setLastProposalId(proposal.id);
       setLastProposalTitle(title_ar);
-      setLastProposalStatus(result.status || 'pending_review');
+      setLastProposalStatus(proposal.status || 'pending_review');
       setLastProposalMeals(placedMeals);
       setShowReview(false);
       setShowSuccess(true);
     } catch (err) {
+      // Do NOT swallow the error — log the real backend response for debugging
+      console.error('[MoodGame] submitProposal failed', err);
       const msg = err?.error === 'auth_required' ? 'سجّل أولًا' : (err?.message || 'صار خطأ بالنشر، جرّب مرة ثانية');
       setPublishError(msg);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }, [placedMeals, restaurants, transform, navigate]);

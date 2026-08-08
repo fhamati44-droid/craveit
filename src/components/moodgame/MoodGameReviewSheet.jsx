@@ -8,7 +8,10 @@ const MIN_TITLE = 2;
 const MAX_TITLE = 36;
 
 export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubmit, submitting, draftSaving, error }) {
-  const [title, setTitle] = useState('');
+  // Restore a pending name preserved across a login redirect (full app reload)
+  const [title, setTitle] = useState(() => {
+    try { return localStorage.getItem('tamam_mood_pending_name') || ''; } catch { return ''; }
+  });
   const [description, setDescription] = useState('');
   const total = getTotalPrice(placedMeals);
   const restaurants = getRestaurantNames(placedMeals);
