@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowRight, Clock, CheckCircle2, XCircle, Trophy, Gift, FileText } from 'lucide-react';
-import { getMyProposals } from '@/lib/communityMoodApi';
+import { getMyProposals, getProposalDetail } from '@/lib/communityMoodApi';
 import { REVIEW_STATUS_META } from '@/lib/moodGameAdminApi';
 import TamamAvatar from '@/components/community/TamamAvatar';
 import { resolvePublicImage } from '@/lib/imageUtils';
@@ -35,15 +35,41 @@ export default function AccountCommunityMoods() {
   const { proposalId } = useParams();
   const navigate = useNavigate();
   const [proposals, setProposals] = useState([]);
+  const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
-  const load = () => {
-    setLoading(true); setError(false);
+  const loadList = () => {
+    setLoading(true); setError(false); setDetail(null);
     getMyProposals().then((d) => setProposals(Array.isArray(d) ? d : []))
       .catch(() => setError(true)).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+
+  const loadDetail = (id) => {
+    setLoading(true); setNotFound(false); setError(false); setDetail(null);
+    getProposalDetail(id)
+      .then((d) => {
+        if (d?.id) { setDetail(d); return; }
+        // getProposalDetail returns 404 for rejected/draft (non-admin) — fall back to creator's list
+        return getMyProposals().then((list) => {
+          const found = (Array.isArray(list) ? list : []).find((x) => x.id === id);
+          if (found) setDetail(found); else setNotFound(true);
+        }).catch(() => setNotFound(true));
+      })
+      .catch(() => {
+        getMyProposals().then((list) => {
+          const found = (Array.isArray(list) ? list : []).find((x) => x.id === id);
+          if (found) setDetail(found); else setNotFound(true);
+        }).catch(() => setNotFound(true));
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (proposalId) loadDetail(proposalId);
+    else loadList();
+  }, [proposalId]);
 
   if (loading) {
     return (
@@ -59,15 +85,14 @@ export default function AccountCommunityMoods() {
     return (
       <div className="min-h-screen bg-tamam-bg text-tamam-text font-tamam flex flex-col items-center justify-center" dir="rtl">
         <p className="text-tamam-text-muted text-sm mb-3">ما قدرنا نحمّل موداتك</p>
-        <button onClick={load} className="bg-tamam-green text-tamam-ink font-bold text-sm px-5 py-2 rounded-full">إعادة المحاولة</button>
+        <button onClick={() => proposalId ? loadDetail(proposalId) : loadList()} className="bg-tamam-green text-tamam-ink font-bold text-sm px-5 py-2 rounded-full">إعادة المحاولة</button>
       </div>
     );
   }
 
   // Detail view
   if (proposalId) {
-    const p = proposals.find((x) => x.id === proposalId);
-    if (!p) {
+    if (notFound || !detail) {
       return (
         <div className="min-h-screen bg-tamam-bg text-tamam-text font-tamam flex flex-col items-center justify-center p-6" dir="rtl">
           <p className="text-tamam-text-muted text-sm mb-4">ما لقينا المود</p>
@@ -75,6 +100,7 @@ export default function AccountCommunityMoods() {
         </div>
       );
     }
+    const p = detail;
     const meta = STATUS_META[p.status] || STATUS_META.draft;
     const reached = p.status === 'published' && (p.valid_likes_count || 0) >= (p.target_likes || 100);
     const target = p.target_likes || 100;

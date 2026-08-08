@@ -43,6 +43,9 @@ export default function MoodGame() {
   const [loadError, setLoadError] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastProposalId, setLastProposalId] = useState(null);
+  const [lastProposalTitle, setLastProposalTitle] = useState('');
+  const [lastProposalStatus, setLastProposalStatus] = useState('pending_review');
+  const [lastProposalMeals, setLastProposalMeals] = useState([]);
   const [publishError, setPublishError] = useState(null);
 
   const qualitySettings = useMemo(() => getQualitySettings(qualityMode), [qualityMode]);
@@ -286,13 +289,18 @@ export default function MoodGame() {
         meal_snapshots: placedMeals.map((m) => ({ id: m.id, name: m.name, price: m.price, image_url: m.image_url, category: m.category })),
         restaurant_snapshots: restaurants.filter((r) => restaurantIds.includes(r.id)).map((r) => ({ id: r.id, name: r.name_ar || r.name, image_url: r.image_url })),
       });
+      if (!result?.id) {
+        setPublishError(result?.error || result?.message || 'ما قدرنا نحفظ المود، جرّب مرة ثانية');
+        return;
+      }
       await deleteDraft();
       track('community_mood_submitted', { proposal_id: result.id });
       setLastProposalId(result.id);
+      setLastProposalTitle(title_ar);
+      setLastProposalStatus(result.status || 'pending_review');
+      setLastProposalMeals(placedMeals);
       setShowReview(false);
       setShowSuccess(true);
-      // Auto-redirect to the creator's status page (leave the publishing page)
-      setTimeout(() => navigate(`/account/community-moods/${result.id}`), 1800);
     } catch (err) {
       const msg = err?.error === 'auth_required' ? 'سجّل أولًا' : (err?.message || 'صار خطأ بالنشر، جرّب مرة ثانية');
       setPublishError(msg);
@@ -453,11 +461,19 @@ export default function MoodGame() {
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.15, type: 'spring' }} className="w-16 h-16 rounded-full bg-tamam-green/20 flex items-center justify-center mx-auto mb-4">
                   <Check size={32} className="text-tamam-green-bright" />
                 </motion.div>
-                <h2 className="text-tamam-text font-bold text-lg mb-1">وصلنا مودك</h2>
-                <p className="text-tamam-text-muted text-sm mb-5">المود دخل للمراجعة، وبنخبرك لما يصير جاهز للنشر.</p>
+                <h2 className="text-tamam-text font-bold text-lg mb-1">تم حفظ مودك 🎉</h2>
+                <div className="bg-tamam-surface-high rounded-xl p-3 mb-4 text-right">
+                  <p className="text-tamam-text font-bold text-sm mb-1 truncate">{lastProposalTitle || 'مودك'}</p>
+                  <p className="text-tamam-text-muted text-[11px] mb-2">{lastProposalMeals.length} وجبة</p>
+                  {lastProposalStatus === 'pending_review' ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-tamam-gold bg-tamam-gold/15 px-2 py-0.5 rounded-full">بانتظار النشر</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-tamam-green-bright bg-tamam-green/15 px-2 py-0.5 rounded-full">منشور</span>
+                  )}
+                </div>
                 <div className="flex flex-col gap-2">
-                  <button onClick={() => navigate(`/account/community-moods/${lastProposalId}`)} className="w-full bg-tamam-green text-tamam-ink font-bold text-sm py-3 rounded-xl">شوف حالة المود</button>
-                  <button onClick={() => navigate('/')} className="w-full bg-tamam-surface-high text-tamam-text font-bold text-sm py-3 rounded-xl">ارجع للهوم</button>
+                  <button onClick={() => navigate(`/account/community-moods/${lastProposalId}`)} className="w-full bg-tamam-green text-tamam-ink font-bold text-sm py-3 rounded-xl">شوف موداتي</button>
+                  <button onClick={() => navigate('/mood-game')} className="w-full bg-tamam-surface-high text-tamam-text font-bold text-sm py-3 rounded-xl">ارجع للعبة</button>
                 </div>
               </div>
             </motion.div>
