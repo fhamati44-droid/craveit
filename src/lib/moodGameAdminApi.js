@@ -5,8 +5,23 @@ function invoke(action, payload = {}) {
 }
 
 // ===== Admin: Posts =====
-export const adminGetMoodGamePosts = (status = 'all', review_status = 'all') =>
-  invoke('adminGetMoodGamePosts', { status, review_status });
+// Explicit named-arg signature — impossible to confuse status vs review_status.
+// Safe response unwrap: throws a clear error (logging the raw response) if the
+// backend didn't return an array, so an object/error body never reaches .filter().
+export async function adminGetMoodGamePosts({ status = 'all', review_status = 'all' } = {}) {
+  const raw = await base44.functions.invoke('communityMoodEngine', {
+    action: 'adminGetMoodGamePosts',
+    payload: { status, review_status },
+  });
+  const data = raw?.data ?? raw;
+  if (!Array.isArray(data)) {
+    console.error('[adminGetMoodGamePosts] unexpected response', { status, review_status, raw });
+    const err = new Error('invalid_admin_posts_response');
+    err.raw = raw;
+    throw err;
+  }
+  return data;
+}
 
 export const adminGetMoodGamePostDetail = (post_id) =>
   invoke('adminGetMoodGamePostDetail', { post_id });

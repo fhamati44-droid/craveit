@@ -35,7 +35,7 @@ export default function MoodGamePosts() {
     setLoading(true);
     setError(null);
     const t = TABS.find((x) => x.key === tab) || TABS[0];
-    adminGetMoodGamePosts(t.status, 'all')
+    adminGetMoodGamePosts({ status: t.status, review_status: 'all' })
       .then((data) => {
         const list = data || [];
         // Strict client-side enforcement of the publication-moderation definition
@@ -43,7 +43,11 @@ export default function MoodGamePosts() {
         else if (tab === 'rejected') setPosts(list.filter((p) => p.status === 'rejected' || p.moderation_status === 'rejected'));
         else setPosts(list.filter((p) => p.status === 'pending_review'));
       })
-      .catch((e) => { console.error('[MoodGamePosts] load failed', e); setError('صار خطأ بتحميل المودات'); setPosts([]); })
+      .catch((e) => {
+        console.error('[MoodGamePosts] load failed', e);
+        setError({ msg: 'صار خطأ بتحميل المودات', detail: e?.message || String(e), raw: e?.raw });
+        setPosts([]);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -101,7 +105,11 @@ export default function MoodGamePosts() {
       {loading ? (
         <p className="text-center text-on-surface-variant py-10">جاري التحميل...</p>
       ) : error ? (
-        <div className="bg-error/10 border border-error/30 rounded-xl p-4 text-center text-error text-sm">{error}</div>
+        <div className="bg-error/10 border border-error/30 rounded-xl p-4 text-center text-error text-sm space-y-2">
+          <p>{error.msg}</p>
+          <p className="text-[11px] text-on-surface-variant" dir="ltr">تفاصيل تقنية: {error.detail}</p>
+          {error.raw && <p className="text-[10px] text-on-surface-variant break-all" dir="ltr">{JSON.stringify(error.raw).slice(0, 300)}</p>}
+        </div>
       ) : posts.length === 0 ? (
         <div className="text-center py-12">
           <Icon name="inbox" className="text-5xl text-on-surface-variant" />

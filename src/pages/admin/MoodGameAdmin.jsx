@@ -9,7 +9,7 @@ export default function MoodGameAdmin() {
 
   useEffect(() => {
     Promise.all([
-      adminGetMoodGamePosts('all', 'all').catch(() => []),
+      adminGetMoodGamePosts({ status: 'all', review_status: 'all' }).catch(() => []),
       adminGetMoodGameComments().catch(() => []),
     ]).then(([posts, comments]) => {
       const p = posts || [];

@@ -11,7 +11,7 @@ export default function MoodGameReview() {
 
   const load = () => {
     setLoading(true);
-    adminGetMoodGamePosts('all', 'qualified')
+    adminGetMoodGamePosts({ status: 'all', review_status: 'qualified' })
       .then((data) => setPosts(data || []))
       .catch(() => setPosts([]))
       .finally(() => setLoading(false));
