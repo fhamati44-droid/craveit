@@ -8,23 +8,38 @@ function invoke(action, payload = {}) {
 // Explicit named-arg signature — impossible to confuse status vs review_status.
 // Safe response unwrap: throws a clear error (logging the raw response) if the
 // backend didn't return an array, so an object/error body never reaches .filter().
-export async function adminGetMoodGamePosts({ status = 'all', review_status = 'all' } = {}) {
+export async function adminGetMoodGamePosts({
+  status = 'all',
+  review_status = 'all',
+} = {}) {
   const raw = await base44.functions.invoke('communityMoodEngine', {
     action: 'adminGetMoodGamePosts',
-    payload: { status, review_status },
+    payload: {
+      status,
+      review_status,
+    },
   });
-  const data = raw?.data ?? raw;
-  if (!Array.isArray(data)) {
-    console.error('[adminGetMoodGamePosts] unexpected response', { status, review_status, raw });
-    const err = new Error('invalid_admin_posts_response');
-    err.raw = raw;
-    throw err;
+
+  // Base44 browser SDK wraps responses as { data: { data: <body> } };
+  // unwrap both layers safely.
+  const posts = raw?.data?.data ?? raw?.data ?? raw;
+
+  if (!Array.isArray(posts)) {
+    console.error('[adminGetMoodGamePosts] invalid response', raw);
+    throw new Error('invalid_admin_posts_response');
   }
-  return data;
+
+  return posts;
 }
 
-export const adminGetMoodGamePostDetail = (post_id) =>
-  invoke('adminGetMoodGamePostDetail', { post_id });
+export async function adminGetMoodGamePostDetail(post_id) {
+  const raw = await base44.functions.invoke('communityMoodEngine', {
+    action: 'adminGetMoodGamePostDetail',
+    payload: { post_id },
+  });
+  // Same double-envelope normalization as adminGetMoodGamePosts.
+  return raw?.data?.data ?? raw?.data ?? raw ?? null;
+}
 
 export const adminStartReview = (post_id) =>
   invoke('adminStartReview', { post_id });
@@ -39,8 +54,18 @@ export const adminUnhidePost = (post_id) =>
   invoke('adminUnhidePost', { post_id });
 
 // ===== Admin: Comments =====
-export const adminGetMoodGameComments = () =>
-  invoke('adminGetMoodGameComments');
+export async function adminGetMoodGameComments() {
+  const raw = await base44.functions.invoke('communityMoodEngine', {
+    action: 'adminGetMoodGameComments',
+    payload: {},
+  });
+  const comments = raw?.data?.data ?? raw?.data ?? raw;
+  if (!Array.isArray(comments)) {
+    console.error('[adminGetMoodGameComments] invalid response', raw);
+    throw new Error('invalid_admin_comments_response');
+  }
+  return comments;
+}
 
 export const adminModerateComment = (comment_id, status) =>
   invoke('adminModerateComment', { comment_id, status });
