@@ -1,0 +1,97 @@
+{
+  "name": "MoodGameReview",
+  "type": "object",
+  "properties": {
+    "post_id": {
+      "type": "string",
+      "title": "CommunityMoodProposal id (the Mood Game post)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "under_review",
+        "approved",
+        "needs_changes",
+        "rejected",
+        "converted"
+      ],
+      "default": "under_review",
+      "title": "Review status"
+    },
+    "admin_user_id": {
+      "type": "string",
+      "title": "Admin user id"
+    },
+    "admin_name": {
+      "type": "string",
+      "title": "Admin display name snapshot"
+    },
+    "admin_notes": {
+      "type": "string",
+      "title": "Team review notes"
+    },
+    "feasible": {
+      "type": "boolean",
+      "default": null,
+      "title": "Is the mood executable with a restaurant?"
+    },
+    "needs_adjustment": {
+      "type": "boolean",
+      "default": null,
+      "title": "Does the mood need adjustments?"
+    },
+    "component_notes": {
+      "type": "string",
+      "title": "Notes on components / ingredients"
+    },
+    "restaurant_id": {
+      "type": "string",
+      "title": "Selected restaurant for fulfillment (optional, Phase 2)"
+    },
+    "restaurant_menu_item_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Linked RestaurantMealOffer ids (Phase 2)"
+    },
+    "estimated_cost": {
+      "type": "number",
+      "title": "Estimated cost (Phase 2)"
+    },
+    "proposed_price": {
+      "type": "number",
+      "title": "Proposed price (Phase 2)"
+    },
+    "linked_offer_id": {
+      "type": "string",
+      "title": "Created offer id (Phase 2)"
+    }
+  },
+  "required": [
+    "post_id",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -2,16 +2,27 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowRight, Clock, CheckCircle2, XCircle, Trophy, Gift, FileText } from 'lucide-react';
 import { getMyProposals } from '@/lib/communityMoodApi';
+import { REVIEW_STATUS_META } from '@/lib/moodGameAdminApi';
 import TamamAvatar from '@/components/community/TamamAvatar';
 import { resolvePublicImage } from '@/lib/imageUtils';
 
 const STATUS_META = {
   draft: { label: 'مسودة', color: 'text-tamam-text-muted bg-tamam-surface-high', icon: FileText },
-  pending_review: { label: 'المود بالمراجعة', color: 'text-tamam-gold bg-tamam-gold/15', icon: Clock },
-  published: { label: 'المود منشور', color: 'text-tamam-green-bright bg-tamam-green/15', icon: CheckCircle2 },
+  pending_review: { label: 'بانتظار النشر', color: 'text-tamam-gold bg-tamam-gold/15', icon: Clock },
+  published: { label: 'منشور', color: 'text-tamam-green-bright bg-tamam-green/15', icon: CheckCircle2 },
   rejected: { label: 'مرفوض', color: 'text-tamam-error bg-tamam-error/15', icon: XCircle },
   paused: { label: 'موقوف', color: 'text-tamam-text-muted bg-tamam-surface-high', icon: Clock },
   archived: { label: 'مؤرشف', color: 'text-tamam-text-muted bg-tamam-surface-high', icon: FileText },
+  hidden: { label: 'مخفي', color: 'text-tamam-error bg-tamam-error/15', icon: XCircle },
+};
+
+const REVIEW_LABEL_AR = {
+  normal: 'منشور',
+  qualified: 'وصل 100 لايك',
+  under_review: 'قيد مراجعة TAMAM',
+  approved: 'تم اعتماد الفكرة',
+  rejected: 'ما قدرنا ننفذها هالمرة',
+  converted: 'صار عرض حقيقي',
 };
 
 function statusOf(p) {
@@ -98,6 +109,16 @@ export default function AccountCommunityMoods() {
               <div className="bg-tamam-green/10 border border-tamam-green/20 rounded-lg p-3 mb-3">
                 <p className="text-tamam-green-bright text-xs font-bold">المود منشور</p>
                 <button onClick={() => navigate(`/community-moods/${p.id}`)} className="text-tamam-green-bright text-[11px] underline mt-1">شوف الصفحة العامة</button>
+              </div>
+            )}
+            {p.review_status && p.review_status !== 'normal' && (
+              <div className={`rounded-lg p-3 mb-3 ${p.review_status === 'qualified' ? 'bg-tamam-gold/10 border border-tamam-gold/20' : p.review_status === 'under_review' ? 'bg-tamam-green/10 border border-tamam-green/20' : p.review_status === 'rejected' ? 'bg-tamam-error/10 border border-tamam-error/30' : 'bg-tamam-surface-high'}`}>
+                <p className={`text-xs font-bold ${p.review_status === 'qualified' ? 'text-tamam-gold' : p.review_status === 'under_review' ? 'text-tamam-green-bright' : p.review_status === 'rejected' ? 'text-tamam-error' : 'text-tamam-text'}`}>
+                  {REVIEW_LABEL_AR[p.review_status] || p.review_status}
+                </p>
+                {p.review_status === 'qualified' && <p className="text-tamam-text-muted text-[11px] mt-0.5">مودك دخل مراجعة TAMAM. بنخبرك لما يصير جاهز.</p>}
+                {p.review_status === 'under_review' && <p className="text-tamam-text-muted text-[11px] mt-0.5">فريقنا يدرس إمكانية تنفيذ المود.</p>}
+                {p.review_status === 'rejected' && <p className="text-tamam-text-muted text-[11px] mt-0.5">ما قدرنا ننفذه هالمرة، بس جرّب مود تاني!</p>}
               </div>
             )}
             {reached && (

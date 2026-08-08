@@ -268,6 +268,8 @@ export default async function(req) {
       if (newCount >= (proposal.target_likes || 100) && !proposal.reached_target_at) {
         update.reached_target_at = new Date().toISOString();
         update.reward_status = 'pending';
+        update.review_status = 'qualified';
+        update.qualified_at = new Date().toISOString();
       }
       await base44.asServiceRole.entities.CommunityMoodProposal.update(proposalId, update);
 
@@ -392,6 +394,7 @@ export default async function(req) {
         shares_count: 0,
         views_count: 0,
         reward_status: 'none',
+        review_status: 'normal',
         is_featured: false,
       });
 
@@ -755,6 +758,153 @@ export default async function(req) {
         if (!checks.has_valid_restaurant) reasons.push('لا يوجد مطعم مرتبط');
         const included = checks.is_public && !checks.is_expired && checks.has_valid_meal && checks.has_valid_restaurant;
         return Response.json({ data: { ...checks, included_by_homepage: included, reason_if_excluded: reasons.length ? reasons.join('؛ ') : null } });
+      }
+
+      // ===== MOOD GAME ADMIN (Phase 1 review workflow) =====
+
+      case 'adminGetMoodGamePosts': {
+        const reviewFilter = payload.review_status || 'all';
+        const statusFilter = payload.status || 'all';
+        let query = {};
+        if (reviewFilter !== 'all') query.review_status = reviewFilter;
+        if (statusFilter !== 'all') query.status = statusFilter;
+        const proposals = Object.keys(query).length
+          ? await base44.asServiceRole.entities.CommunityMoodProposal.filter(query, '-created_date', 200).catch(() => [])
+          : await base44.asServiceRole.entities.CommunityMoodProposal.list('-created_date', 200).catch(() => []);
+        return Response.json({ data: (proposals || []).map((p) => ({
+          ...p,
+          meal_snapshots: parseJSON(p.meal_snapshots, []),
+          restaurant_snapshots: parseJSON(p.restaurant_snapshots, []),
+        })) });
+      }
+
+      case 'adminGetMoodGamePostDetail': {
+        const post = await base44.asServiceRole.entities.CommunityMoodProposal.get(payload.post_id).catch(() => null);
+        if (!post) return Response.json({ error: 'not_found' }, { status: 404 });
+        const [comments, likes, reviews] = await Promise.all([
+          base44.asServiceRole.entities.CommunityMoodComment.filter({ proposal_id: post.id }, '-created_date', 200).catch(() => []),
+          base44.asServiceRole.entities.CommunityMoodLike.filter({ proposal_id: post.id, status: 'active' }, '-created_date', 200).catch(() => []),
+          base44.asServiceRole.entities.MoodGameReview.filter({ post_id: post.id }, '-created_date', 10).catch(() => []),
+        ]);
+        return Response.json({ data: {
+          ...post,
+          meal_snapshots: parseJSON(post.meal_snapshots, []),
+          restaurant_snapshots: parseJSON(post.restaurant_snapshots, []),
+          table_layout: parseJSON(post.table_layout_json, {}),
+          comments: (comments || []).filter((c) => c.status !== 'deleted'),
+          likes: likes || [],
+          reviews: reviews || [],
+        } });
+      }
+
+      case 'adminStartReview': {
+        const post = await base44.asServiceRole.entities.CommunityMoodProposal.get(payload.post_id).catch(() => null);
+        if (!post) return Response.json({ error: 'not_found' }, { status: 404 });
+        const existing = await base44.asServiceRole.entities.MoodGameReview.filter({ post_id: payload.post_id, status: 'under_review' }).catch(() => []);
+        let review;
+        if (existing?.length) {
+          review = existing[0];
+        } else {
+          review = await base44.asServiceRole.entities.MoodGameReview.create({
+            post_id: payload.post_id,
+            status: 'under_review',
+            admin_user_id: user.id,
+            admin_name: user.full_name,
+          });
+        }
+        await base44.asServiceRole.entities.CommunityMoodProposal.update(payload.post_id, { review_status: 'under_review' });
+        await base44.asServiceRole.entities.CommunityMoodAuditLog.create({
+          proposal_id: payload.post_id, action: 'approved', admin_id: user.id, admin_name: user.full_name, new_value: 'under_review',
+        });
+        return Response.json({ data: { review, started: true } });
+      }
+
+      case 'adminSaveReviewDecision': {
+        const { post_id, status, admin_notes, feasible, needs_adjustment, component_notes } = payload;
+        if (!post_id || !status) return Response.json({ error: 'post_id and status required' }, { status: 400 });
+        const validStatuses = ['approved', 'needs_changes', 'rejected', 'converted'];
+        if (!validStatuses.includes(status)) return Response.json({ error: 'invalid status' }, { status: 400 });
+
+        const review = await base44.asServiceRole.entities.MoodGameReview.create({
+          post_id,
+          status,
+          admin_user_id: user.id,
+          admin_name: user.full_name,
+          admin_notes: sanitizeText(admin_notes, 1000) || null,
+          feasible: feasible ?? null,
+          needs_adjustment: needs_adjustment ?? null,
+          component_notes: sanitizeText(component_notes, 1000) || null,
+        });
+
+        const postUpdate = { review_status: status };
+        if (status === 'rejected') { postUpdate.status = 'rejected'; postUpdate.moderation_status = 'rejected'; postUpdate.moderation_note = admin_notes || null; }
+        await base44.asServiceRole.entities.CommunityMoodProposal.update(post_id, postUpdate);
+
+        await base44.asServiceRole.entities.CommunityMoodAuditLog.create({
+          proposal_id: post_id, action: status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : 'edit_requested',
+          admin_id: user.id, admin_name: user.full_name, reason: admin_notes, new_value: status,
+        });
+        return Response.json({ data: { review, saved: true } });
+      }
+
+      case 'adminHidePost': {
+        await base44.asServiceRole.entities.CommunityMoodProposal.update(payload.post_id, { status: 'hidden' });
+        await base44.asServiceRole.entities.CommunityMoodAuditLog.create({
+          proposal_id: payload.post_id, action: 'paused', admin_id: user.id, admin_name: user.full_name,
+        });
+        return Response.json({ data: { hidden: true } });
+      }
+
+      case 'adminUnhidePost': {
+        const p = await base44.asServiceRole.entities.CommunityMoodProposal.get(payload.post_id).catch(() => null);
+        if (!p) return Response.json({ error: 'not_found' }, { status: 404 });
+        await base44.asServiceRole.entities.CommunityMoodProposal.update(payload.post_id, {
+          status: 'published', moderation_status: 'approved', is_public: true,
+        });
+        await base44.asServiceRole.entities.CommunityMoodAuditLog.create({
+          proposal_id: payload.post_id, action: 'approved', admin_id: user.id, admin_name: user.full_name,
+        });
+        return Response.json({ data: { unhidden: true } });
+      }
+
+      case 'adminGetMoodGameComments': {
+        const comments = await base44.asServiceRole.entities.CommunityMoodComment.list('-created_date', 200).catch(() => []);
+        const filtered = (comments || []).filter((c) => c.status !== 'deleted');
+        const postIds = [...new Set(filtered.map((c) => c.proposal_id))];
+        const posts = postIds.length
+          ? await base44.asServiceRole.entities.CommunityMoodProposal.filter({ id: { $in: postIds } }, '-created_date', 200).catch(() => [])
+          : [];
+        const postMap = {};
+        (posts || []).forEach((p) => { postMap[p.id] = p.mood_title_ar || 'مود'; });
+        return Response.json({ data: filtered.map((c) => ({ ...c, post_title: postMap[c.proposal_id] || 'مود' })) });
+      }
+
+      case 'adminSimulate100Likes': {
+        const post = await base44.asServiceRole.entities.CommunityMoodProposal.get(payload.post_id).catch(() => null);
+        if (!post) return Response.json({ error: 'not_found' }, { status: 404 });
+        const target = post.target_likes || 100;
+        const currentCount = post.valid_likes_count || 0;
+        const needed = Math.max(0, target - currentCount);
+        for (let i = 0; i < needed; i++) {
+          await base44.asServiceRole.entities.CommunityMoodLike.create({
+            proposal_id: post.id,
+            user_id: `sim_${Date.now()}_${i}`,
+            user_display_name: `لاعب تجريبي ${i + 1}`,
+            user_avatar_type: 'tamam',
+            user_avatar_key: 'n1',
+            status: 'active',
+            is_valid: true,
+          }).catch(() => {});
+        }
+        const update = { valid_likes_count: target };
+        if (!post.reached_target_at) {
+          update.reached_target_at = new Date().toISOString();
+          update.reward_status = 'pending';
+          update.review_status = 'qualified';
+          update.qualified_at = new Date().toISOString();
+        }
+        await base44.asServiceRole.entities.CommunityMoodProposal.update(post.id, update);
+        return Response.json({ data: { simulated: needed, total: target, qualified: true } });
       }
 
       default:

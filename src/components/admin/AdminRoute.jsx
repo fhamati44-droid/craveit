@@ -58,6 +58,9 @@ export default function AdminRoute() {
             <Link to="/admin/restaurants" className="text-on-surface-variant flex items-center gap-1">
               <Icon name="storefront" className="text-[18px]" /> المطاعم
             </Link>
+            <Link to="/admin/mood-game" className="text-on-surface-variant flex items-center gap-1">
+              <Icon name="stadia_controller" className="text-[18px]" /> لعبة المود
+            </Link>
           </div>
         </div>
       </header>

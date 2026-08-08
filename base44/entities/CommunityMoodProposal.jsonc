@@ -115,7 +115,8 @@
         "published",
         "rejected",
         "paused",
-        "archived"
+        "archived",
+        "hidden"
       ],
       "default": "pending_review"
     },
@@ -176,6 +177,28 @@
     "reached_target_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "review_status": {
+      "type": "string",
+      "enum": [
+        "normal",
+        "qualified",
+        "under_review",
+        "approved",
+        "rejected",
+        "converted"
+      ],
+      "default": "normal",
+      "title": "Mood Game review pipeline status"
+    },
+    "qualified_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Timestamp when post reached 100 likes (set once)"
+    },
+    "linked_offer_id": {
+      "type": "string",
+      "title": "Linked TAMAM offer id (set when converted to real offer)"
     },
     "reward_status": {
       "type": "string",

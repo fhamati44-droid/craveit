@@ -62,6 +62,11 @@ import RestaurantMenuItems from '@/pages/admin/RestaurantMenuItems';
 import RestaurantMenuImport from '@/pages/admin/RestaurantMenuImport';
 import RestaurantMenuMapping from '@/pages/admin/RestaurantMenuMapping';
 import RestaurantMenuImages from '@/pages/admin/RestaurantMenuImages';
+import MoodGameAdmin from '@/pages/admin/MoodGameAdmin';
+import MoodGamePosts from '@/pages/admin/MoodGamePosts';
+import MoodGamePostDetail from '@/pages/admin/MoodGamePostDetail';
+import MoodGameReview from '@/pages/admin/MoodGameReview';
+import MoodGameComments from '@/pages/admin/MoodGameComments';
 
 function App() {
   return (
@@ -130,6 +135,11 @@ function App() {
               <Route path="/admin/restaurants/:id/import" element={<RestaurantMenuImport />} />
               <Route path="/admin/restaurants/:id/mapping" element={<RestaurantMenuMapping />} />
               <Route path="/admin/restaurants/:id/images" element={<RestaurantMenuImages />} />
+              <Route path="/admin/mood-game" element={<MoodGameAdmin />} />
+              <Route path="/admin/mood-game/posts" element={<MoodGamePosts />} />
+              <Route path="/admin/mood-game/posts/:postId" element={<MoodGamePostDetail />} />
+              <Route path="/admin/mood-game/review" element={<MoodGameReview />} />
+              <Route path="/admin/mood-game/comments" element={<MoodGameComments />} />
               <Route path="/admin/system-check" element={<SystemCheck />} />
             </Route>
             <Route path="*" element={<PageNotFound />} />

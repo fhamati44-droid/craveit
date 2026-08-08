@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Heart, MessageCircle, Share2, Flag, ChevronLeft, ShoppingBag, Store } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { getProposalDetail, toggleLike, recordShare, reportProposal } from '@/lib/communityMoodApi';
+import { REVIEW_STATUS_META } from '@/lib/moodGameAdminApi';
 import { resolvePublicImage } from '@/lib/imageUtils';
 import { track } from '@/lib/analytics';
 import TamamAvatar from '@/components/community/TamamAvatar';
@@ -117,6 +118,16 @@ export default function CommunityMoodDetail() {
           <span className={`absolute top-3 left-3 text-[11px] font-bold px-2.5 py-1 rounded-full ${PACKAGE_COLORS[proposal.package_type] || PACKAGE_COLORS.classic}`}>
             {PACKAGE_LABELS[proposal.package_type] || 'كلاسيك'}
           </span>
+          {proposal.review_status && proposal.review_status !== 'normal' && (
+            <span className="absolute top-14 left-3 text-[11px] font-bold px-2.5 py-1 rounded-full bg-tamam-surface/90 text-tamam-text flex items-center gap-1 backdrop-blur">
+              {proposal.review_status === 'qualified' && '⭐'}
+              {proposal.review_status === 'under_review' && '🔍'}
+              {proposal.review_status === 'approved' && '✅'}
+              {proposal.review_status === 'rejected' && '💛'}
+              {proposal.review_status === 'converted' && '🎉'}
+              {(REVIEW_STATUS_META[proposal.review_status] || {}).label || proposal.review_status}
+            </span>
+          )}
           <div className="absolute bottom-3 right-3 left-3">
             <h1 className="text-white font-bold text-xl mb-1">{proposal.mood_title_ar}</h1>
             {proposal.description_ar && <p className="text-tamam-text-muted text-sm">{proposal.description_ar}</p>}
