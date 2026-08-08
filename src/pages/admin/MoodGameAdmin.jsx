@@ -5,7 +5,7 @@ import { adminGetMoodGamePosts, adminGetMoodGameComments } from '@/lib/moodGameA
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 
 export default function MoodGameAdmin() {
-  const [stats, setStats] = useState({ total: 0, published: 0, qualified: 0, under_review: 0, approved: 0, comments: 0 });
+  const [stats, setStats] = useState({ pending: 0, published: 0, rejected: 0, qualified: 0, comments: 0 });
 
   useEffect(() => {
     Promise.all([
@@ -14,11 +14,10 @@ export default function MoodGameAdmin() {
     ]).then(([posts, comments]) => {
       const p = posts || [];
       setStats({
-        total: p.length,
-        published: p.filter((x) => x.status === 'published').length,
+        pending: p.filter((x) => x.status === 'pending_review').length,
+        published: p.filter((x) => x.status === 'published' && x.moderation_status === 'approved').length,
+        rejected: p.filter((x) => x.status === 'rejected' || x.moderation_status === 'rejected').length,
         qualified: p.filter((x) => x.review_status === 'qualified').length,
-        under_review: p.filter((x) => x.review_status === 'under_review').length,
-        approved: p.filter((x) => x.review_status === 'approved').length,
         comments: (comments || []).filter((c) => c.status === 'active').length,
       });
     });
@@ -31,16 +30,15 @@ export default function MoodGameAdmin() {
       </h1>
 
       <div className="grid grid-cols-3 gap-3">
-        <StatCard icon="edit_note" value={stats.total} label="إجمالي المودات" />
-        <StatCard icon="favorite" value={stats.qualified} label="وصل 100 لايك" tone="tertiary" />
-        <StatCard icon="rate_review" value={stats.under_review} label="قيد المراجعة" tone="primary" />
+        <StatCard icon="pending_actions" value={stats.pending} label="بانتظار النشر" tone="tertiary" />
+        <StatCard icon="check_circle" value={stats.published} label="منشورة" />
+        <StatCard icon="trophy" value={stats.qualified} label="وصل 100 لايك" tone="tertiary" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <NavCard to="/admin/mood-game/posts" icon="grid_view" title="مودات المجتمع" desc="جميع المودات المنشورة والمعلّقة" />
-        <NavCard to="/admin/mood-game/review" icon="trophy" title="وصلت 100 لايك" desc="مودات وصلت للهدف وجاهزة للمراجعة" tone="tertiary" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <NavCard to="/admin/mood-game/posts" icon="pending_actions" title="طلبات النشر" desc="موافقة أو رفض مودات المستخدمين الجديدة" tone="tertiary" />
+        <NavCard to="/admin/mood-game/review" icon="trophy" title="مراجعة الـ100 لايك" desc="مودات وصلت للهدف — جدوى وتحويل لعروض" tone="tertiary" />
         <NavCard to="/admin/mood-game/comments" icon="chat" title="التعليقات" desc="مراقبة وإدارة تعليقات المجتمع" />
-        <NavCard to="/admin/mood-game/posts?filter=approved" icon="verified" title="العروض المحولة" desc="مودات تم تحويلها لعروض حقيقية" tone="primary" />
       </div>
     </div>
   );

@@ -591,7 +591,7 @@ export default async function(req) {
 
       case 'adminRejectProposal': {
         await base44.asServiceRole.entities.CommunityMoodProposal.update(payload.proposal_id, {
-          status: 'rejected', moderation_status: 'rejected', moderation_note: payload.note || null,
+          status: 'rejected', moderation_status: 'rejected', moderation_note: payload.note || null, is_public: false,
         });
         await base44.asServiceRole.entities.CommunityMoodAuditLog.create({
           proposal_id: payload.proposal_id, action: 'rejected', admin_id: user.id, admin_name: user.full_name, reason: payload.note,

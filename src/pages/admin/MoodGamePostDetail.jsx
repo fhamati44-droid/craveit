@@ -5,6 +5,7 @@ import {
   adminHidePost, adminUnhidePost, adminSimulate100Likes,
   PUBLISH_STATUS_META, REVIEW_STATUS_META,
 } from '@/lib/moodGameAdminApi';
+import { adminApproveProposal, adminRejectProposal } from '@/lib/communityMoodApi';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 
@@ -29,6 +30,29 @@ export default function MoodGamePostDetail() {
   const [componentNotes, setComponentNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [actionMsg, setActionMsg] = useState('');
+  const [modNote, setModNote] = useState('');
+
+  const publish = async () => {
+    setSaving(true);
+    try {
+      await adminApproveProposal(postId, modNote || null);
+      setActionMsg('تم نشر المود — صار ظاهر بالمجتمع');
+      setModNote('');
+      load();
+    } catch (e) { console.error('[MoodGamePostDetail] publish failed', e); setActionMsg('ما قدرنا ننشر المود'); }
+    finally { setSaving(false); }
+  };
+
+  const reject = async () => {
+    setSaving(true);
+    try {
+      await adminRejectProposal(postId, modNote || null);
+      setActionMsg('تم رفض المود');
+      setModNote('');
+      load();
+    } catch (e) { console.error('[MoodGamePostDetail] reject failed', e); setActionMsg('ما قدرنا نرفض المود'); }
+    finally { setSaving(false); }
+  };
 
   const load = () => {
     setLoading(true);
@@ -103,6 +127,31 @@ export default function MoodGamePostDetail() {
       {actionMsg && (
         <div className="bg-primary/10 border border-primary/30 rounded-xl p-3 text-sm text-primary flex items-center gap-2">
           <Icon name="check_circle" className="text-[20px]" /> {actionMsg}
+        </div>
+      )}
+
+      {/* Initial publication moderation — only for pending_review */}
+      {data.status === 'pending_review' && (
+        <div className="bg-primary/5 border border-primary/30 rounded-2xl p-4 space-y-3">
+          <h2 className="font-bold text-sm flex items-center gap-1">
+            <Icon name="approval" className="text-primary" /> مراجعة النشر
+          </h2>
+          <p className="text-xs text-on-surface-variant">هذه المراجعة الأولى لنشر المود بالمجتمع. موافقتك تعرض المود للناس.</p>
+          <textarea value={modNote} onChange={(e) => setModNote(e.target.value)} rows={2} placeholder="ملاحظة للمستخدم (اختياري)..." className="w-full bg-surface-container-low rounded-lg p-2 text-sm border border-outline-variant/30 resize-none" />
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={publish} disabled={saving} className="bg-primary text-on-primary font-bold text-sm py-3 rounded-xl disabled:opacity-50 flex items-center justify-center gap-1">
+              <Icon name="publish" /> نشر المود
+            </button>
+            <button onClick={reject} disabled={saving} className="bg-error/10 text-error font-bold text-sm py-3 rounded-xl disabled:opacity-50 flex items-center justify-center gap-1">
+              <Icon name="block" /> رفض المود
+            </button>
+          </div>
+        </div>
+      )}
+
+      {data.status === 'rejected' && (
+        <div className="bg-error/10 border border-error/30 rounded-2xl p-3 text-sm text-error flex items-center gap-2">
+          <Icon name="block" /> المود مرفوض {data.moderation_note ? `— ${data.moderation_note}` : ''}
         </div>
       )}
 
