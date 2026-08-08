@@ -15,7 +15,7 @@ export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubm
   const score = calculateScore(placedMeals);
 
   const trimmed = title.trim();
-  const titleValid = trimmed.length >= MIN_TITLE && trimmed.length <= MAX_TITLE;
+  const titleValid = trimmed.length >= 1 && trimmed.length <= MAX_TITLE;
 
   const handlePublish = () => {
     if (!titleValid) return;
@@ -85,8 +85,8 @@ export default function MoodGameReviewSheet({ open, placedMeals, onClose, onSubm
                   maxLength={MAX_TITLE}
                 />
                 <div className="flex justify-between mt-1">
-                  <span className={`text-[9px] ${trimmed.length === 0 ? 'text-tamam-text-muted' : titleValid ? 'text-tamam-green-bright' : 'text-tamam-error'}`}>
-                    {trimmed.length === 0 ? 'بين 2 و 36 حرف' : titleValid ? '✓ اسم مناسب' : `لازم على الأقل ${MIN_TITLE} أحرف`}
+                  <span className={`text-[9px] ${trimmed.length === 0 ? 'text-tamam-text-muted' : 'text-tamam-green-bright'}`}>
+                    {trimmed.length === 0 ? 'اكتب اسم للمود' : '✓ اسم مناسب'}
                   </span>
                   <span className="text-[9px] text-tamam-text-muted tabular-nums">{trimmed.length}/{MAX_TITLE}</span>
                 </div>

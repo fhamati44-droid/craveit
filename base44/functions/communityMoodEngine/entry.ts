@@ -357,7 +357,7 @@ export default async function(req) {
       const avatar = getAvatarInfo(user);
 
       const titleAr = sanitizeText(payload.mood_title_ar, 36);
-      if (!titleAr || titleAr.length < 2) return Response.json({ error: 'mood_title_ar must be 2-36 chars' }, { status: 400 });
+      if (!titleAr || titleAr.length < 1) return Response.json({ error: 'mood_title_ar must not be empty' }, { status: 400 });
       const mealIds = payload.meal_ids || [];
       if (!mealIds.length) return Response.json({ error: 'meals required' }, { status: 400 });
       if (mealIds.length > 6) return Response.json({ error: 'max 6 meals allowed' }, { status: 400 });
