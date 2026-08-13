@@ -2,26 +2,28 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { track } from '@/lib/analytics';
 import PublicImage from '@/components/shared/PublicImage';
-
-const PKG_STYLE = {
-  classic: { label: 'كلاسيك', labelHe: 'קלאסי', gradient: 'from-tamam-teal to-tamam-surface-high' },
-  mix: { label: 'ميكس', labelHe: 'מיקס', gradient: 'from-tamam-green-dark to-tamam-surface-high' },
-  plus: { label: 'بلس', labelHe: 'פלוס', gradient: 'from-tamam-gold-dark to-tamam-surface-high' },
-};
+import { PLACEHOLDER_IMAGE } from '@/lib/imageUtils';
 
 /**
- * Time-aware top suggestions — renders 3 cards (Classic, Mix, Plus)
- * with period-appropriate TAMAM suggestions.
- * Falls back to the provided fallback when no time-aware content exists.
+ * TAMAM Picks — food-first recommendations (NOT Classic/Mix/Plus cards).
+ * Shows 2–3 large food cards from time-aware top_suggestions. Each card opens
+ * the existing meal/suggestion route with "شوف الوجبة" — never an Add-to-Cart.
+ * Falls back to a lightweight CTA into the existing suggestion flow when empty.
+ * The "اقتراح ثاني" action routes into the existing TAMAM suggestion flow
+ * (the backend has no safe regenerate endpoint, so we don't fake one).
  */
-export default function TimeAwareTopSuggestions({ timeData, fallback }) {
+export default function TimeAwareTopSuggestions({ timeData }) {
   const navigate = useNavigate();
   const { locale } = useLanguage();
   const suggestions = timeData?.top_suggestions;
 
-  if (!suggestions || suggestions.length === 0) return fallback || null;
-
-  const handleClick = (item) => {
+  const openItem = (item) => {
+    track('home_recommendation_opened', {
+      content_id: item.id,
+      package: item.package,
+      period_id: timeData?.current_period?.id || '',
+      locale,
+    });
     track('homepage_time_suggestion_clicked', {
       period_id: timeData?.current_period?.id || '',
       content_id: item.id,
@@ -29,42 +31,78 @@ export default function TimeAwareTopSuggestions({ timeData, fallback }) {
       package: item.package,
       locale,
     });
+    navigate(item.route || '/tamam-suggestions');
   };
 
+  if (!suggestions || suggestions.length === 0) {
+    return (
+      <section className="px-4 py-4">
+        <h2 className="text-headline-sm font-bold mb-1">اختيارات TAMAM إلك</h2>
+        <p className="text-body-sm text-on-surface-variant mb-3">حسب مودك والوقت إسا</p>
+        <button
+          onClick={() => navigate('/tamam-suggestions')}
+          className="w-full h-14 bg-surface-container border border-outline-variant/30 rounded-2xl flex items-center justify-center gap-2 font-bold active:scale-[0.98] transition-transform"
+        >
+          <span className="material-symbols-outlined text-[20px] text-primary">auto_awesome</span>
+          شوف اقتراحات TAMAM
+        </button>
+      </section>
+    );
+  }
+
+  const picks = suggestions.slice(0, 3);
+
   return (
-    <section className="px-4 py-3">
-      <h2 className="text-headline-sm font-bold mb-2">
-        {locale === 'he' ? 'הצעות TAMAM' : 'اقتراحات TAMAM'}
-      </h2>
-      <div className="grid grid-cols-3 gap-2">
-        {suggestions.map((item) => {
-          const style = PKG_STYLE[item.package] || PKG_STYLE.classic;
-          return (
-            <button
-              key={item.package}
-              onClick={() => { handleClick(item); navigate(item.route || '/tamam-suggestions'); }}
-              className="relative rounded-2xl overflow-hidden bg-tamam-surface border border-tamam-outline/20 active:scale-95 transition-transform block h-[130px] w-full"
-            >
+    <section className="py-4">
+      <div className="px-4 mb-3">
+        <h2 className="text-headline-sm font-bold">اختيارات TAMAM إلك</h2>
+        <p className="text-body-sm text-on-surface-variant">حسب مودك والوقت إسا</p>
+      </div>
+      <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
+        {picks.map((item) => (
+          <button
+            key={item.id || item.package}
+            onClick={() => openItem(item)}
+            className="flex-shrink-0 w-[260px] bg-surface-container border border-outline-variant/30 rounded-2xl overflow-hidden text-right active:scale-95 transition-transform flex flex-col"
+          >
+            <div className="relative h-[150px] bg-surface-container-high">
               <PublicImage
                 source={item.image_url}
+                fallback={PLACEHOLDER_IMAGE}
                 alt={item.title || ''}
                 className="absolute inset-0 w-full h-full object-cover"
               />
-              <div className={`absolute inset-0 bg-gradient-to-t ${style.gradient} opacity-80`} />
-              <div className="absolute inset-0 flex flex-col justify-between p-2.5 text-white">
-                <span className="self-start bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5 text-[9px] font-bold">
-                  {locale === 'he' ? style.labelHe : style.label}
+              {item.package && (
+                <span className="absolute top-2 right-2 bg-tamam-ink/70 backdrop-blur-sm text-tamam-green-bright text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {item.package}
                 </span>
-                <div>
-                  <p className="text-[11px] font-bold leading-tight line-clamp-2 mb-0.5">{item.title}</p>
-                  {item.display_price != null && (
-                    <span className="text-[11px] font-bold" dir="ltr">₪{item.display_price}</span>
-                  )}
-                </div>
+              )}
+            </div>
+            <div className="p-3 flex flex-col flex-1">
+              <h3 className="font-bold text-sm leading-tight line-clamp-2 mb-1">{item.title || ''}</h3>
+              {item.short_description && (
+                <p className="text-[11px] text-on-surface-variant leading-snug line-clamp-2 mb-2">{item.short_description}</p>
+              )}
+              <div className="flex items-center justify-between mt-auto pt-1">
+                {item.display_price != null ? (
+                  <span className="text-primary font-bold text-sm" dir="ltr">₪{Math.round(item.display_price)}</span>
+                ) : <span />}
+                <span className="bg-primary text-on-primary text-[11px] font-bold px-3 py-1.5 rounded-full inline-flex items-center gap-1">
+                  شوف الوجبة
+                  <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+                </span>
               </div>
-            </button>
-          );
-        })}
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="px-4 mt-3">
+        <button
+          onClick={() => navigate('/tamam-suggestions')}
+          className="text-on-surface-variant text-xs font-semibold inline-flex items-center gap-1 active:scale-95 transition-transform min-h-[40px]"
+        >
+          مش عاجبك؟ اقتراح ثاني <span className="material-symbols-outlined text-[14px]">refresh</span>
+        </button>
       </div>
     </section>
   );

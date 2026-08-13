@@ -3,8 +3,8 @@ import { Home, UtensilsCrossed, Sparkles, ReceiptText, User } from 'lucide-react
 
 const ITEMS = [
   { to: '/', label: 'الرئيسية', icon: Home },
-  { to: '/restaurants', label: 'المطاعم', icon: UtensilsCrossed },
-  { to: '/tamam-game', label: 'اقتراح TAMAM', icon: Sparkles, highlight: true },
+  { to: '/restaurants', label: 'استكشف', icon: UtensilsCrossed },
+  { to: '/tamam-game', label: 'TAMAM', icon: Sparkles, highlight: true },
   { to: '/orders', label: 'طلباتي', icon: ReceiptText },
   { to: '/profile', label: 'حسابي', icon: User },
 ];
@@ -28,17 +28,17 @@ export default function TamamBottomNav() {
             <Link
               key={to}
               to={to}
-              className={`flex flex-col items-center gap-0.5 px-2 py-1 min-w-[56px] ${
+              className={`flex flex-col items-center justify-center gap-0.5 px-2 min-w-[56px] min-h-[48px] ${
                 active ? 'text-tamam-green-bright' : 'text-tamam-text-muted'
               }`}
             >
               {highlight ? (
                 <span
-                  className={`w-9 h-9 rounded-full flex items-center justify-center -mt-1 ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
                     active ? 'bg-tamam-green text-tamam-ink' : 'bg-tamam-surface text-tamam-green'
                   }`}
                 >
-                  <Icon size={18} />
+                  <Icon size={17} />
                 </span>
               ) : (
                 <Icon size={20} />

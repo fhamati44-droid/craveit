@@ -55,10 +55,12 @@ export default function HomepageActiveOrderCard() {
               <p className="text-[11px] text-on-surface-variant">{ref} · {meta?.restaurant_name || `مطعم #${order.kitchen_id}`}</p>
             </div>
           </div>
-          <span className="text-primary text-xs font-bold flex items-center gap-1">تابع الطلب<Icon name="chevron_left" className="text-[16px]" /></span>
+          <span className="text-primary text-xs font-bold flex items-center gap-1">شوف الطلب<Icon name="chevron_left" className="text-[16px]" /></span>
         </div>
         <div className="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} /></div>
-        <p className="text-[11px] text-on-surface-variant mt-1.5">متوقع يوصل خلال {order.estimated_time || '30–45'} دقيقة</p>
+        {order.estimated_time
+          ? <p className="text-[11px] text-on-surface-variant mt-1.5">متوقع يوصل خلال {order.estimated_time} دقيقة</p>
+          : <p className="text-[11px] text-on-surface-variant mt-1.5">جاري تحديث حالة الطلب</p>}
       </button>
     </section>
   );

@@ -29,6 +29,7 @@ export default function HomeMoodBanners() {
 
   const openMood = (mood) => {
     track('mood_banner_clicked', { mood_id: mood.id, mood_slug: mood.slug, locale });
+    track('home_mood_selected', { mood_id: mood.id, mood_slug: mood.slug, locale });
     navigate(getMoodRoute(mood));
   };
 
@@ -36,27 +37,33 @@ export default function HomeMoodBanners() {
     <section className="px-4 py-4">
       <h2 className="text-headline-sm font-bold mb-1">{t('home.moods.title')}</h2>
       <p className="text-body-sm text-on-surface-variant mb-3">{t('home.moods.subtitle')}</p>
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+      <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
         {loading
-          ? [1, 2, 3, 4].map((i) => <div key={i} className="h-20 w-32 skeleton-t rounded-2xl flex-shrink-0" />)
+          ? [1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="h-[52px] w-28 skeleton-t rounded-2xl flex-shrink-0" />)
           : moods.map((mood) => (
               <button
                 key={mood.id}
                 type="button"
                 onClick={() => openMood(mood)}
                 aria-label={`${t('home.moods.title')} — ${mood.name_ar}`}
-                className="relative h-20 w-32 rounded-2xl overflow-hidden flex-shrink-0 bg-surface-container border border-outline-variant/30 active:scale-95 transition-transform text-right"
+                className="relative h-[52px] w-28 rounded-2xl overflow-hidden flex-shrink-0 bg-surface-container border border-outline-variant/30 active:scale-95 active:border-primary transition-transform text-right flex items-center gap-2 px-3"
               >
-                <div className="absolute inset-0 flex flex-col justify-between p-2.5">
-                  <span className="text-2xl">{mood.icon || '🍽️'}</span>
-                  <span className="text-[11px] font-bold leading-tight line-clamp-2">{mood.name_ar}</span>
-                </div>
-                <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary text-[12px]">arrow_back</span>
-                </div>
+                <span className="text-2xl flex-shrink-0">{mood.icon || '🍽️'}</span>
+                <span className="text-[12px] font-bold leading-tight line-clamp-2">{mood.name_ar}</span>
               </button>
             ))
         }
+        {!loading && moods.length > 6 && (
+          <button
+            type="button"
+            onClick={() => navigate('/tamam-suggestions')}
+            aria-label={t('home.moods.title')}
+            className="h-[52px] w-24 rounded-2xl flex-shrink-0 bg-primary/10 border border-primary/30 active:scale-95 transition-transform flex flex-col items-center justify-center gap-0.5 text-primary"
+          >
+            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+            <span className="text-[11px] font-bold">شوف أكثر</span>
+          </button>
+        )}
       </div>
     </section>
   );
