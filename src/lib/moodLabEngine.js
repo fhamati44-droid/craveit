@@ -1,7 +1,7 @@
-import { getMoodMealSets, getMoodWithSuggestions } from '@/lib/tamamApi';
+import { getMoodWithSuggestions } from '@/lib/tamamApi';
 import { getOffersForMeal, pickDefaultOffer } from '@/lib/restaurantOfferApi';
 import { listPublicDeals } from '@/lib/groupDealApi';
-import { TIERS } from '@/lib/mealSetApi';
+import { getMoodMealSets, TIERS } from '@/lib/mealSetApi';
 
 const TIER_WEIGHT = { classic: 1, mix: 2, plus: 3 };
 
