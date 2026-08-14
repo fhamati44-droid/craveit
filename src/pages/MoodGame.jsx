@@ -338,7 +338,18 @@ export default function MoodGame() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-tamam-bg text-tamam-text font-tamam flex flex-col" dir="rtl" style={{ maxWidth: '430px', margin: '0 auto' }}>
+    <div className="relative min-h-screen text-tamam-text font-tamam flex flex-col overflow-hidden" dir="rtl" style={{
+      maxWidth: '430px',
+      margin: '0 auto',
+      paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+      backgroundColor: '#0d100e',
+      backgroundImage: [
+        'radial-gradient(circle at 50% 14%, rgba(137,219,120,0.07) 0%, transparent 52%)',
+        'radial-gradient(ellipse at 50% 0%, rgba(255,212,150,0.05) 0%, transparent 55%)',
+        'radial-gradient(circle at 16% 86%, rgba(110,191,95,0.05) 0%, transparent 40%)',
+        'radial-gradient(circle at 84% 80%, rgba(234,196,92,0.04) 0%, transparent 40%)',
+      ].join(', '),
+    }}>
       {/* HUD */}
       <MoodGameHUD
         placedMeals={placedMeals}
@@ -473,17 +484,31 @@ export default function MoodGame() {
 function DragOverlay({ meal }) {
   const img = resolvePublicImage(meal.image_url, null);
   return (
-    <motion.div
-      initial={{ scale: 0.8 }}
-      animate={{ scale: 1.1 }}
-      className="w-full h-full rounded-full overflow-hidden border-2 border-tamam-green-bright"
-      style={{ boxShadow: '0 8px 24px rgba(137,219,120,0.4)' }}
-    >
-      {img ? (
-        <img src={img} alt="" className="w-full h-full object-cover" draggable={false} />
-      ) : (
-        <div className="w-full h-full bg-tamam-surface-high flex items-center justify-center text-xl">🍽️</div>
-      )}
-    </motion.div>
+    <div className="relative w-full h-full">
+      {/* Decorative green upward trail (CSS-only, reduced-motion safe) */}
+      <div className="absolute left-1/2 -translate-x-1/2 -top-16 flex flex-col items-center gap-0.5 pointer-events-none" aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="material-symbols-outlined text-tamam-green-bright mg-breathe"
+            style={{ fontSize: 14, opacity: 1 - i * 0.3, filter: 'drop-shadow(0 0 6px rgba(137,219,120,0.6))' }}
+          >
+            arrow_upward
+          </span>
+        ))}
+      </div>
+      <motion.div
+        initial={{ scale: 0.8 }}
+        animate={{ scale: 1.1 }}
+        className="w-full h-full rounded-full overflow-hidden border-2 border-tamam-green-bright"
+        style={{ boxShadow: '0 0 22px rgba(137,219,120,0.55), 0 8px 24px rgba(137,219,120,0.4)' }}
+      >
+        {img ? (
+          <img src={img} alt={meal.name || 'وجبة'} className="w-full h-full object-cover" draggable={false} />
+        ) : (
+          <div className="w-full h-full bg-tamam-surface-high flex items-center justify-center text-xl">🍽️</div>
+        )}
+      </motion.div>
+    </div>
   );
 }

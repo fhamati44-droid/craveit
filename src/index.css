@@ -206,3 +206,22 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ===== TAMAM Mood Game — ambient & feedback (presentation only, reduced-motion safe) ===== */
+@keyframes mg-zone-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(137,219,120,0.25); transform: scale(1); }
+  50% { box-shadow: 0 0 20px 3px rgba(137,219,120,0.45); transform: scale(1.07); }
+}
+.mg-zone-active { animation: mg-zone-pulse 1.4s ease-in-out infinite; }
+
+@keyframes mg-glow-breathe {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+.mg-breathe { animation: mg-glow-breathe 2.4s ease-in-out infinite; }
+
+@keyframes mg-spotlight {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+.mg-spotlight { animation: mg-spotlight 5s ease-in-out infinite; }

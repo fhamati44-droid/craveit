@@ -8,35 +8,38 @@ export default function MoodGameHUD({ placedMeals, score, combo, onPause }) {
   const progress = calculateProgress(placedMeals);
 
   return (
-    <div className="sticky top-0 z-20 bg-tamam-bg/95 backdrop-blur-sm pt-safe" dir="rtl">
+    <div className="sticky top-0 z-20 bg-gradient-to-b from-tamam-bg via-tamam-bg/95 to-tamam-bg/60 backdrop-blur-md pt-safe" dir="rtl">
       <div className="flex items-center justify-between px-3 py-2">
-        <button onClick={onPause} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg active:bg-tamam-surface-high" aria-label="إيقاف">
-          <Pause size={18} className="text-tamam-text-muted" fill="currentColor" />
+        <button onClick={onPause} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-tamam-surface/60 active:bg-tamam-surface-high border border-tamam-outline/25 focus-visible:ring-2 focus-visible:ring-tamam-green/40" aria-label="إيقاف مؤقت">
+          <Pause size={18} className="text-tamam-text" fill="currentColor" />
         </button>
-        <div className="text-tamam-green-bright font-bold text-base tracking-[0.2em]">TAMAM</div>
+        <div className="text-tamam-green-bright font-extrabold text-base tracking-[0.25em]" style={{ textShadow: '0 0 12px rgba(137,219,120,0.4)' }}>TAMAM</div>
         <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 bg-tamam-surface-high/60 rounded-full px-2.5 py-1">
+          <div className="flex items-center gap-1 bg-tamam-surface-high/70 rounded-full px-2.5 py-1 border border-tamam-gold/25">
             <span className="text-tamam-gold text-sm">🪙</span>
             <span className="text-tamam-text font-bold text-sm tabular-nums">{(score || 0).toLocaleString()}</span>
           </div>
-          <button className="w-6 h-6 rounded-full bg-tamam-gold text-tamam-ink flex items-center justify-center" aria-label="مكافأة">
+          <button className="w-7 h-7 rounded-full bg-tamam-gold text-tamam-ink flex items-center justify-center active:scale-90 transition-transform focus-visible:ring-2 focus-visible:ring-tamam-gold/40" aria-label="مكافأة">
             <Plus size={14} strokeWidth={3} />
           </button>
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-3 pb-2 gap-3">
+      <div className="flex items-center justify-between px-3 pb-2.5 gap-3">
         <div className="flex flex-col items-center w-12">
           <MoodMeter mood={mood} progress={progress} />
-          <span className="text-[8px] text-tamam-text-muted mt-0.5">{mood.label}</span>
+          <span className="text-[8px] text-tamam-text-muted mt-0.5 font-semibold">{mood.label}</span>
         </div>
 
         <div className="flex-1 text-center min-w-0">
           <p className="text-tamam-text font-bold text-[11px] mb-1">المرحلة {stage}</p>
-          <div className="h-1.5 bg-tamam-surface-high rounded-full overflow-hidden">
+          <div className="h-2 bg-tamam-surface-high rounded-full overflow-hidden border border-tamam-outline/20">
             <motion.div
               className="h-full rounded-full"
-              style={{ background: progress >= 80 ? '#EAC45C' : '#A2F790' }}
+              style={{
+                background: progress >= 80 ? 'linear-gradient(90deg,#EAC45C,#FFD97A)' : 'linear-gradient(90deg,#89DB78,#A2F790)',
+                boxShadow: progress >= 80 ? '0 0 10px rgba(234,196,92,0.5)' : '0 0 10px rgba(137,219,120,0.5)',
+              }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.4 }}
             />
@@ -49,7 +52,7 @@ export default function MoodGameHUD({ placedMeals, score, combo, onPause }) {
         <div className="flex flex-col items-center w-12">
           <div className="flex items-center gap-0.5 mb-1">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className={`w-1.5 h-1.5 rounded-full ${i < combo ? 'bg-tamam-green-bright' : 'bg-tamam-surface-high'}`} />
+              <div key={i} className={`w-1.5 h-1.5 rounded-full ${i < combo ? 'bg-tamam-green-bright' : 'bg-tamam-surface-high'}`} style={i < combo ? { boxShadow: '0 0 6px rgba(137,219,120,0.6)' } : undefined} />
             ))}
           </div>
           <span className="text-tamam-text font-bold text-[9px]">سلسلة ×{combo}</span>
@@ -73,6 +76,7 @@ function MoodMeter({ mood, progress }) {
           strokeDasharray={circ}
           animate={{ strokeDashoffset: offset }}
           transition={{ duration: 0.4 }}
+          style={{ filter: `drop-shadow(0 0 3px ${mood.color})` }}
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center text-sm">{mood.emoji}</div>

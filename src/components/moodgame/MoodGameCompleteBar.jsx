@@ -13,9 +13,10 @@ export default function MoodGameCompleteBar({ count, canComplete, isFull, onComp
             key="empty"
             initial={{ opacity: 0.6 }}
             animate={{ opacity: 1 }}
-            className="w-full bg-tamam-surface-high/50 text-tamam-text-muted font-bold text-sm py-3 rounded-xl text-center border border-tamam-outline/20"
+            className="w-full bg-tamam-surface-high/50 text-tamam-text-muted font-bold text-sm py-3 rounded-xl text-center border border-tamam-outline/25 flex items-center justify-center gap-1.5"
           >
-            اختار وجبة للبدء 🍽️
+            <span className="material-symbols-outlined text-[16px]">restaurant_menu</span>
+            اختار وجبة للبدء
           </motion.div>
         ) : isFull ? (
           <motion.div
@@ -25,12 +26,16 @@ export default function MoodGameCompleteBar({ count, canComplete, isFull, onComp
             exit={{ opacity: 0, y: 8 }}
             className="space-y-1.5"
           >
-            <div className="w-full bg-tamam-gold/15 text-tamam-gold font-bold text-sm py-2 rounded-xl text-center border border-tamam-gold/30">
+            <div
+              className="w-full bg-tamam-gold/15 text-tamam-gold font-bold text-sm py-2 rounded-xl text-center border border-tamam-gold/30"
+              style={{ boxShadow: '0 0 14px rgba(234,196,92,0.2)' }}
+            >
               هيك المود كامل 🔥
             </div>
             <button
               onClick={onComplete}
-              className="w-full bg-tamam-green text-tamam-ink font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+              className="w-full bg-tamam-green text-tamam-ink font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-transform focus-visible:ring-2 focus-visible:ring-tamam-green/40"
+              style={{ boxShadow: '0 0 18px rgba(137,219,120,0.3)' }}
             >
               كمّل وسمّي المود <Check size={16} strokeWidth={3} />
             </button>
@@ -45,7 +50,8 @@ export default function MoodGameCompleteBar({ count, canComplete, isFull, onComp
           >
             <button
               onClick={onComplete}
-              className="w-full bg-tamam-green text-tamam-ink font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+              className="w-full bg-tamam-green text-tamam-ink font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-transform focus-visible:ring-2 focus-visible:ring-tamam-green/40"
+              style={{ boxShadow: '0 0 16px rgba(137,219,120,0.25)' }}
             >
               خلصت المود ✓
             </button>
