@@ -16,7 +16,6 @@ import TamamPoints from '@/pages/TamamPoints';
 
 // Pages
 import Home from '@/pages/Home';
-import MoodLab from '@/pages/MoodLab';
 import Restaurant from '@/pages/Restaurant';
 import Checkout from '@/pages/Checkout';
 import OrderTracking from '@/pages/OrderTracking';
@@ -97,7 +96,6 @@ function App() {
           <Routes>
             <Route element={<CustomerMobileLayout />}>
               <Route path="/" element={<Home />} />
-              <Route path="/mood-lab" element={<MoodLab />} />
               <Route path="/restaurants" element={<Restaurants />} />
               <Route path="/restaurants/:restaurantId" element={<Restaurant />} />
               <Route path="/restaurant/:slug" element={<Restaurant />} />

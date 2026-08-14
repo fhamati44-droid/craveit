@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { track } from '@/lib/analytics';
@@ -8,11 +9,11 @@ const FALLBACK_HERO_IMG = 'https://images.unsplash.com/photo-1504674900247-0877d
 const DEFAULT_HEADLINE = 'محتار شو تاكل؟';
 const DEFAULT_SUBTITLE = 'احكيلنا عن مودك ووضعك اليوم، وإحنا بنرتّبلك اختيارات على مزاجك.';
 const DEFAULT_SUBTITLE_HE = 'נביא לך משהו שמתאים למצב הרוח שלך';
-const SUBTEXT = '3 أسئلة سريعة ونجيبلك أفضل 3 اختيارات';
+const SUBTEXT = '3 أسئلة سريعة ونجيبلك اختيارات على مزاجك';
 
 /**
  * TAMAM decision Hero — "محتار شو تاكل؟".
- * Primary CTA opens the Food Mood Lab (3-question flow → /mood-lab).
+ * Primary CTA opens the original TAMAM Mood Game (/tamam-game).
  * Secondary CTA browses the existing food catalog (/tamam-suggestions).
  * Time-aware CMS may still override headline + image; defaults match the spec.
  */
@@ -21,15 +22,19 @@ export default function TimeAwareHero({ timeData }) {
   const { locale } = useLanguage();
   const hero = timeData?.hero;
   const periodName = locale === 'he' ? timeData?.current_period?.name_he : timeData?.current_period?.name_ar;
+  const [busy, setBusy] = useState(false);
 
   const headline = hero?.headline || hero?.title || DEFAULT_HEADLINE;
   const subtitle = locale === 'he' ? (hero?.subtitle || DEFAULT_SUBTITLE_HE) : (hero?.subtitle || DEFAULT_SUBTITLE);
   const image = hero?.image_url || FALLBACK_HERO_IMG;
 
   const onPrimary = () => {
+    // Prevent double-click from opening the game twice
+    if (busy) return;
+    setBusy(true);
     track('help_me_choose_clicked', { locale });
-    track('home_primary_cta_clicked', { target: 'mood-lab', period_id: timeData?.current_period?.id || '', locale });
-    navigate('/mood-lab');
+    track('home_primary_cta_clicked', { target: 'tamam-game', period_id: timeData?.current_period?.id || '', locale });
+    navigate('/tamam-game');
   };
   const onSecondary = () => {
     track('home_secondary_cta_clicked', { target: 'tamam-suggestions', locale });
@@ -51,9 +56,15 @@ export default function TimeAwareHero({ timeData }) {
           <p className="text-tamam-text-muted text-xs leading-snug mb-3 line-clamp-2">{subtitle}</p>
           <button
             onClick={onPrimary}
-            className="w-full h-[54px] bg-tamam-green text-tamam-ink font-bold rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform motion-reduce:transition-none mb-1"
+            disabled={busy}
+            aria-busy={busy}
+            className="w-full min-h-[54px] bg-tamam-green text-tamam-ink font-bold rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform motion-reduce:transition-none mb-1 disabled:opacity-80 disabled:active:scale-100"
           >
-            <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+            {busy ? (
+              <span className="material-symbols-outlined text-[20px] animate-spin motion-reduce:animate-none">progress_activity</span>
+            ) : (
+              <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+            )}
             ساعدني أختار
           </button>
           <p className="text-center text-tamam-text-muted/80 text-[10px] mb-2">{SUBTEXT}</p>
