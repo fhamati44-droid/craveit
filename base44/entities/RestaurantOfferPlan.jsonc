@@ -1,0 +1,79 @@
+{
+  "name": "RestaurantOfferPlan",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "month": {
+      "type": "number",
+      "title": "Month (1-12)"
+    },
+    "year": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "under_review",
+        "needs_restaurant_info",
+        "needs_restaurant_approval",
+        "approved",
+        "scheduled",
+        "completed"
+      ],
+      "default": "draft",
+      "title": "Plan status"
+    },
+    "strategic_summary": {
+      "type": "string",
+      "title": "Monthly strategic summary (Arabic)"
+    },
+    "generated_by": {
+      "type": "string",
+      "title": "TAMAM admin id who generated"
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "linked_offer_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "GroupDeal ids referenced by this plan"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "year",
+    "month"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

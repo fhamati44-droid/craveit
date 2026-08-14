@@ -478,13 +478,18 @@ async function toggleAcceptingOrders(base44, { restaurant_id, accepting }) {
 // ---------------------------------------------------------------------------
 function orderSummary(o) {
   const items = parseItems(o.items_json);
+  const meta = parseOrderMeta(o.items_json);
   return {
     id: o.id, parent_order_number: o.parent_order_number, status: o.status,
     customer_name: o.customer_name, customer_phone: o.customer_phone,
-    fulfillment: items.fulfillment || null, total: o.total, created_date: o.created_date,
+    fulfillment: meta.fulfillment, offer_title: meta.offer_title, offer_id: meta.offer_id,
+    total: o.total, created_date: o.created_date,
     customer_notes: o.customer_notes, preparation_time: o.preparation_time,
     items_count: items.length,
-    items_preview: items.slice(0, 4).map((i) => ({ name: i.name, quantity: i.quantity })),
+    items_preview: items.slice(0, 6).map((i) => ({
+      name: i.name, quantity: i.quantity,
+      modifiers: Array.isArray(i.modifiers) ? i.modifiers : (i.modifier_notes ? [i.modifier_notes] : null),
+    })),
   };
 }
 
@@ -512,11 +517,28 @@ function menuItemSummary(i) {
 function parseItems(json) {
   if (!json) return [];
   try {
-    const arr = JSON.parse(json);
-    return Array.isArray(arr) ? arr : [];
+    const val = JSON.parse(json);
+    if (Array.isArray(val)) return val;
+    if (val && typeof val === 'object' && Array.isArray(val.items)) return val.items;
+    return [];
   } catch {
     return [];
   }
+}
+
+function parseOrderMeta(json) {
+  if (!json) return { fulfillment: null, offer_title: null, offer_id: null };
+  try {
+    const val = JSON.parse(json);
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      return {
+        fulfillment: val.fulfillment || val.fulfillment_type || null,
+        offer_title: val.offer_title || val.deal_title || null,
+        offer_id: val.deal_id || val.offer_id || null,
+      };
+    }
+  } catch {}
+  return { fulfillment: null, offer_title: null, offer_id: null };
 }
 
 async function createImportJob(base44, { restaurant_id, file_url, file_name, file_type }) {
@@ -534,6 +556,105 @@ async function listImportJobs(base44, { restaurant_id }) {
   const list = await base44.asServiceRole.entities.MenuImportJob
     .filter({ restaurant_id }, "-created_date", 50).catch(() => []);
   return list || [];
+}
+
+// ---------------------------------------------------------------------------
+// Offer calendar (daily operational schedule)
+// ---------------------------------------------------------------------------
+async function listOfferCalendar(base44, { restaurant_id, date }) {
+  await resolveMembership(base44, restaurant_id, 'view_offers');
+  const offers = await listOffers(base44, { restaurant_id });
+  if (!offers || !offers.length) return [];
+  const day = date ? new Date(date) : new Date();
+  const startOfDay = new Date(day); startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(day); endOfDay.setHours(23, 59, 59, 999);
+  return offers.filter((o) => {
+    if (!o.start_at) return false;
+    const s = new Date(o.start_at);
+    const e = o.end_at ? new Date(o.end_at) : s;
+    return s <= endOfDay && e >= startOfDay;
+  }).sort((a, b) => new Date(a.start_at) - new Date(b.start_at));
+}
+
+// ---------------------------------------------------------------------------
+// Monthly offer plan (TAMAM-generated strategy)
+// ---------------------------------------------------------------------------
+async function listMonthlyPlan(base44, { restaurant_id, year, month }) {
+  await resolveMembership(base44, restaurant_id, 'view_offers');
+  const y = Number(year); const m = Number(month);
+  const plans = await base44.asServiceRole.entities.RestaurantOfferPlan
+    .filter({ restaurant_id }, '-created_date', 50).catch(() => []);
+  const plan = (plans || []).find((p) => Number(p.year) === y && Number(p.month) === m);
+  if (!plan) return { plan: null, weeks: [] };
+  const weeks = await base44.asServiceRole.entities.RestaurantOfferPlanWeek
+    .filter({ plan_id: plan.id }, 'week_number', 50).catch(() => []);
+  return {
+    plan: {
+      id: plan.id, status: plan.status, strategic_summary: plan.strategic_summary || '',
+      linked_offer_ids: plan.linked_offer_ids || [],
+    },
+    weeks: (weeks || []).map((w) => ({
+      id: w.id, week_number: w.week_number, starts_at: w.starts_at, ends_at: w.ends_at,
+      strategic_objective: w.strategic_objective, included_days: w.included_days || [],
+      operational_notes: w.operational_notes || '', linked_offer_ids: w.linked_offer_ids || [],
+      status: w.status,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Restaurant profile completion + operational readiness (real data only)
+// ---------------------------------------------------------------------------
+async function getRestaurantReadiness(base44, { restaurant_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_dashboard');
+  const restaurant = await base44.asServiceRole.entities.Restaurant.get(restaurant_id).catch(() => null);
+  if (!restaurant) throw authError(404, 'restaurant_not_found');
+  const menuItems = await base44.asServiceRole.entities.RestaurantMealOffer
+    .filter({ restaurant_id }, 'display_order', 500).catch(() => []);
+  const guardrails = await base44.asServiceRole.entities.CommercialGuardrail
+    .filter({ restaurant_id }, '-created_date', 100).catch(() => []);
+
+  const has = (v) => v != null && String(v).trim() !== '';
+  const availableMenu = (menuItems || []).filter((i) => i.available !== false && i.price != null && Number(i.price) > 0);
+  const menuWithImage = availableMenu.filter((i) => i.primary_image);
+  const activeGuardrails = (guardrails || []).filter((g) => g.status === 'active');
+  const hasFulfillmentFlag = activeGuardrails.some((g) => g.pickup_allowed != null || g.delivery_allowed != null);
+
+  const sec = (key, label, ok, detail, action, status) => ({
+    key, label, status: status || (ok ? 'complete' : 'incomplete'), detail: detail || '', action: action || null,
+  });
+  const sections = [
+    sec('info', 'بيانات المطعم', has(restaurant.name_ar) && has(restaurant.phone) && has(restaurant.address), has(restaurant.name_ar) ? '' : 'الاسم/الهاتف/العنوان', '/partner/settings'),
+    sec('menu', 'المنيو', availableMenu.length > 0, availableMenu.length ? `${availableMenu.length} صنف متوفر` : 'ما في أصناف بأسعار صحيحة', '/partner/menu'),
+    sec('images', 'الصور', has(restaurant.logo_url) && menuWithImage.length > 0, has(restaurant.logo_url) ? '' : 'شعار/غلاف + صور الأصناف', '/partner/menu'),
+    sec('hours', 'ساعات العمل', null, 'تُدار من TAMAM', null, 'pending_tamam'),
+    sec('delivery_areas', 'مناطق التوصيل', null, 'تُدار من TAMAM', null, 'pending_tamam'),
+    sec('fulfillment', 'خيارات الاستلام', hasFulfillmentFlag, hasFulfillmentFlag ? '' : 'حدد خيارات الاستلام ضمن الحدود', '/partner/guardrails', hasFulfillmentFlag ? 'complete' : 'needs_review'),
+    sec('contact', 'بيانات التواصل', has(restaurant.phone) && has(restaurant.whatsapp), has(restaurant.whatsapp) ? '' : 'واتساب/هاتف', '/partner/settings'),
+    sec('guardrails', 'حدود الأسعار', activeGuardrails.length > 0, activeGuardrails.length ? `${activeGuardrails.length} حد فعّال` : 'ضع حدود الأسعار التجارية', '/partner/guardrails'),
+    sec('quiet_hours', 'الساعات الهادية', null, 'تُدار من TAMAM', null, 'pending_tamam'),
+    sec('peak_hours', 'أوقات الذروة', null, 'تُدار من TAMAM', null, 'pending_tamam'),
+    sec('capacity', 'القدرة التشغيلية', restaurant.accepts_orders === true, restaurant.accepts_orders ? 'يستقبل طلبات' : 'استقبال الطلبات متوقف', '/partner/settings'),
+    sec('prep_time', 'وقت التحضير', restaurant.preparation_time_min != null, restaurant.preparation_time_min != null ? `${restaurant.preparation_time_min} دقيقة` : 'حدد وقت التحضير', '/partner/settings'),
+    sec('settlement', 'بيانات الدفع/التسوية', null, 'تُدار من TAMAM', null, 'pending_tamam'),
+  ];
+
+  const applicable = sections.filter((s) => s.status !== 'pending_tamam' && s.status !== 'not_required');
+  const complete = applicable.filter((s) => s.status === 'complete').length;
+  const completionPercent = applicable.length ? Math.round((complete / applicable.length) * 100) : 0;
+
+  const blockers = [];
+  if (restaurant.active === false) blockers.push('المطعم غير مفعّل');
+  if (restaurant.accepts_orders === false) blockers.push('استقبال الطلبات متوقف');
+  if (availableMenu.length === 0) blockers.push('ما في أصناف متوفرة بأسعار صحيحة');
+  if (!has(restaurant.phone)) blockers.push('رقم التواصل ناقص');
+  if (activeGuardrails.length === 0) blockers.push('ما في حدود أسعار تجارية فعّالة');
+
+  return {
+    completion: { percent: completionPercent, complete, total: applicable.length },
+    operational: { ready: blockers.length === 0, blockers },
+    sections,
+  };
 }
 
 const ROUTES = {
@@ -562,4 +683,7 @@ const ROUTES = {
   toggleAcceptingOrders,
   createImportJob,
   listImportJobs,
+  listOfferCalendar,
+  listMonthlyPlan,
+  getRestaurantReadiness,
 };

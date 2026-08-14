@@ -1,0 +1,108 @@
+{
+  "name": "RestaurantOfferPlanWeek",
+  "type": "object",
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "title": "RestaurantOfferPlan id"
+    },
+    "restaurant_id": {
+      "type": "string"
+    },
+    "week_number": {
+      "type": "number",
+      "title": "Week number in month (1-5)"
+    },
+    "starts_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "ends_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "strategic_objective": {
+      "type": "string",
+      "enum": [
+        "increase_new_customers",
+        "strengthen_quiet_hour",
+        "strengthen_item",
+        "use_surplus",
+        "increase_pickup",
+        "reactivate_customers"
+      ],
+      "title": "Strategic objective"
+    },
+    "included_days": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "title": "Day-of-week numbers (0-6)"
+    },
+    "planned_quiet_hours": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "relevant_menu_item_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "RestaurantMealOffer ids"
+    },
+    "operational_notes": {
+      "type": "string"
+    },
+    "linked_offer_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "GroupDeal ids for this week"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "tamam_draft",
+        "under_review",
+        "needs_restaurant_info",
+        "needs_restaurant_approval",
+        "approved",
+        "scheduled",
+        "completed"
+      ],
+      "default": "tamam_draft",
+      "title": "Week status"
+    }
+  },
+  "required": [
+    "plan_id",
+    "restaurant_id",
+    "week_number"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -81,6 +81,22 @@ export default function PartnerHome() {
         </div>
       </section>
 
+      {/* Quick links */}
+      <section className="grid grid-cols-3 gap-2">
+        <button onClick={() => navigate('/partner/offers/calendar')} className="flex flex-col items-center gap-1.5 bg-tamam-surface rounded-2xl p-3 active:scale-95 transition-transform">
+          <span className="material-symbols-outlined text-tamam-green-bright text-[24px]">event</span>
+          <span className="text-[11px] font-bold text-tamam-text">خطة اليوم</span>
+        </button>
+        <button onClick={() => navigate('/partner/offers/plan')} className="flex flex-col items-center gap-1.5 bg-tamam-surface rounded-2xl p-3 active:scale-95 transition-transform">
+          <span className="material-symbols-outlined text-tamam-green-bright text-[24px]">calendar_view_month</span>
+          <span className="text-[11px] font-bold text-tamam-text">خطة الشهر</span>
+        </button>
+        <button onClick={() => navigate('/partner/more/restaurant-profile')} className="flex flex-col items-center gap-1.5 bg-tamam-surface rounded-2xl p-3 active:scale-95 transition-transform">
+          <span className="material-symbols-outlined text-tamam-green-bright text-[24px]">shield</span>
+          <span className="text-[11px] font-bold text-tamam-text">جاهزية المطعم</span>
+        </button>
+      </section>
+
       {/* 2. Quick Signal Grid */}
       <section className="space-y-2">
         <h3 className="font-bold text-sm text-tamam-text px-1">تحديث سريع للوضع</h3>

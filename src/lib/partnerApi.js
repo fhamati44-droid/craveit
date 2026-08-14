@@ -58,3 +58,10 @@ export const getPerformance = (restaurant_id) => invoke('getPerformance', { rest
 // ---- Settings ----
 export const updateRestaurantSettings = (restaurant_id, data) => invoke('updateRestaurantSettings', { restaurant_id, data });
 export const toggleAcceptingOrders = (restaurant_id, accepting) => invoke('toggleAcceptingOrders', { restaurant_id, accepting });
+
+// ---- Offer calendar & monthly plan ----
+export const listOfferCalendar = (restaurant_id, date) => invoke('listOfferCalendar', { restaurant_id, date });
+export const listMonthlyPlan = (restaurant_id, year, month) => invoke('listMonthlyPlan', { restaurant_id, year, month });
+
+// ---- Restaurant readiness ----
+export const getRestaurantReadiness = (restaurant_id) => invoke('getRestaurantReadiness', { restaurant_id });

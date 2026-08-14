@@ -46,6 +46,13 @@ export default function PartnerOffers() {
         <p className="text-tamam-text-muted text-xs">عروضك جاهزة، متى ما بدك بتشغلها.</p>
       </div>
 
+      {/* Sub navigation */}
+      <div className="flex items-center gap-2">
+        <button className="flex-1 py-2 rounded-xl text-xs font-bold bg-tamam-green-bright text-tamam-ink">بنك العروض</button>
+        <button onClick={() => navigate('/partner/offers/calendar')} className="flex-1 py-2 rounded-xl text-xs font-bold bg-tamam-surface text-tamam-text-muted">الجدول</button>
+        <button onClick={() => navigate('/partner/offers/plan')} className="flex-1 py-2 rounded-xl text-xs font-bold bg-tamam-surface text-tamam-text-muted">خطة الشهر</button>
+      </div>
+
       {/* Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
         {TABS.map((t) => (

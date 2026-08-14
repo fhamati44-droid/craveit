@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 
 const LINKS = [
-  { icon: 'storefront', label: 'معلومات المطعم', to: '/partner/settings' },
+  { icon: 'storefront', label: 'معلومات المطعم', to: '/partner/more/restaurant-profile' },
   { icon: 'account_tree', label: 'الفروع', to: null },
   { icon: 'schedule', label: 'ساعات العمل', to: '/partner/settings' },
   { icon: 'shield', label: 'حدود الشغل', to: '/partner/guardrails' },

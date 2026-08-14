@@ -79,6 +79,9 @@ import PartnerMore from '@/pages/partner/PartnerMore';
 import PartnerPerformance from '@/pages/partner/PartnerPerformance';
 import PartnerGuardrails from '@/pages/partner/PartnerGuardrails';
 import PartnerSettings from '@/pages/partner/PartnerSettings';
+import PartnerOfferCalendar from '@/pages/partner/PartnerOfferCalendar';
+import PartnerOfferPlan from '@/pages/partner/PartnerOfferPlan';
+import PartnerRestaurantProfile from '@/pages/partner/PartnerRestaurantProfile';
 
 function App() {
   return (
@@ -162,11 +165,14 @@ function App() {
               <Route path="menu/import" element={<PartnerMenuImport />} />
               <Route path="offers" element={<PartnerOffers />} />
               <Route path="offers/request" element={<PartnerOfferRequest />} />
+              <Route path="offers/calendar" element={<PartnerOfferCalendar />} />
+              <Route path="offers/plan" element={<PartnerOfferPlan />} />
               <Route path="orders" element={<PartnerOrders />} />
               <Route path="more" element={<PartnerMore />} />
               <Route path="performance" element={<PartnerPerformance />} />
               <Route path="guardrails" element={<PartnerGuardrails />} />
               <Route path="settings" element={<PartnerSettings />} />
+              <Route path="more/restaurant-profile" element={<PartnerRestaurantProfile />} />
             </Route>
             <Route path="*" element={<PageNotFound />} />
           </Routes>
