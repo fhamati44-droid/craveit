@@ -15,7 +15,7 @@ import InfoFooter from '@/components/tamam/customer/InfoFooter';
 import LazySection from '@/components/tamam/customer/LazySection';
 import CommunityMoodGameSection from '@/components/community/CommunityMoodGameSection';
 import KhabyaSection from '@/components/tamam/customer/KhabyaSection';
-import TimeAwareHero from '@/components/tamam/customer/TimeAwareHero';
+import HomeMoodGamePreview from '@/components/tamam/customer/HomeMoodGamePreview';
 import TimeAwareTopSuggestions from '@/components/tamam/customer/TimeAwareTopSuggestions';
 import HomeTrustStrip from '@/components/tamam/customer/HomeTrustStrip';
 
@@ -71,8 +71,8 @@ export default function Home() {
       {/* 1. Active order — conditional only */}
       <HomepageActiveOrderCard />
 
-      {/* 2. TAMAM decision Hero */}
-      <TimeAwareHero timeData={timeData} />
+      {/* 2. Interactive Mood Game preview (replaces the decision Hero) */}
+      <HomeMoodGamePreview timeData={timeData} />
 
       {/* 3. Quick Mood selector */}
       <HomeMoodBanners />

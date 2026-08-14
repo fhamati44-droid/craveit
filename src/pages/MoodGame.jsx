@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -21,6 +21,11 @@ import MoodGameCompleteBar from '@/components/moodgame/MoodGameCompleteBar';
 
 export default function MoodGame() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const seed = useMemo(() => (location.state?.source === 'homepage_game_preview' ? location.state : null), [location.state]);
+  const seedRef = useRef(seed);
+  const seededRef = useRef(false);
+  const [seedNotice, setSeedNotice] = useState(null);
 
   // --- Game state ---
   const [restaurants, setRestaurants] = useState([]);
@@ -67,22 +72,29 @@ export default function MoodGame() {
     getRestaurants()
       .then((rests) => {
         setRestaurants(rests || []);
-        if (rests?.length) setSelectedRestaurant(rests[0]);
+        if (rests?.length) {
+          const match = seedRef.current?.restaurantId
+            ? rests.find((r) => String(r.id) === String(seedRef.current.restaurantId))
+            : null;
+          setSelectedRestaurant(match || rests[0]);
+        }
       })
       .catch(() => setLoadError(true))
       .finally(() => setRestaurantsLoading(false));
 
-    // Load draft
-    loadDraft()
-      .then((d) => {
-        if (d && d.placed_meals?.length) {
-          setPlacedMeals(d.placed_meals);
-          setScore(d.score || 0);
-          setHints(d.hints || 3);
-          setShuffles(d.shuffles || 2);
-        }
-      })
-      .catch(() => {});
+    // Load draft — skip when arriving with a seeded meal from the Home preview
+    if (!seedRef.current) {
+      loadDraft()
+        .then((d) => {
+          if (d && d.placed_meals?.length) {
+            setPlacedMeals(d.placed_meals);
+            setScore(d.score || 0);
+            setHints(d.hints || 3);
+            setShuffles(d.shuffles || 2);
+          }
+        })
+        .catch(() => {});
+    }
     track('community_game_opened', {});
   }, []);
 
@@ -156,6 +168,27 @@ export default function MoodGame() {
     });
     track('community_game_meal_placed', { meal_id: meal.id, zone });
   }, [placedMeals, selectedRestaurant]);
+
+  // --- Restore meal seeded from the Home game preview ---
+  useEffect(() => {
+    if (!seedRef.current || seededRef.current || !selectedRestaurant) return;
+    const cats = menuCache[selectedRestaurant.id];
+    if (!cats) return;
+    seededRef.current = true;
+    const mealId = seedRef.current.seedMealIds?.[0];
+    const found = cats.flatMap((c) => c.items || []).find((m) => String(m.id) === String(mealId));
+    if (found) {
+      placeMeal(
+        { ...found, restaurant_name: selectedRestaurant.name_ar || selectedRestaurant.name },
+        seedRef.current.initialZone
+      );
+      track('home_game_seed_restored', { meal_id: found.id, restaurant_id: selectedRestaurant.id, seeded_success: true });
+      track('home_game_full_opened', { source: 'homepage_game_preview' });
+    } else {
+      setSeedNotice('هاي الوجبة بطلت متوفرة هسا، اختار غيرها.');
+      track('home_game_seed_restored', { seeded_success: false });
+    }
+  }, [menuCache, selectedRestaurant, placeMeal]);
 
   // --- Remove a meal ---
   const removeMeal = useCallback((mealId) => {
@@ -357,6 +390,14 @@ export default function MoodGame() {
         combo={combo}
         onPause={() => setShowPause(true)}
       />
+
+      {/* Seed notice — when the Home-preview meal is no longer available */}
+      {seedNotice && (
+        <div className="mx-3 mt-1 bg-tamam-gold/15 border border-tamam-gold/30 text-tamam-gold text-[11px] font-bold rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+          <span>{seedNotice}</span>
+          <button type="button" onClick={() => setSeedNotice(null)} className="material-symbols-outlined text-[16px] shrink-0" aria-label="إغلاق">close</button>
+        </div>
+      )}
 
       {/* Restaurant Switcher */}
       <MoodGameRestaurantSwitcher

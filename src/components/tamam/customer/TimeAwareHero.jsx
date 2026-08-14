@@ -13,7 +13,7 @@ const SUBTEXT = '3 أسئلة سريعة ونجيبلك اختيارات على 
 
 /**
  * TAMAM decision Hero — "محتار شو تاكل؟".
- * Primary CTA opens the original TAMAM Mood Game (/tamam-game).
+ * Primary CTA opens the TAMAM Mood Game (/mood-game).
  * Secondary CTA browses the existing food catalog (/tamam-suggestions).
  * Time-aware CMS may still override headline + image; defaults match the spec.
  */
@@ -33,8 +33,8 @@ export default function TimeAwareHero({ timeData }) {
     if (busy) return;
     setBusy(true);
     track('help_me_choose_clicked', { locale });
-    track('home_primary_cta_clicked', { target: 'tamam-game', period_id: timeData?.current_period?.id || '', locale });
-    navigate('/tamam-game');
+    track('home_primary_cta_clicked', { target: 'mood-game', period_id: timeData?.current_period?.id || '', locale });
+    navigate('/mood-game');
   };
   const onSecondary = () => {
     track('home_secondary_cta_clicked', { target: 'tamam-suggestions', locale });
