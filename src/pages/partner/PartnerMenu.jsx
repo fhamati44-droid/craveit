@@ -3,13 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { usePartner } from '@/lib/partnerContext';
 import { listMenuItems, updateMenuItem } from '@/lib/partnerApi';
 import { EmptyState } from '@/components/tamam/customer/States';
-import MenuItemSheet from '@/components/partner/MenuItemSheet';
 import Toggle from '@/components/partner/Toggle';
 
 const FILTERS = [
   { key: 'all', label: 'الكل' },
   { key: 'available', label: 'متوفر' },
-  { key: 'unavailable', label: 'مش متوفر' },
+  { key: 'unavailable', label: 'غير متوفر' },
   { key: 'incomplete', label: 'ناقص بيانات' },
 ];
 
@@ -22,8 +21,6 @@ export default function PartnerMenu() {
   const [error, setError] = useState(false);
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
-  const [editing, setEditing] = useState(null);
-  const [creating, setCreating] = useState(false);
   const [togglingId, setTogglingId] = useState(null);
 
   const load = () => {
@@ -55,7 +52,6 @@ export default function PartnerMenu() {
 
   return (
     <div className="pb-28">
-      {/* Search */}
       <div className="px-4 pt-4 sticky top-16 z-20 bg-tamam-bg/95 backdrop-blur pb-3">
         <div className="relative w-full">
           <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-tamam-text-muted/60 pointer-events-none text-[20px]">search</span>
@@ -74,7 +70,7 @@ export default function PartnerMenu() {
         ) : error ? (
           <EmptyState icon="⚠️" title="ما قدرنا نحمّل المنيو" actionLabel="إعادة" onAction={load} />
         ) : grouped.length === 0 ? (
-          <EmptyState icon="🍽️" title="ما في أصناف" subtitle="ابدأ بإضافة صنف أو استيراد ملف" actionLabel="إضافة صنف" onAction={() => setCreating(true)} />
+          <EmptyState icon="🍽️" title="ما في أصناف" subtitle="ابدأ بإضافة صنف أو استيراد ملف" actionLabel="إضافة وجبة" onAction={() => navigate('/partner/menu/items/new')} />
         ) : (
           grouped.map(([cat, list]) => (
             <div key={cat} className="space-y-2">
@@ -85,44 +81,31 @@ export default function PartnerMenu() {
               <div className="space-y-2">
                 {list.map((it) => {
                   const hasImage = !!it.primary_image;
-                  const hasDesc = !!(it.customer_visible_description || it.short_description_ar || it.full_description_ar);
+                  const hasDesc = !!(it.customer_visible_description || it.short_description_ar);
                   const incomplete = !hasImage || !hasDesc;
                   return (
-                    <div key={it.id} className={`bg-tamam-surface-lowest rounded-2xl p-3 flex gap-3 relative overflow-hidden ${!it.available ? 'opacity-75' : ''} ${filter === 'incomplete' && incomplete ? 'ring-1 ring-tamam-error/40' : ''}`}>
-                      <div className="w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-tamam-surface flex items-center justify-center relative">
-                        {hasImage ? (
-                          <img src={it.primary_image} alt="" className={`w-full h-full object-cover ${!it.available ? 'grayscale' : ''}`} />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center text-tamam-text-muted/50 border border-dashed border-tamam-outline rounded-lg w-full h-full">
-                            <span className="material-symbols-outlined text-[24px]">add_a_photo</span>
-                            <span className="text-[9px]">أضف صورة</span>
-                          </div>
-                        )}
-                        {!it.available && hasImage && (
-                          <div className="absolute inset-0 bg-tamam-bg/50 flex items-center justify-center">
-                            <span className="bg-tamam-surface-high text-tamam-text-muted text-[10px] px-2 py-0.5 rounded">نفدت الكمية</span>
-                          </div>
-                        )}
-                      </div>
+                    <div key={it.id} className={`bg-tamam-surface-lowest rounded-2xl p-3 flex gap-3 relative overflow-hidden ${!it.available ? 'opacity-75' : ''} ${filter === 'incomplete' && incomplete ? 'ring-1 ring-tamam-error/30' : ''}`}>
+                      <button onClick={() => navigate(`/partner/menu/items/${it.id}`)} className="w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-tamam-surface flex items-center justify-center">
+                        {hasImage ? <img src={it.primary_image} alt="" className={`w-full h-full object-cover ${!it.available ? 'grayscale' : ''}`} /> : <div className="flex flex-col items-center text-tamam-text-muted/50"><span className="material-symbols-outlined text-[24px]">add_a_photo</span></div>}
+                      </button>
                       <div className="flex flex-col justify-between flex-1 min-w-0">
                         <div>
                           <div className="flex items-start justify-between gap-2">
-                            <h3 className="font-bold text-sm text-tamam-text truncate">{it.name || 'صنف'}</h3>
-                            <button onClick={() => setEditing(it)} className="w-7 h-7 rounded-full bg-tamam-surface flex items-center justify-center text-tamam-text-muted active:scale-90 shrink-0">
-                              <span className="material-symbols-outlined text-[16px]">more_vert</span>
-                            </button>
+                            <button onClick={() => navigate(`/partner/menu/items/${it.id}`)} className="text-right min-w-0"><h3 className="font-bold text-sm text-tamam-text truncate">{it.name || 'صنف'}</h3></button>
+                            <button onClick={() => navigate(`/partner/menu/items/${it.id}`)} className="w-7 h-7 rounded-full bg-tamam-surface flex items-center justify-center text-tamam-text-muted active:scale-90 shrink-0"><span className="material-symbols-outlined text-[16px]">more_vert</span></button>
                           </div>
                           {hasDesc ? (
                             <p className="text-tamam-text-muted text-[11px] line-clamp-2 mt-0.5 leading-snug">{it.customer_visible_description || it.short_description_ar}</p>
                           ) : (
-                            <span className="flex items-center gap-1 text-[10px] text-tamam-error mt-1">
-                              <span className="material-symbols-outlined text-[12px]">warning</span> ينقص الوصف{!hasImage ? ' والصورة' : ''}
-                            </span>
+                            <span className="flex items-center gap-1 text-[10px] text-tamam-error mt-1 bg-tamam-error/10 px-2 py-0.5 rounded w-fit"><span className="material-symbols-outlined text-[12px]">warning</span>ناقص بيانات{!hasImage ? ' (صورة)' : ''}</span>
                           )}
-                          {it.mapping_status === 'unmapped' && <span className="text-tamam-gold text-[10px] block mt-0.5">ناقص ربط TAMAM</span>}
+                          {it.mapping_status === 'unmapped' && <span className="text-tamam-gold text-[10px] block mt-0.5">بحاجة لربط من TAMAM</span>}
                         </div>
                         <div className="flex items-center justify-between mt-2">
-                          <span className="font-bold text-tamam-green-bright text-base" dir="ltr">₪{Math.round(it.price || 0)}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-tamam-green-bright text-base" dir="ltr">{it.price != null ? `${Math.round(it.price)} ₪` : '—'}</span>
+                            <span className={`text-[10px] font-bold ${it.available ? 'text-tamam-green-bright' : 'text-tamam-text-muted'}`}>{it.available ? 'متوفر' : 'غير متوفر'}</span>
+                          </div>
                           <Toggle checked={!!it.available} onChange={() => toggleAvailable(it)} disabled={togglingId === it.id} />
                         </div>
                       </div>
@@ -135,17 +118,13 @@ export default function PartnerMenu() {
         )}
       </div>
 
-      {/* FAB */}
       <div className="fixed bottom-24 inset-x-0 z-30 pointer-events-none">
         <div className="max-w-[430px] mx-auto px-4 flex justify-start">
-          <button onClick={() => setCreating(true)} className="pointer-events-auto h-12 px-5 bg-tamam-green-bright text-tamam-ink rounded-full shadow-lg flex items-center gap-2 font-bold text-sm active:scale-95 transition-transform">
+          <button onClick={() => navigate('/partner/menu/items/new')} className="pointer-events-auto h-12 px-5 bg-tamam-green-bright text-tamam-ink rounded-full shadow-lg flex items-center gap-2 font-bold text-sm active:scale-95 transition-transform">
             <span className="material-symbols-outlined text-[20px]">add</span> أضف وجبة
           </button>
         </div>
       </div>
-
-      <MenuItemSheet open={creating} restaurantId={rid} onClose={() => setCreating(false)} onSaved={load} />
-      <MenuItemSheet open={!!editing} restaurantId={rid} item={editing} onClose={() => setEditing(null)} onSaved={load} />
     </div>
   );
 }

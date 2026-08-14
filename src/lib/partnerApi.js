@@ -65,3 +65,7 @@ export const listMonthlyPlan = (restaurant_id, year, month) => invoke('listMonth
 
 // ---- Restaurant readiness ----
 export const getRestaurantReadiness = (restaurant_id) => invoke('getRestaurantReadiness', { restaurant_id });
+
+// ---- Guardrail change requests ----
+export const submitGuardrailChange = (restaurant_id, data) => invoke('submitGuardrailChange', { restaurant_id, ...data });
+export const listGuardrailChanges = (restaurant_id) => invoke('listGuardrailChanges', { restaurant_id });

@@ -1,0 +1,94 @@
+{
+  "name": "GuardrailChangeRequest",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "guardrail_id": {
+      "type": "string",
+      "title": "Existing CommercialGuardrail id (nullable for restaurant-wide)"
+    },
+    "menu_item_id": {
+      "type": "string"
+    },
+    "section": {
+      "type": "string",
+      "enum": [
+        "offer_times",
+        "price_boundaries",
+        "offer_types",
+        "capacity",
+        "manual_approval"
+      ],
+      "title": "Boundary section"
+    },
+    "field": {
+      "type": "string",
+      "title": "Field key requested to change"
+    },
+    "current_value": {
+      "type": "string"
+    },
+    "proposed_value": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "requested_by": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_review",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending_review"
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reviewed_by": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "admin_notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "section",
+    "reason"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

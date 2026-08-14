@@ -82,6 +82,9 @@ import PartnerSettings from '@/pages/partner/PartnerSettings';
 import PartnerOfferCalendar from '@/pages/partner/PartnerOfferCalendar';
 import PartnerOfferPlan from '@/pages/partner/PartnerOfferPlan';
 import PartnerRestaurantProfile from '@/pages/partner/PartnerRestaurantProfile';
+import PartnerAddMenuItem from '@/pages/partner/PartnerAddMenuItem';
+import PartnerMenuItemDetail from '@/pages/partner/PartnerMenuItemDetail';
+import PartnerOrderDetail from '@/pages/partner/PartnerOrderDetail';
 
 function App() {
   return (
@@ -162,12 +165,15 @@ function App() {
               <Route path="select-restaurant" element={<SelectRestaurant />} />
               <Route path="home" element={<PartnerHome />} />
               <Route path="menu" element={<PartnerMenu />} />
+              <Route path="menu/items/new" element={<PartnerAddMenuItem />} />
+              <Route path="menu/items/:itemId" element={<PartnerMenuItemDetail />} />
               <Route path="menu/import" element={<PartnerMenuImport />} />
               <Route path="offers" element={<PartnerOffers />} />
               <Route path="offers/request" element={<PartnerOfferRequest />} />
               <Route path="offers/calendar" element={<PartnerOfferCalendar />} />
               <Route path="offers/plan" element={<PartnerOfferPlan />} />
               <Route path="orders" element={<PartnerOrders />} />
+              <Route path="orders/:orderId" element={<PartnerOrderDetail />} />
               <Route path="more" element={<PartnerMore />} />
               <Route path="performance" element={<PartnerPerformance />} />
               <Route path="guardrails" element={<PartnerGuardrails />} />

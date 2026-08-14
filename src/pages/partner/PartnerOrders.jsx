@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePartner } from '@/lib/partnerContext';
 import { listPartnerOrders, updateOrderStatus } from '@/lib/partnerApi';
 import { EmptyState } from '@/components/tamam/customer/States';
-import OrderDetailSheet from '@/components/partner/OrderDetailSheet';
 
 const TABS = [
   { key: 'new', label: 'جديدة' },
@@ -33,13 +33,13 @@ const STATUS_BADGE = {
 };
 
 export default function PartnerOrders() {
+  const navigate = useNavigate();
   const { activeRestaurant } = usePartner();
   const rid = activeRestaurant?.id;
   const [tab, setTab] = useState('new');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [detail, setDetail] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
   const load = () => {
@@ -49,7 +49,8 @@ export default function PartnerOrders() {
   };
   useEffect(load, [rid, tab]);
 
-  const advance = async (o) => {
+  const advance = async (e, o) => {
+    e.stopPropagation();
     const next = ACTION_BY_STATUS[o.status];
     if (!next) return;
     setBusyId(o.id);
@@ -86,7 +87,7 @@ export default function PartnerOrders() {
             const action = ACTION_BY_STATUS[o.status];
             const badge = STATUS_BADGE[o.status];
             return (
-              <div key={o.id} className="bg-tamam-surface rounded-2xl p-4 relative overflow-hidden flex flex-col gap-2">
+              <div key={o.id} onClick={() => navigate(`/partner/orders/${o.id}`)} className="bg-tamam-surface rounded-2xl p-4 relative overflow-hidden flex flex-col gap-2 cursor-pointer active:scale-[0.99]">
                 <div className={`absolute right-0 top-0 bottom-0 w-1 ${ff.accent}`} />
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col gap-0.5">
@@ -111,47 +112,36 @@ export default function PartnerOrders() {
 
                 <div className="h-px bg-tamam-outline/30 w-full my-1" />
                 {items.length > 0 ? (
-                  <div className="flex flex-col gap-1.5">
-                    {items.slice(0, 4).map((it, i) => (
-                      <div key={i} className="flex flex-col">
-                        <div className="flex justify-between items-center text-sm text-tamam-text">
-                          <span className="flex items-center gap-1.5 truncate">
-                            <span className="text-tamam-green-bright bg-tamam-green/15 w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold shrink-0">{it.quantity || 1}x</span>
-                            <span className="truncate">{it.name}</span>
-                          </span>
-                        </div>
-                        {Array.isArray(it.modifiers) && it.modifiers.map((m, mi) => (
-                          <span key={mi} className="text-[11px] text-tamam-text-muted pr-7 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-tamam-text-muted" />{typeof m === 'string' ? m : (m.name || m.label || '')}</span>
-                        ))}
+                  <div className="flex flex-col gap-1">
+                    {items.slice(0, 2).map((it, i) => (
+                      <div key={i} className="flex items-center text-sm text-tamam-text">
+                        <span className="text-tamam-green-bright bg-tamam-green/15 w-6 h-6 flex items-center justify-center rounded text-[11px] font-bold shrink-0 ml-1.5">{it.quantity || 1}x</span>
+                        <span className="truncate">{it.name}</span>
                       </div>
                     ))}
+                    {items.length > 2 && <span className="text-tamam-text-muted text-[11px]">+{items.length - 2} أصناف أخرى</span>}
                   </div>
                 ) : (
                   <p className="text-tamam-text-muted text-xs">{o.items_count || 0} صنف</p>
                 )}
 
                 {o.customer_notes && (
-                  <div className="flex items-start gap-1.5 mt-1 text-tamam-text text-[11px] bg-tamam-surface-low px-2.5 py-2 rounded-lg">
+                  <div className="flex items-start gap-1.5 text-tamam-text text-[11px] bg-tamam-surface-low px-2.5 py-2 rounded-lg">
                     <span className="material-symbols-outlined text-[14px] text-tamam-gold shrink-0">notes</span>
-                    <span className="text-tamam-text-muted">{o.customer_notes}</span>
+                    <span className="text-tamam-text-muted truncate">{o.customer_notes}</span>
                   </div>
                 )}
 
-                <div className="flex justify-between items-center mt-1 pt-2 border-t border-tamam-outline/30">
-                  <button onClick={() => setDetail({ order: o })} className="bg-tamam-surface-high text-tamam-text text-xs font-bold px-3 py-2 rounded-lg active:scale-95">تفاصيل</button>
-                  {action && (
-                    <button onClick={() => advance(o)} disabled={busyId === o.id} className="bg-tamam-green-bright text-tamam-ink text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1 active:scale-95 disabled:opacity-50">
-                      <span className="material-symbols-outlined text-[16px]">{o.status === 'pending' ? 'check' : 'play_arrow'}</span>{action.label}
-                    </button>
-                  )}
-                </div>
+                {action && (
+                  <button onClick={(e) => advance(e, o)} disabled={busyId === o.id} className="w-full bg-tamam-green-bright text-tamam-ink text-xs font-bold py-2.5 rounded-lg flex items-center justify-center gap-1 active:scale-95 disabled:opacity-50 mt-1">
+                    <span className="material-symbols-outlined text-[16px]">{o.status === 'pending' ? 'check' : 'play_arrow'}</span>{action.label}
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       )}
-
-      <OrderDetailSheet open={!!detail} order={detail} restaurantId={rid} onClose={() => setDetail(null)} onChanged={load} />
     </div>
   );
 }

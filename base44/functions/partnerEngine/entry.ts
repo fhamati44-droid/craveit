@@ -34,6 +34,7 @@ const MENU_ITEM_EDITABLE = [
   'primary_image', 'gallery_images', 'thumbnail_image', 'available', 'active', 'sold_out',
   'available_quantity', 'preparation_time_override', 'minimum_quantity', 'maximum_quantity',
   'restaurant_notes', 'restaurant_category_name', 'menu_section_name', 'display_order',
+  'ingredients_ar', 'allergens_ar',
 ];
 function pickEditable(src) {
   const out = {};
@@ -185,7 +186,9 @@ async function getMenuItem(base44, { restaurant_id, item_id }) {
     const match = (allDeals || []).find((d) => dealIds.includes(d.id) && (d.status === 'active' || d.status === 'scheduled'));
     if (match) linkedOffer = { id: match.id, title: match.title, status: match.status };
   }
-  return { item, linked_offer: linkedOffer };
+  const gList = await base44.asServiceRole.entities.CommercialGuardrail
+    .filter({ restaurant_id, menu_item_id: item_id, status: 'active' }, '-created_date', 10).catch(() => []);
+  return { item, linked_offer: linkedOffer, guardrail: (gList || [])[0] || null };
 }
 
 async function createMenuItem(base44, { restaurant_id, data }) {
@@ -657,6 +660,28 @@ async function getRestaurantReadiness(base44, { restaurant_id }) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Guardrail change requests (restaurant proposes, TAMAM approves)
+// ---------------------------------------------------------------------------
+async function submitGuardrailChange(base44, { restaurant_id, guardrail_id, menu_item_id, section, field, current_value, proposed_value, reason }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'manage_restaurant_settings');
+  if (!reason || !reason.trim()) throw authError(400, 'reason_required');
+  const rec = await base44.asServiceRole.entities.GuardrailChangeRequest.create({
+    restaurant_id, guardrail_id: guardrail_id || null, menu_item_id: menu_item_id || null,
+    section, field: field || '', current_value: current_value || '', proposed_value: proposed_value || '',
+    reason, requested_by: user.id, status: 'pending_review',
+  });
+  await logAudit(base44, restaurant_id, user.id, user.full_name, 'guardrail', rec.id, 'change_requested', current_value, proposed_value, reason);
+  return { id: rec.id, status: 'pending_review' };
+}
+
+async function listGuardrailChanges(base44, { restaurant_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_offers');
+  const list = await base44.asServiceRole.entities.GuardrailChangeRequest
+    .filter({ restaurant_id }, '-created_date', 50).catch(() => []);
+  return (list || []).filter((c) => c.status === 'pending_review');
+}
+
 const ROUTES = {
   getMyContext,
   submitPartnerApplication,
@@ -686,4 +711,6 @@ const ROUTES = {
   listOfferCalendar,
   listMonthlyPlan,
   getRestaurantReadiness,
+  submitGuardrailChange,
+  listGuardrailChanges,
 };
