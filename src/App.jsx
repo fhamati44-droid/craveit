@@ -85,6 +85,7 @@ import PartnerRestaurantProfile from '@/pages/partner/PartnerRestaurantProfile';
 import PartnerAddMenuItem from '@/pages/partner/PartnerAddMenuItem';
 import PartnerMenuItemDetail from '@/pages/partner/PartnerMenuItemDetail';
 import PartnerOrderDetail from '@/pages/partner/PartnerOrderDetail';
+import PartnerDemandSchedule from '@/pages/partner/PartnerDemandSchedule';
 
 function App() {
   return (
@@ -174,6 +175,7 @@ function App() {
               <Route path="offers/plan" element={<PartnerOfferPlan />} />
               <Route path="orders" element={<PartnerOrders />} />
               <Route path="orders/:orderId" element={<PartnerOrderDetail />} />
+              <Route path="demand-schedule" element={<PartnerDemandSchedule />} />
               <Route path="more" element={<PartnerMore />} />
               <Route path="performance" element={<PartnerPerformance />} />
               <Route path="guardrails" element={<PartnerGuardrails />} />

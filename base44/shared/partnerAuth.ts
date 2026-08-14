@@ -17,6 +17,7 @@ export const PERMISSIONS = [
   "view_performance",
   "manage_staff",
   "manage_restaurant_settings",
+  "manage_demand_schedule",
 ];
 
 export const OWNER_PERMISSIONS = PERMISSIONS.slice();
@@ -49,7 +50,9 @@ export async function resolveMembership(base44, restaurantId, permission) {
   const memberships = await getMemberships(base44, user.id);
   const membership = memberships.find((m) => m.restaurant_id === restaurantId);
   if (!membership) throw authError(403, "no_membership");
-  if (permission && !(membership.permissions || []).includes(permission)) {
+  // Owners always hold every permission (prevents lock-out when new
+  // permissions are added after a membership was created).
+  if (permission && membership.partner_role !== "owner" && !(membership.permissions || []).includes(permission)) {
     throw authError(403, "no_permission");
   }
   return { user, membership, isAdmin: false };

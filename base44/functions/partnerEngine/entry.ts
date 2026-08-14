@@ -775,6 +775,33 @@ async function getOpportunities(base44, { restaurant_id }) {
 
   const newCustomersAvailable = restaurant.active !== false && restaurant.accepts_orders !== false;
 
+  // Merchant-sourced quiet-hours opportunity: when analytics lack enough data,
+  // surface a quiet slot the owner marked for today (source = merchant).
+  if (!primary) {
+    try {
+      const prof = await getOrCreateProfile(base44, restaurant_id, null);
+      const qSlots = await base44.asServiceRole.entities.DemandSlot
+        .filter({ weekly_demand_profile_id: prof.id, demand_level: "quiet" }, "day_of_week", 200).catch(() => []);
+      const { day: curDay, minutes: nowMin } = nowInTz(prof.timezone || DEMAND_TZ);
+      const pick = (qSlots || [])
+        .filter((s) => s.day_of_week === curDay && toMin(s.start_time) != null && toMin(s.start_time) >= nowMin)
+        .sort((a, b) => toMin(a.start_time) - toMin(b.start_time))[0];
+      if (pick) {
+        primary = {
+          type: "QUIET_HOURS", type_label: "تقوية وقت هادئ",
+          reason: `صاحب المطعم حدد ${DAY_AR[curDay]} من ${pick.start_time} إلى ${pick.end_time} كوقت هادئ.`,
+          meal: null, meal_label: "اقترح وجبة لهالوقت",
+          window: `${pick.start_time} - ${pick.end_time}`,
+          max_orders: null, max_orders_label: "حدّد الكمية اللي يقدر مطبخك",
+          audience: "new_customers", audience_label: "زبائن جدد قريبون من المطعم",
+          strategy: "limited_time", strategy_label: "وقت محدود — بدون حرق سعر",
+          goal: "quiet_hour", source: "merchant",
+          prefill: { ...basePrefill, goal: "quiet_hour", allowed_time_ranges: [`${pick.start_time}-${pick.end_time}`], operational_reason: `تقوية وقت هادئ ${DAY_AR[curDay]} ${pick.start_time}` },
+        };
+      }
+    } catch {}
+  }
+
   const heroCards = [
     { key: 'weak_hour', available: !!weakHour, ...(weakHour ? { hour: weakHour.hour, count: weakHour.count, avg: weakHour.avg } : {}) },
     { key: 'weak_day', available: !!weakDay, ...(weakDay ? { day: weakDay.day, day_name: DAY_AR[weakDay.day], count: weakDay.count, avg: weakDay.avg } : {}) },
@@ -924,6 +951,297 @@ async function getCampaignResults(base44, { restaurant_id }) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Weekly Demand Profile (merchant-entered quiet/medium/busy pattern)
+// ---------------------------------------------------------------------------
+const DEMAND_TZ = "Asia/Jerusalem";
+const DEMAND_OP = { open: "10:00", close: "22:00" };
+
+function toMin(t) {
+  if (!t || typeof t !== "string" || !t.includes(":")) return null;
+  const [h, m] = t.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+function nowInTz(tz) {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: tz || DEMAND_TZ, weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(now);
+  const wd = parts.find((p) => p.type === "weekday")?.value;
+  const hr = parts.find((p) => p.type === "hour")?.value;
+  const min = parts.find((p) => p.type === "minute")?.value;
+  const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { day: map[wd] ?? now.getDay(), minutes: (Number(hr) || 0) * 60 + (Number(min) || 0) };
+}
+function parseOperatingHours(profile) {
+  try {
+    const v = JSON.parse(profile.operating_hours_json || "null");
+    if (Array.isArray(v) && v.length === 7) return v;
+  } catch {}
+  return Array.from({ length: 7 }, (_, d) => ({ day: d, open: DEMAND_OP.open, close: DEMAND_OP.close }));
+}
+function actorType(user, membership) {
+  if (user.role === "admin") return "tamam_admin";
+  return membership?.partner_role === "owner" ? "merchant" : "restaurant_manager";
+}
+async function demandAudit(base44, restaurant_id, branch_id, user, membership, action, prev, next, reason) {
+  try {
+    await base44.asServiceRole.entities.DemandProfileAuditEvent.create({
+      restaurant_id, branch_id: branch_id || null, actor_user_id: user.id,
+      actor_type: actorType(user, membership), action,
+      previous_value: prev != null ? (typeof prev === "string" ? prev : JSON.stringify(prev)) : "",
+      new_value: next != null ? (typeof next === "string" ? next : JSON.stringify(next)) : "",
+      reason: reason || "",
+    });
+  } catch {}
+}
+async function getOrCreateProfile(base44, restaurant_id, branch_id) {
+  const branch = branch_id || "";
+  const list = await base44.asServiceRole.entities.WeeklyDemandProfile
+    .filter({ restaurant_id }, "-updated_date", 50).catch(() => []);
+  let profile = (list || []).find((p) => (p.branch_id || "") === branch);
+  if (!profile) {
+    profile = await base44.asServiceRole.entities.WeeklyDemandProfile.create({
+      restaurant_id, branch_id: branch || null, timezone: DEMAND_TZ,
+      slot_duration_minutes: 60, profile_status: "incomplete", default_source: "merchant",
+      operating_hours_json: JSON.stringify(Array.from({ length: 7 }, (_, d) => ({ day: d, open: DEMAND_OP.open, close: DEMAND_OP.close }))),
+      last_updated_by_user_id: "", last_updated_at: new Date().toISOString(),
+    });
+  }
+  return profile;
+}
+async function loadProfileData(base44, restaurant_id, branch_id) {
+  const profile = await getOrCreateProfile(base44, restaurant_id, branch_id);
+  const slots = await base44.asServiceRole.entities.DemandSlot
+    .filter({ weekly_demand_profile_id: profile.id }, "day_of_week", 500).catch(() => []);
+  const dayProfiles = await base44.asServiceRole.entities.DemandDayProfile
+    .filter({ weekly_demand_profile_id: profile.id }, "day_of_week", 50).catch(() => []);
+  const overrides = await base44.asServiceRole.entities.DemandTemporaryOverride
+    .filter({ restaurant_id, active: true }, "-created_date", 20).catch(() => []);
+  const now = new Date();
+  const active = (overrides || []).filter((o) => (!o.branch_id || o.branch_id === (branch_id || "")) && (!o.end_at || new Date(o.end_at) > now));
+  return { profile, slots: slots || [], dayProfiles: dayProfiles || [], overrides: active };
+}
+function computeNextQuiet(byDay, ops, tz) {
+  const { day: curDay, minutes: nowMin } = nowInTz(tz);
+  for (let i = 0; i < 7; i++) {
+    const d = (curDay + i) % 7;
+    const opStart = toMin(ops[d].open) ?? 0;
+    const opEnd = toMin(ops[d].close) ?? 1440;
+    const quiet = byDay[d].filter((s) => s.demand_level === "quiet" && toMin(s.start_time) != null)
+      .sort((a, b) => toMin(a.start_time) - toMin(b.start_time));
+    for (const s of quiet) {
+      const sMin = toMin(s.start_time);
+      if (i === 0 && sMin < nowMin) continue;
+      if (sMin < opStart || sMin >= opEnd) continue;
+      return { day_name: DAY_AR[d], start: s.start_time, end: s.end_time, when_label: i === 0 ? "اليوم" : i === 1 ? "بكرا" : DAY_AR[d] };
+    }
+  }
+  return null;
+}
+function computeSummary(profile, slots, dayProfiles) {
+  const tz = profile.timezone || DEMAND_TZ;
+  const ops = parseOperatingHours(profile);
+  const byDay = Array.from({ length: 7 }, () => []);
+  (slots || []).forEach((s) => { if (s.day_of_week >= 0 && s.day_of_week <= 6) byDay[s.day_of_week].push(s); });
+  const week = byDay.map((daySlots, d) => {
+    const counts = { quiet: 0, medium: 0, busy: 0, unknown: 0 };
+    daySlots.forEach((s) => { counts[s.demand_level] = (counts[s.demand_level] || 0) + 1; });
+    const dp = (dayProfiles || []).find((x) => x.day_of_week === d);
+    const level = dp?.effective_demand_level
+      || (counts.quiet > counts.busy && counts.quiet > counts.medium ? "quiet"
+        : counts.busy > counts.medium ? "busy" : counts.medium > 0 ? "medium" : "unknown");
+    return {
+      day: d, day_name: DAY_AR[d], counts, level,
+      source: dp?.source || "merchant",
+      classified: daySlots.filter((s) => s.demand_level !== "unknown").length,
+      total: daySlots.length,
+    };
+  });
+  const totalSlots = week.reduce((s, w) => s + w.total, 0);
+  const classified = week.reduce((s, w) => s + w.classified, 0);
+  const completion = totalSlots ? Math.round((classified / totalSlots) * 100) : 0;
+  const profile_status = classified === 0 ? "incomplete" : completion >= 90 ? "complete" : "partial";
+  const quiet_hours_this_week = week.reduce((s, w) => s + w.counts.quiet, 0);
+  let weakest = null;
+  week.forEach((w) => { if (w.counts.quiet > 0 && (!weakest || w.counts.quiet > weakest.counts.quiet)) weakest = w; });
+  return {
+    profile_status, completion, classified_slots: classified, total_slots: totalSlots,
+    quiet_hours_this_week, weakest_day_name: weakest ? weakest.day_name : null,
+    next_quiet: computeNextQuiet(byDay, ops, tz),
+    week, last_updated: profile.last_updated_at,
+  };
+}
+async function recomputeDayProfile(base44, profile_id, restaurant_id, branch_id, day) {
+  const slots = await base44.asServiceRole.entities.DemandSlot
+    .filter({ weekly_demand_profile_id: profile_id, day_of_week: day }, "start_time", 100).catch(() => []);
+  const counts = { quiet: 0, medium: 0, busy: 0 };
+  (slots || []).forEach((s) => { if (counts[s.demand_level] != null) counts[s.demand_level]++; });
+  let suggested = "unknown";
+  if (counts.quiet || counts.medium || counts.busy) {
+    if (counts.quiet >= counts.medium && counts.quiet >= counts.busy) suggested = "quiet";
+    else if (counts.busy >= counts.medium) suggested = "busy";
+    else suggested = "medium";
+  }
+  const existing = await base44.asServiceRole.entities.DemandDayProfile
+    .filter({ weekly_demand_profile_id: profile_id, day_of_week: day }, "day_of_week", 5).catch(() => []);
+  const dp = (existing || [])[0];
+  const manual = dp?.manual_demand_level || null;
+  const fields = {
+    weekly_demand_profile_id: profile_id, restaurant_id, branch_id: branch_id || null, day_of_week: day,
+    suggested_demand_level: suggested,
+    effective_demand_level: manual || suggested,
+    source: dp?.source || "merchant",
+    explanation: manual ? "حددته أنت" : suggested !== "unknown" ? "اقتراح تمام بناءً على الساعات" : "",
+  };
+  if (dp) await base44.asServiceRole.entities.DemandDayProfile.update(dp.id, fields);
+  else await base44.asServiceRole.entities.DemandDayProfile.create(fields);
+}
+async function getDemandProfile(base44, { restaurant_id, branch_id }) {
+  await resolveMembership(base44, restaurant_id, "view_dashboard");
+  const data = await loadProfileData(base44, restaurant_id, branch_id);
+  return {
+    profile: {
+      id: data.profile.id, timezone: data.profile.timezone || DEMAND_TZ,
+      profile_status: data.profile.profile_status, operating_hours: parseOperatingHours(data.profile),
+      last_updated: data.profile.last_updated_at, branch_id: branch_id || null,
+    },
+    slots: data.slots.map((s) => ({
+      id: s.id, day_of_week: s.day_of_week, start_time: s.start_time, end_time: s.end_time,
+      demand_level: s.demand_level, source: s.source, note: s.note || "",
+    })),
+    day_profiles: data.dayProfiles.map((d) => ({
+      day_of_week: d.day_of_week, manual_demand_level: d.manual_demand_level,
+      suggested_demand_level: d.suggested_demand_level, effective_demand_level: d.effective_demand_level,
+      source: d.source, explanation: d.explanation || "",
+    })),
+    overrides: data.overrides.map((o) => ({
+      id: o.id, demand_level: o.demand_level, start_at: o.start_at, end_at: o.end_at,
+      operational_effect: o.operational_effect, source: o.source,
+    })),
+    summary: computeSummary(data.profile, data.slots, data.dayProfiles),
+  };
+}
+async function getDemandSummary(base44, { restaurant_id, branch_id }) {
+  await resolveMembership(base44, restaurant_id, "view_dashboard");
+  const data = await loadProfileData(base44, restaurant_id, branch_id);
+  const summary = computeSummary(data.profile, data.slots, data.dayProfiles);
+  return { ...summary, has_data: summary.classified_slots > 0, overrides_count: data.overrides.length, branch_id: branch_id || null };
+}
+async function saveDemandSlots(base44, { restaurant_id, branch_id, day_of_week, slots, source }) {
+  const { user, membership } = await resolveMembership(base44, restaurant_id, "manage_demand_schedule");
+  if (Number(day_of_week) < 0 || Number(day_of_week) > 6) throw authError(400, "invalid_day");
+  const profile = await getOrCreateProfile(base44, restaurant_id, branch_id);
+  const existing = await base44.asServiceRole.entities.DemandSlot
+    .filter({ weekly_demand_profile_id: profile.id, day_of_week }, "start_time", 200).catch(() => []);
+  for (const s of existing || []) await base44.asServiceRole.entities.DemandSlot.delete(s.id).catch(() => {});
+  const src = source || (membership?.partner_role === "owner" ? "merchant" : "restaurant_manager");
+  for (const s of (slots || [])) {
+    if (!s.start_time || !s.end_time) continue;
+    await base44.asServiceRole.entities.DemandSlot.create({
+      weekly_demand_profile_id: profile.id, restaurant_id, branch_id: branch_id || null,
+      day_of_week, start_time: s.start_time, end_time: s.end_time,
+      demand_level: s.demand_level || "unknown", source: src, is_recurring: true,
+    });
+  }
+  await recomputeDayProfile(base44, profile.id, restaurant_id, branch_id, day_of_week);
+  await base44.asServiceRole.entities.WeeklyDemandProfile.update(profile.id, {
+    last_updated_by_user_id: user.id, last_updated_at: new Date().toISOString(), profile_status: "partial",
+  });
+  await demandAudit(base44, restaurant_id, branch_id, user, membership, "slots_saved", null, { day_of_week, count: (slots || []).length }, "");
+  const data = await loadProfileData(base44, restaurant_id, branch_id);
+  return {
+    summary: computeSummary(data.profile, data.slots, data.dayProfiles),
+    slots: data.slots.filter((s) => s.day_of_week === day_of_week).map((s) => ({
+      id: s.id, day_of_week: s.day_of_week, start_time: s.start_time, end_time: s.end_time, demand_level: s.demand_level, source: s.source,
+    })),
+  };
+}
+async function setDemandDayLevel(base44, { restaurant_id, branch_id, day_of_week, level }) {
+  const { user, membership } = await resolveMembership(base44, restaurant_id, "manage_demand_schedule");
+  const profile = await getOrCreateProfile(base44, restaurant_id, branch_id);
+  const existing = await base44.asServiceRole.entities.DemandDayProfile
+    .filter({ weekly_demand_profile_id: profile.id, day_of_week }, "day_of_week", 5).catch(() => []);
+  const dp = (existing || [])[0];
+  const prev = dp ? { manual: dp.manual_demand_level, effective: dp.effective_demand_level } : null;
+  const fields = {
+    weekly_demand_profile_id: profile.id, restaurant_id, branch_id: branch_id || null, day_of_week,
+    manual_demand_level: level, effective_demand_level: level, source: "merchant", explanation: "حددته أنت",
+  };
+  if (dp) await base44.asServiceRole.entities.DemandDayProfile.update(dp.id, fields);
+  else await base44.asServiceRole.entities.DemandDayProfile.create(fields);
+  await base44.asServiceRole.entities.WeeklyDemandProfile.update(profile.id, { last_updated_by_user_id: user.id, last_updated_at: new Date().toISOString() });
+  await demandAudit(base44, restaurant_id, branch_id, user, membership, "day_level_set", prev, { level }, "حددته أنت");
+  return { ok: true };
+}
+async function acceptDaySuggestion(base44, { restaurant_id, branch_id, day_of_week }) {
+  const { user, membership } = await resolveMembership(base44, restaurant_id, "manage_demand_schedule");
+  const profile = await getOrCreateProfile(base44, restaurant_id, branch_id);
+  const existing = await base44.asServiceRole.entities.DemandDayProfile
+    .filter({ weekly_demand_profile_id: profile.id, day_of_week }, "day_of_week", 5).catch(() => []);
+  const dp = (existing || [])[0];
+  if (!dp || !dp.suggested_demand_level || dp.suggested_demand_level === "unknown") throw authError(400, "no_suggestion");
+  const prev = { effective: dp.effective_demand_level };
+  await base44.asServiceRole.entities.DemandDayProfile.update(dp.id, {
+    manual_demand_level: null, effective_demand_level: dp.suggested_demand_level, source: "analytics_suggestion", explanation: "اعتمدت اقتراح تمام بناءً على الساعات",
+  });
+  await demandAudit(base44, restaurant_id, branch_id, user, membership, "suggestion_accepted", prev, { level: dp.suggested_demand_level }, "اعتمد اقتراح تمام");
+  return { ok: true };
+}
+async function copyDemandDay(base44, { restaurant_id, branch_id, from_day, to_days }) {
+  const { user, membership } = await resolveMembership(base44, restaurant_id, "manage_demand_schedule");
+  if (!Array.isArray(to_days) || !to_days.length) throw authError(400, "no_target_days");
+  const profile = await getOrCreateProfile(base44, restaurant_id, branch_id);
+  const srcSlots = await base44.asServiceRole.entities.DemandSlot
+    .filter({ weekly_demand_profile_id: profile.id, day_of_week: from_day }, "start_time", 100).catch(() => []);
+  for (const d of to_days) {
+    const existing = await base44.asServiceRole.entities.DemandSlot
+      .filter({ weekly_demand_profile_id: profile.id, day_of_week: d }, "start_time", 200).catch(() => []);
+    for (const s of existing || []) await base44.asServiceRole.entities.DemandSlot.delete(s.id).catch(() => {});
+    for (const s of srcSlots || []) {
+      await base44.asServiceRole.entities.DemandSlot.create({
+        weekly_demand_profile_id: profile.id, restaurant_id, branch_id: branch_id || null,
+        day_of_week: d, start_time: s.start_time, end_time: s.end_time,
+        demand_level: s.demand_level, source: s.source || "merchant", is_recurring: true,
+      });
+    }
+    await recomputeDayProfile(base44, profile.id, restaurant_id, branch_id, d);
+  }
+  await base44.asServiceRole.entities.WeeklyDemandProfile.update(profile.id, { last_updated_by_user_id: user.id, last_updated_at: new Date().toISOString() });
+  await demandAudit(base44, restaurant_id, branch_id, user, membership, "day_copied", { from_day }, { to_days }, "");
+  return { copied_to: to_days, count: (srcSlots || []).length };
+}
+async function saveDemandOverride(base44, { restaurant_id, branch_id, demand_level, duration_minutes, scope }) {
+  const { user, membership } = await resolveMembership(base44, restaurant_id, "manage_operational_status");
+  if (!demand_level) throw authError(400, "level_required");
+  const start = new Date();
+  const end = new Date(start.getTime() + (Number(duration_minutes) || 60) * 60000);
+  const rec = await base44.asServiceRole.entities.DemandTemporaryOverride.create({
+    restaurant_id, branch_id: branch_id || null, start_at: start.toISOString(), end_at: end.toISOString(),
+    demand_level, operational_effect: scope || "information_only", source: "merchant", created_by_user_id: user.id, active: true,
+  });
+  await demandAudit(base44, restaurant_id, branch_id, user, membership, "override_created", null, { demand_level, duration_minutes }, "تحديث سريع من الرئيسية");
+  return { id: rec.id };
+}
+async function listDemandOverrides(base44, { restaurant_id, branch_id }) {
+  await resolveMembership(base44, restaurant_id, "view_dashboard");
+  const data = await loadProfileData(base44, restaurant_id, branch_id);
+  return data.overrides.map((o) => ({
+    id: o.id, demand_level: o.demand_level, start_at: o.start_at, end_at: o.end_at, operational_effect: o.operational_effect, source: o.source,
+  }));
+}
+async function requestDemandOpportunity(base44, { restaurant_id, branch_id, day_of_week, start_time, end_time }) {
+  const { user } = await resolveMembership(base44, restaurant_id, "request_offers");
+  const reason = `صاحب المطعم حدد ${DAY_AR[day_of_week]} من ${start_time} إلى ${end_time} كوقت هادئ.`;
+  const rec = await base44.asServiceRole.entities.OfferRequest.create({
+    restaurant_id, branch_id: branch_id || null, requested_by: user.id, goal: "quiet_hour",
+    allowed_days: [day_of_week], allowed_time_ranges: [`${start_time}-${end_time}`],
+    operational_reason: reason, restaurant_notes: "طلب اقتراح لوقت هادئ (من جدول الحركة)",
+    status: "submitted", submitted_at: new Date().toISOString(),
+  });
+  await logAudit(base44, restaurant_id, user.id, user.full_name, "offer_request", rec.id, "demand_opportunity_requested", null, reason, "");
+  return { id: rec.id, status: "submitted" };
+}
+
 const ROUTES = {
   getMyContext,
   submitPartnerApplication,
@@ -957,4 +1275,13 @@ const ROUTES = {
   getRestaurantReadiness,
   submitGuardrailChange,
   listGuardrailChanges,
+  getDemandProfile,
+  getDemandSummary,
+  saveDemandSlots,
+  setDemandDayLevel,
+  acceptDaySuggestion,
+  copyDemandDay,
+  saveDemandOverride,
+  listDemandOverrides,
+  requestDemandOpportunity,
 };

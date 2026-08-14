@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/tamam/customer/States';
 import QuickActionFlow from '@/components/partner/QuickActionFlow';
 import UrgentActions from '@/components/partner/UrgentActions';
 import Toggle from '@/components/partner/Toggle';
+import HomeDemandSummary from '@/components/partner/demand/HomeDemandSummary';
 
 const QUICK_ACTIONS = [
   { flow: 'pressure', icon: 'warning', label: 'عندي ضغط', desc: 'ارفع وقت التحضير أو أوقف', circle: 'bg-tamam-error/20 text-tamam-error' },
@@ -121,6 +122,9 @@ export default function PartnerHome() {
       {/* 1b. Urgent actions */}
       <UrgentActions home={home} offerRequests={offerRequests} prepTime={prep} onNavigate={navigate} />
 
+      {/* 1c. Weekly demand summary (خفايا الحركة) */}
+      <HomeDemandSummary />
+
       {/* 2. Growth Hero */}
       <section className="space-y-2">
         <div>
@@ -157,6 +161,11 @@ export default function PartnerHome() {
               <span className={`text-[11px] font-bold ${capacityMeta.tone}`}>{capacityMeta.label}</span>
             </div>
             <p className="text-tamam-text text-sm leading-snug">{primary.reason}</p>
+            {primary.source === 'merchant' && (
+              <span className="inline-flex items-center gap-1 bg-tamam-gold/15 text-tamam-gold text-[10px] font-bold px-2 py-0.5 rounded-full self-start">
+                <span className="material-symbols-outlined text-[12px]">person</span>حددته أنت
+              </span>
+            )}
             <div className="grid grid-cols-2 gap-2 bg-tamam-surface-low rounded-xl p-3">
               <Detail label="الوجبة المقترحة" value={primary.meal ? primary.meal.name : primary.meal_label} />
               {primary.window && <Detail label="وقت الحملة" value={primary.window} />}

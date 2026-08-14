@@ -1,0 +1,86 @@
+{
+  "name": "DemandDayProfile",
+  "type": "object",
+  "properties": {
+    "weekly_demand_profile_id": {
+      "type": "string"
+    },
+    "restaurant_id": {
+      "type": "string"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "day_of_week": {
+      "type": "number"
+    },
+    "manual_demand_level": {
+      "type": "string",
+      "enum": [
+        "quiet",
+        "medium",
+        "busy",
+        "unknown"
+      ]
+    },
+    "suggested_demand_level": {
+      "type": "string",
+      "enum": [
+        "quiet",
+        "medium",
+        "busy",
+        "unknown"
+      ]
+    },
+    "effective_demand_level": {
+      "type": "string",
+      "enum": [
+        "quiet",
+        "medium",
+        "busy",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "merchant",
+        "restaurant_manager",
+        "tamam_admin",
+        "analytics_suggestion"
+      ],
+      "default": "merchant"
+    },
+    "explanation": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "weekly_demand_profile_id",
+    "restaurant_id",
+    "day_of_week"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

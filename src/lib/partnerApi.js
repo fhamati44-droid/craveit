@@ -71,3 +71,14 @@ export const getRestaurantReadiness = (restaurant_id) => invoke('getRestaurantRe
 // ---- Guardrail change requests ----
 export const submitGuardrailChange = (restaurant_id, data) => invoke('submitGuardrailChange', { restaurant_id, ...data });
 export const listGuardrailChanges = (restaurant_id) => invoke('listGuardrailChanges', { restaurant_id });
+
+// ---- Weekly demand schedule (خفايا الحركة) ----
+export const getDemandProfile = (restaurant_id, branch_id) => invoke('getDemandProfile', { restaurant_id, branch_id: branch_id || null });
+export const getDemandSummary = (restaurant_id, branch_id) => invoke('getDemandSummary', { restaurant_id, branch_id: branch_id || null });
+export const saveDemandSlots = (restaurant_id, branch_id, day_of_week, slots, source) => invoke('saveDemandSlots', { restaurant_id, branch_id: branch_id || null, day_of_week, slots, source });
+export const setDemandDayLevel = (restaurant_id, branch_id, day_of_week, level) => invoke('setDemandDayLevel', { restaurant_id, branch_id: branch_id || null, day_of_week, level });
+export const acceptDaySuggestion = (restaurant_id, branch_id, day_of_week) => invoke('acceptDaySuggestion', { restaurant_id, branch_id: branch_id || null, day_of_week });
+export const copyDemandDay = (restaurant_id, branch_id, from_day, to_days) => invoke('copyDemandDay', { restaurant_id, branch_id: branch_id || null, from_day, to_days });
+export const saveDemandOverride = (restaurant_id, branch_id, data) => invoke('saveDemandOverride', { restaurant_id, branch_id: branch_id || null, ...data });
+export const listDemandOverrides = (restaurant_id, branch_id) => invoke('listDemandOverrides', { restaurant_id, branch_id: branch_id || null });
+export const requestDemandOpportunity = (restaurant_id, branch_id, data) => invoke('requestDemandOpportunity', { restaurant_id, branch_id: branch_id || null, ...data });

@@ -1,0 +1,77 @@
+{
+  "name": "WeeklyDemandProfile",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch (optional \u2014 empty = main)"
+    },
+    "timezone": {
+      "type": "string",
+      "default": "Asia/Jerusalem"
+    },
+    "slot_duration_minutes": {
+      "type": "number",
+      "default": 60
+    },
+    "profile_status": {
+      "type": "string",
+      "enum": [
+        "incomplete",
+        "partial",
+        "complete"
+      ],
+      "default": "incomplete"
+    },
+    "default_source": {
+      "type": "string",
+      "enum": [
+        "merchant",
+        "manager",
+        "admin",
+        "analytics"
+      ],
+      "default": "merchant"
+    },
+    "operating_hours_json": {
+      "type": "string",
+      "title": "JSON array of {day,open,close}"
+    },
+    "last_updated_by_user_id": {
+      "type": "string"
+    },
+    "last_updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "restaurant_id"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
