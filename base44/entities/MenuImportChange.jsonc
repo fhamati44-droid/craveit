@@ -1,0 +1,75 @@
+{
+  "name": "MenuImportChange",
+  "type": "object",
+  "properties": {
+    "import_job_id": {
+      "type": "string",
+      "title": "MenuImportJob id"
+    },
+    "restaurant_id": {
+      "type": "string"
+    },
+    "source_row_number": {
+      "type": "number"
+    },
+    "proposed_data": {
+      "type": "string",
+      "title": "Proposed row (JSON)"
+    },
+    "matched_menu_item_id": {
+      "type": "string",
+      "title": "Matched RestaurantMealOffer id"
+    },
+    "change_type": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "unchanged",
+        "possible_delete",
+        "conflict"
+      ],
+      "default": "create"
+    },
+    "validation_errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "selected": {
+      "type": "boolean",
+      "default": true
+    },
+    "resolution": {
+      "type": "string",
+      "title": "Partner resolution note"
+    }
+  },
+  "required": [
+    "import_job_id",
+    "change_type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

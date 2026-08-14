@@ -1,0 +1,77 @@
+{
+  "name": "RestaurantPartnerApplication",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "title": "Applicant user id"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "restaurant_name": {
+      "type": "string",
+      "title": "Claimed restaurant name"
+    },
+    "restaurant_phone": {
+      "type": "string"
+    },
+    "restaurant_city": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "reviewed_by": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_membership_id": {
+      "type": "string",
+      "title": "RestaurantMembership id created on approval"
+    }
+  },
+  "required": [
+    "restaurant_name"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

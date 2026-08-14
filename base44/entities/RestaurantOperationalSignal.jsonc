@@ -1,0 +1,89 @@
+{
+  "name": "RestaurantOperationalSignal",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "kitchen_pressure",
+        "sold_out",
+        "surplus",
+        "strengthen_item",
+        "prep_time_change",
+        "temporary_pause"
+      ],
+      "title": "Signal type"
+    },
+    "menu_item_id": {
+      "type": "string",
+      "title": "Affected RestaurantMealOffer id (optional)"
+    },
+    "quantity": {
+      "type": "number"
+    },
+    "expected_duration": {
+      "type": "number",
+      "title": "Expected duration (minutes)"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "resolved",
+        "expired"
+      ],
+      "default": "active"
+    },
+    "starts_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "name": "RestaurantMembership",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "title": "Base44 user id"
+    },
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "branch_id": {
+      "type": "string",
+      "title": "Branch (optional)"
+    },
+    "partner_role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "manager",
+        "kitchen_staff",
+        "menu_manager"
+      ],
+      "title": "Partner role"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "active",
+        "suspended",
+        "revoked"
+      ],
+      "default": "pending"
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Granted permissions"
+    },
+    "invited_by": {
+      "type": "string",
+      "title": "Inviting admin/owner user id"
+    },
+    "activated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "user_id",
+    "restaurant_id",
+    "partner_role"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

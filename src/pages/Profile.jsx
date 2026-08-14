@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Package, MapPin, Heart, Settings, LogOut, ChevronLeft, Bell, CreditCard } from 'lucide-react';
+import { Package, MapPin, Heart, Settings, LogOut, ChevronLeft, Bell, CreditCard, Store } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getOrdersByPhone } from '@/lib/api';
+import { base44 } from '@/api/base44Client';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,6 +25,12 @@ export default function Profile() {
   const handleSavePhone = () => {
     localStorage.setItem('user_phone', phoneInput);
     setPhone(phoneInput);
+  };
+
+  const handleOpenPartner = async () => {
+    const ok = await base44.auth.isAuthenticated();
+    if (ok) navigate('/partner');
+    else base44.auth.redirectToLogin('/partner');
   };
 
   const menuItems = [
@@ -142,6 +149,22 @@ export default function Profile() {
             {idx < menuItems.length - 1 && <div className="h-px bg-gray-100 mx-5" />}
           </div>
         ))}
+      </div>
+
+      {/* Restaurant Partner entry */}
+      <div className="mx-3 mt-3 rounded-2xl bg-white shadow-card overflow-hidden">
+        <div className="flex items-center gap-3 p-4">
+          <div className="w-10 h-10 rounded-xl bg-tamam-bg flex items-center justify-center flex-shrink-0">
+            <Store size={18} className="text-tamam-green-bright" />
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-gray-900 text-sm">أصحاب المطاعم</p>
+            <p className="text-gray-500 text-xs">إدارة مطعمك، المنيو، العروض والطلبات من مكان واحد.</p>
+          </div>
+        </div>
+        <div className="px-4 pb-3">
+          <button onClick={handleOpenPartner} className="w-full h-11 bg-tamam-bg text-tamam-green-bright rounded-xl font-bold text-sm active:scale-[0.98]">دخول لوحة المطعم</button>
+        </div>
       </div>
 
       {/* Logout */}

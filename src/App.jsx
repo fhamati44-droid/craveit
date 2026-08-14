@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider } from '@/lib/AuthContext';
 import { CartProvider } from '@/lib/CartContext';
@@ -67,6 +67,18 @@ import MoodGamePosts from '@/pages/admin/MoodGamePosts';
 import MoodGamePostDetail from '@/pages/admin/MoodGamePostDetail';
 import MoodGameReview from '@/pages/admin/MoodGameReview';
 import MoodGameComments from '@/pages/admin/MoodGameComments';
+import PartnerRoute from '@/components/partner/PartnerRoute';
+import SelectRestaurant from '@/pages/partner/SelectRestaurant';
+import PartnerHome from '@/pages/partner/PartnerHome';
+import PartnerMenu from '@/pages/partner/PartnerMenu';
+import PartnerMenuImport from '@/pages/partner/PartnerMenuImport';
+import PartnerOffers from '@/pages/partner/PartnerOffers';
+import PartnerOfferRequest from '@/pages/partner/PartnerOfferRequest';
+import PartnerOrders from '@/pages/partner/PartnerOrders';
+import PartnerMore from '@/pages/partner/PartnerMore';
+import PartnerPerformance from '@/pages/partner/PartnerPerformance';
+import PartnerGuardrails from '@/pages/partner/PartnerGuardrails';
+import PartnerSettings from '@/pages/partner/PartnerSettings';
 
 function App() {
   return (
@@ -141,6 +153,20 @@ function App() {
               <Route path="/admin/mood-game/review" element={<MoodGameReview />} />
               <Route path="/admin/mood-game/comments" element={<MoodGameComments />} />
               <Route path="/admin/system-check" element={<SystemCheck />} />
+            </Route>
+            <Route path="/partner" element={<PartnerRoute />}>
+              <Route index element={<Navigate to="/partner/home" replace />} />
+              <Route path="select-restaurant" element={<SelectRestaurant />} />
+              <Route path="home" element={<PartnerHome />} />
+              <Route path="menu" element={<PartnerMenu />} />
+              <Route path="menu/import" element={<PartnerMenuImport />} />
+              <Route path="offers" element={<PartnerOffers />} />
+              <Route path="offers/request" element={<PartnerOfferRequest />} />
+              <Route path="orders" element={<PartnerOrders />} />
+              <Route path="more" element={<PartnerMore />} />
+              <Route path="performance" element={<PartnerPerformance />} />
+              <Route path="guardrails" element={<PartnerGuardrails />} />
+              <Route path="settings" element={<PartnerSettings />} />
             </Route>
             <Route path="*" element={<PageNotFound />} />
           </Routes>

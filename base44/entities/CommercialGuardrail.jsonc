@@ -1,0 +1,107 @@
+{
+  "name": "CommercialGuardrail",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "menu_item_id": {
+      "type": "string",
+      "title": "RestaurantMealOffer id (optional \u2014 null = restaurant-wide)"
+    },
+    "normal_price": {
+      "type": "number"
+    },
+    "minimum_customer_offer_price": {
+      "type": "number",
+      "title": "Minimum price that may appear to the customer during an offer"
+    },
+    "minimum_restaurant_net": {
+      "type": "number",
+      "title": "Minimum amount the restaurant must receive after commissions/discounts"
+    },
+    "allowed_offer_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowed_days": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "allowed_time_ranges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_peak_hours": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "max_quantity": {
+      "type": "number"
+    },
+    "pickup_allowed": {
+      "type": "boolean"
+    },
+    "delivery_allowed": {
+      "type": "boolean"
+    },
+    "requires_manual_approval": {
+      "type": "boolean",
+      "default": false
+    },
+    "active_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "active_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "draft"
+      ],
+      "default": "draft"
+    }
+  },
+  "required": [
+    "restaurant_id"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "name": "MenuImportJob",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "file_url": {
+      "type": "string"
+    },
+    "file_name": {
+      "type": "string"
+    },
+    "file_type": {
+      "type": "string",
+      "enum": [
+        "csv",
+        "xlsx",
+        "xls"
+      ],
+      "default": "csv"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "uploaded",
+        "parsing",
+        "needs_mapping",
+        "needs_review",
+        "conflicts",
+        "ready",
+        "applying",
+        "completed",
+        "failed"
+      ],
+      "default": "uploaded"
+    },
+    "total_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "valid_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "invalid_rows": {
+      "type": "number",
+      "default": 0
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error_message": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "file_url",
+    "file_name"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "name": "OrderStatusEvent",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "string",
+      "title": "RestaurantSubOrder id"
+    },
+    "restaurant_id": {
+      "type": "string"
+    },
+    "previous_status": {
+      "type": "string"
+    },
+    "new_status": {
+      "type": "string"
+    },
+    "changed_by": {
+      "type": "string",
+      "title": "Actor user id"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "order_id",
+    "restaurant_id",
+    "new_status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "name": "OfferRequest",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "requested_by": {
+      "type": "string",
+      "title": "Requesting partner user id"
+    },
+    "goal": {
+      "type": "string",
+      "enum": [
+        "strengthen_item",
+        "quiet_hour",
+        "surplus",
+        "attract_new",
+        "reactivate"
+      ],
+      "title": "Operational goal"
+    },
+    "requested_menu_items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "RestaurantMealOffer ids"
+    },
+    "operational_reason": {
+      "type": "string"
+    },
+    "available_quantity": {
+      "type": "number"
+    },
+    "allowed_days": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "allowed_time_ranges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "minimum_customer_offer_price": {
+      "type": "number"
+    },
+    "minimum_restaurant_net": {
+      "type": "number"
+    },
+    "pickup_allowed": {
+      "type": "boolean"
+    },
+    "delivery_allowed": {
+      "type": "boolean"
+    },
+    "restaurant_notes": {
+      "type": "string"
+    },
+    "admin_notes": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "under_review",
+        "changes_requested",
+        "approved",
+        "rejected",
+        "converted_to_offer",
+        "cancelled"
+      ],
+      "default": "draft"
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reviewed_by": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "converted_offer_id": {
+      "type": "string",
+      "title": "GroupDeal id created from this request"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "goal"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
