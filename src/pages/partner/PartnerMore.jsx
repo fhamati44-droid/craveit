@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 
 const LINKS = [
+  { icon: 'swap_horiz', label: 'تبديل المطعم', to: '/partner/select-restaurant' },
   { icon: 'storefront', label: 'معلومات المطعم', to: '/partner/more/restaurant-profile' },
   { icon: 'account_tree', label: 'الفروع', to: null },
   { icon: 'schedule', label: 'ساعات العمل', to: '/partner/settings' },
