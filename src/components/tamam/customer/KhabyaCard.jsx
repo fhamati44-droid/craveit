@@ -1,47 +1,98 @@
+import { motion } from 'framer-motion';
 import { fmtUntil } from '@/lib/offerEngineApi';
 
 /**
- * Teaser card for a point-locked خبايا TAMAM offer.
- * Before unlock: shows only teaser text + unlock cost + expiration context
- * (never the full commercial value). After unlock: shows "open" CTA into the
- * existing deal flow.
+ * خبايا TAMAM teaser card — a "mystery reveal" presentation.
+ * Locked: the hero image is blurred + veiled with a gold scan line and a
+ * glowing lock, inviting the user to unlock with points. Unlocked: the image
+ * clears and the card becomes an entry to the deal. Same data + flow as before.
  */
 export default function KhabyaCard({ offer, onTap }) {
   const unlocked = offer.unlocked;
   const until = fmtUntil(offer.end_at);
+  const prefersReduced =
+    typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   return (
     <button
       type="button"
       onClick={() => onTap(offer)}
-      className="relative w-60 flex-shrink-0 rounded-2xl overflow-hidden bg-surface-container border border-outline-variant/30 active:scale-95 transition-transform text-right flex flex-col"
+      aria-label={unlocked ? 'شوف العرض المفتوح' : 'افتح خبايا تمام'}
+      className="relative w-64 flex-shrink-0 rounded-3xl overflow-hidden bg-tamam-surface-low border border-tamam-gold/25 active:scale-95 transition-transform text-right flex flex-col"
+      style={{ boxShadow: '0 6px 26px rgba(0,0,0,0.4)' }}
     >
-      <div className="h-24 bg-tamam-surface-low relative overflow-hidden">
+      {/* Mystery image */}
+      <div className="relative h-36 overflow-hidden">
         {offer.hero_image ? (
-          <img src={offer.hero_image} alt="" className="w-full h-full object-cover blur-[2px] opacity-70" loading="lazy" referrerPolicy="no-referrer" />
+          <>
+            <img
+              src={offer.hero_image}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              style={{
+                filter: unlocked ? 'none' : 'blur(8px)',
+                opacity: unlocked ? 1 : 0.6,
+                transform: 'scale(1.15)',
+                transition: 'filter 0.4s ease, opacity 0.4s ease',
+              }}
+            />
+            {!unlocked && (
+              <>
+                {/* dark + gold veil */}
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(7,19,18,0.88) 0%, rgba(7,19,18,0.35) 45%, rgba(7,19,18,0.55) 100%)' }} />
+                <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 50% 42%, rgba(234,196,92,0.14) 0%, transparent 55%)' }} />
+                {/* scan line */}
+                {!prefersReduced && (
+                  <motion.div
+                    className="absolute left-0 right-0 h-10 pointer-events-none"
+                    style={{ background: 'linear-gradient(to bottom, transparent, rgba(234,196,92,0.22), transparent)' }}
+                    initial={{ top: '-12%' }}
+                    animate={{ top: ['-12%', '112%'] }}
+                    transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                )}
+              </>
+            )}
+          </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="material-symbols-outlined text-[40px] text-tamam-text-muted opacity-50">lock</span>
+          <div className="w-full h-full flex items-center justify-center bg-tamam-surface-low">
+            <span className="material-symbols-outlined text-[44px] text-tamam-gold/50 mg-breathe">lock</span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-tamam-ink/70 to-transparent" />
-        <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-tamam-ink/80 text-tamam-gold text-[11px] font-bold px-2 py-1 rounded-full">
-          <span className="material-symbols-outlined text-[13px]">lock</span>خبايا
+
+        {/* badge */}
+        <span
+          className={`absolute top-2.5 right-2.5 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full ${unlocked ? 'bg-tamam-green text-tamam-ink' : 'bg-tamam-ink/80 text-tamam-gold mg-breathe'}`}
+          style={!unlocked ? { boxShadow: '0 0 14px rgba(234,196,92,0.35)' } : undefined}
+        >
+          <span className="material-symbols-outlined text-[13px]">{unlocked ? 'lock_open' : 'lock'}</span>
+          {unlocked ? 'مفتوح' : 'خبايا'}
         </span>
+
         {until && !unlocked && (
-          <span className="absolute bottom-2 right-2 bg-tamam-ink/75 text-tamam-text text-[10px] font-bold px-2 py-0.5 rounded-full">{until}</span>
+          <span className="absolute bottom-2.5 left-2.5 bg-tamam-ink/75 text-tamam-text text-[10px] font-bold px-2 py-0.5 rounded-full">{until}</span>
         )}
       </div>
-      <div className="p-3 flex flex-col gap-2 flex-1">
-        <p className="text-[12px] text-tamam-text leading-snug line-clamp-2">
-          {unlocked ? '✅ فتحت العرض — شوف التفاصيل' : (offer.teaser_text || 'في عرض مخبّى على وجبة 👀')}
+
+      {/* Frosted teaser panel */}
+      <div className="p-3 flex flex-col gap-2 flex-1 bg-tamam-surface">
+        <p className="text-[12px] text-tamam-text leading-snug line-clamp-2 min-h-[34px]">
+          {unlocked ? '✅ فتحت العرض — شوف التفاصيل إسا' : (offer.teaser_text || 'في عرض مخبّى على وجبة 👀 شوفه بنقاطك')}
         </p>
         <div className="flex items-center justify-between mt-auto">
           {unlocked ? (
-            <span className="text-[11px] font-bold text-tamam-green-bright">شوف العرض</span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-tamam-green-bright">
+              <span className="material-symbols-outlined text-[14px]">arrow_outward</span>شوف العرض
+            </span>
           ) : (
-            <span className="inline-flex items-center gap-1 bg-tamam-gold/15 text-tamam-gold text-[11px] font-bold px-2 py-1 rounded-full">
-              <span className="material-symbols-outlined text-[13px]">stars</span>{offer.unlock_cost} نقطة
+            <span
+              className="inline-flex items-center gap-1 bg-tamam-gold/15 text-tamam-gold text-[11px] font-bold px-2.5 py-1 rounded-full"
+              style={{ boxShadow: '0 0 10px rgba(234,196,92,0.18)' }}
+            >
+              <span className="material-symbols-outlined text-[13px]">stars</span>
+              {offer.unlock_cost} نقطة
             </span>
           )}
           <span className="material-symbols-outlined text-[18px] text-tamam-text-muted" style={{ transform: 'scaleX(-1)' }}>arrow_forward</span>

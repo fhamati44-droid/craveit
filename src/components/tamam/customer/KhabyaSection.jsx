@@ -43,13 +43,13 @@ export default function KhabyaSection() {
 
   return (
     <section className="px-4 py-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-tamam-gold text-[20px]">lock</span>
-          <h2 className="text-headline-sm font-bold">خبايا TAMAM 🔒</h2>
+      <div className="mb-3">
+        <div className="flex items-center gap-1.5 mb-1">
+          <span className="material-symbols-outlined text-tamam-gold text-[20px] mg-breathe" style={{ filter: 'drop-shadow(0 0 6px rgba(234,196,92,0.4))' }}>lock</span>
+          <h2 className="text-headline-sm font-bold text-tamam-text">خفايا تمام</h2>
         </div>
+        <p className="text-body-sm text-tamam-text-muted leading-snug">عروض مخبّاية إسا بتفتحها بنقاطك — الصورة مش واضحة؟ افتح العرض وشوف شو مخبّى جوّا.</p>
       </div>
-      <p className="text-body-sm text-on-surface-variant mb-3">عروض مخبّاية بتفتحها بنقاطك — افتح وشوف العرض وبعدها قرر تطلب.</p>
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
         {offers.map((o) => (
           <KhabyaCard key={o.deal_id} offer={o} onTap={open} />
