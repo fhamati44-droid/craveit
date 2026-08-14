@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePartner } from '@/lib/partnerContext';
-import { getPartnerHome, getOpportunities, getCampaignResults, toggleAcceptingOrders, updateRestaurantSettings, listMenuItems } from '@/lib/partnerApi';
+import { getPartnerHome, getOpportunities, getCampaignResults, toggleAcceptingOrders, updateRestaurantSettings, listMenuItems, listOfferRequests } from '@/lib/partnerApi';
 import { EmptyState } from '@/components/tamam/customer/States';
-import SignalSheet from '@/components/partner/SignalSheet';
+import QuickActionFlow from '@/components/partner/QuickActionFlow';
+import UrgentActions from '@/components/partner/UrgentActions';
 import Toggle from '@/components/partner/Toggle';
 
 const QUICK_ACTIONS = [
-  { type: 'kitchen_pressure', icon: 'warning', label: 'عندي ضغط', circle: 'bg-tamam-error/20 text-tamam-error' },
-  { type: 'sold_out', icon: 'block', label: 'صنف خلص', circle: 'bg-tamam-surface-highest text-tamam-text-muted' },
-  { type: 'surplus', icon: 'inventory', label: 'عندي كمية', circle: 'bg-tamam-green/20 text-tamam-green-bright' },
-  { type: 'strengthen_item', icon: 'trending_up', label: 'بدي أقوّي وجبة', circle: 'bg-tamam-gold-dark/30 text-tamam-gold' },
+  { flow: 'pressure', icon: 'warning', label: 'عندي ضغط', desc: 'ارفع وقت التحضير أو أوقف', circle: 'bg-tamam-error/20 text-tamam-error' },
+  { flow: 'surplus', icon: 'inventory', label: 'عندي كمية', desc: 'بيع كمية متوفرة بسرعة', circle: 'bg-tamam-green/20 text-tamam-green-bright' },
+  { flow: 'strengthen', icon: 'trending_up', label: 'بدي أقوّي وجبة', desc: 'حرّك وجبة ضعيفة', circle: 'bg-tamam-gold-dark/30 text-tamam-gold' },
+  { flow: 'sold_out', icon: 'block', label: 'صنف خلص', desc: 'اخفٍ صنف غير متوفر', circle: 'bg-tamam-surface-highest text-tamam-text-muted' },
 ];
 
 const HERO_META = {
@@ -46,7 +47,8 @@ export default function PartnerHome() {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [signal, setSignal] = useState(null);
+  const [flow, setFlow] = useState(null);
+  const [offerRequests, setOfferRequests] = useState([]);
   const [toggling, setToggling] = useState(false);
   const [prep, setPrep] = useState(15);
   const [prepSaving, setPrepSaving] = useState(false);
@@ -60,6 +62,7 @@ export default function PartnerHome() {
     getOpportunities(rid).then(setOps).catch(() => {});
     getCampaignResults(rid).then(setResults).catch(() => {});
     listMenuItems(rid, 'all').then(setMenuItems).catch(() => {});
+    listOfferRequests(rid).then(setOfferRequests).catch(() => {});
   };
   useEffect(load, [rid]);
 
@@ -114,6 +117,9 @@ export default function PartnerHome() {
           </div>
         </div>
       </section>
+
+      {/* 1b. Urgent actions */}
+      <UrgentActions home={home} offerRequests={offerRequests} prepTime={prep} onNavigate={navigate} />
 
       {/* 2. Growth Hero */}
       <section className="space-y-2">
@@ -215,9 +221,10 @@ export default function PartnerHome() {
         <h3 className="font-bold text-sm text-tamam-text px-1">تحديث سريع للوضع</h3>
         <div className="grid grid-cols-2 gap-2">
           {QUICK_ACTIONS.map((a) => (
-            <button key={a.type} onClick={() => setSignal(a.type)} className="flex flex-col items-center justify-center gap-2 bg-tamam-surface-low p-3 rounded-2xl active:scale-95 transition-transform min-h-[92px]">
+            <button key={a.flow} onClick={() => setFlow(a.flow)} className="flex flex-col items-center justify-center gap-1.5 bg-tamam-surface-low p-3 rounded-2xl active:scale-95 transition-transform min-h-[96px]">
               <div className={`w-11 h-11 rounded-full flex items-center justify-center ${a.circle}`}><span className="material-symbols-outlined text-[22px]">{a.icon}</span></div>
-              <span className="text-tamam-text text-xs font-bold text-center">{a.label}</span>
+              <span className="text-tamam-text text-xs font-bold text-center leading-tight">{a.label}</span>
+              <span className="text-[10px] text-tamam-text-muted text-center leading-tight">{a.desc}</span>
             </button>
           ))}
         </div>
@@ -271,7 +278,7 @@ export default function PartnerHome() {
         </button>
       )}
 
-      <SignalSheet open={!!signal} type={signal} restaurantId={rid} menuItems={menuItems} onClose={() => setSignal(null)} onSubmitted={load} />
+      <QuickActionFlow open={!!flow} flow={flow} restaurantId={rid} menuItems={menuItems} prepTime={prep} onClose={() => setFlow(null)} onDone={load} />
     </div>
   );
 }
