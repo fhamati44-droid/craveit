@@ -682,10 +682,254 @@ async function listGuardrailChanges(base44, { restaurant_id }) {
   return (list || []).filter((c) => c.status === 'pending_review');
 }
 
+// ---------------------------------------------------------------------------
+// Growth Opportunities Engine (real data only — no new entities/fields)
+// ---------------------------------------------------------------------------
+const DAY_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+function custKey(o) { return (o && (o.customer_phone || o.customer_name)) || ''; }
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+async function getOpportunities(base44, { restaurant_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_dashboard');
+  const restaurant = await base44.asServiceRole.entities.Restaurant.get(restaurant_id).catch(() => null);
+  if (!restaurant) throw authError(404, 'restaurant_not_found');
+
+  const orders = await base44.asServiceRole.entities.RestaurantSubOrder
+    .filter({ restaurant_id }, '-created_date', 500).catch(() => []);
+  const all = orders || [];
+  const delivered = all.filter((o) => o.status === 'delivered');
+
+  // Kitchen capacity from active signals + current active-orders load
+  const signals = await base44.asServiceRole.entities.RestaurantOperationalSignal
+    .filter({ restaurant_id, status: 'active' }, '-created_date', 50).catch(() => []);
+  const pressure = (signals || []).some((s) => s.type === 'kitchen_pressure' || s.type === 'temporary_pause');
+  const activeOrders = all.filter((o) => ['pending', 'accepted', 'preparing', 'ready'].includes(o.status)).length;
+  const capacityLevel = pressure ? 'high_pressure' : (activeOrders >= 8 ? 'moderate' : 'available');
+
+  const hasEnough = delivered.length >= 8;
+
+  // WEAK_HOUR — hour with orders notably below the active-hour average
+  let weakHour = null;
+  if (hasEnough) {
+    const byHour = {};
+    delivered.forEach((o) => { const h = new Date(o.created_date).getHours(); byHour[h] = (byHour[h] || 0) + 1; });
+    const hours = Object.keys(byHour).map(Number);
+    if (hours.length >= 3) {
+      const avg = delivered.length / hours.length;
+      let worst = null;
+      hours.forEach((h) => { if (byHour[h] < avg && (!worst || byHour[h] < worst.count)) worst = { hour: h, count: byHour[h] }; });
+      if (worst) weakHour = { hour: worst.hour, count: worst.count, avg: Math.round(avg * 10) / 10 };
+    }
+  }
+
+  // WEAK_DAY — day-of-week with orders below the active-day average
+  let weakDay = null;
+  if (hasEnough) {
+    const byDay = {};
+    delivered.forEach((o) => { const d = new Date(o.created_date).getDay(); byDay[d] = (byDay[d] || 0) + 1; });
+    const days = Object.keys(byDay).map(Number);
+    if (days.length >= 3) {
+      const avg = delivered.length / days.length;
+      let worst = null;
+      days.forEach((d) => { if (byDay[d] < avg && (!worst || byDay[d] < worst.count)) worst = { day: d, count: byDay[d] }; });
+      if (worst) weakDay = { day: worst.day, count: worst.count, avg: Math.round(avg * 10) / 10 };
+    }
+  }
+
+  // LOW_SELLING_ITEM — sold item below the menu's average sales
+  let lowItem = null;
+  const menuItems = await base44.asServiceRole.entities.RestaurantMealOffer
+    .filter({ restaurant_id }, 'display_order', 500).catch(() => []);
+  const availableMenu = (menuItems || []).filter((i) => i.available !== false && i.active !== false && i.price != null && Number(i.price) > 0);
+  if (delivered.length >= 5) {
+    const counts = {};
+    delivered.forEach((o) => parseItems(o.items_json).forEach((it) => {
+      const name = it.name || it.name_ar;
+      if (name) counts[name] = (counts[name] || 0) + (Number(it.quantity) || 1);
+    }));
+    const sold = Object.entries(counts);
+    if (sold.length >= 3) {
+      const avg = sold.reduce((s, [, c]) => s + c, 0) / sold.length;
+      sold.sort((a, b) => a[1] - b[1]);
+      const lowest = sold[0];
+      if (lowest[1] < avg) {
+        const match = availableMenu.find((m) => (m.restaurant_product_name || m.name_ar) === lowest[0])
+          || availableMenu.find((m) => ((m.restaurant_product_name || m.name_ar || '')).includes(lowest[0]));
+        lowItem = {
+          name: lowest[0], count: lowest[1], avg: Math.round(avg * 10) / 10,
+          item: match ? { id: match.id, name: match.restaurant_product_name || match.name_ar, price: match.price, available_quantity: match.available_quantity } : null,
+        };
+      }
+    }
+  }
+
+  // RETURN_CUSTOMERS — customers who ordered before but not in the last 30 days
+  let returnCustomers = null;
+  if (delivered.length >= 3) {
+    const lastByCust = {};
+    delivered.forEach((o) => { const k = custKey(o); if (!k) return; const t = new Date(o.created_date).getTime(); if (!lastByCust[k] || t > lastByCust[k]) lastByCust[k] = t; });
+    const now = Date.now();
+    const absent = Object.values(lastByCust).filter((t) => (now - t) > 30 * 24 * 3600 * 1000).length;
+    if (absent > 0) returnCustomers = { count: absent };
+  }
+
+  const newCustomersAvailable = restaurant.active !== false && restaurant.accepts_orders !== false;
+
+  const heroCards = [
+    { key: 'weak_hour', available: !!weakHour, ...(weakHour ? { hour: weakHour.hour, count: weakHour.count, avg: weakHour.avg } : {}) },
+    { key: 'weak_day', available: !!weakDay, ...(weakDay ? { day: weakDay.day, day_name: DAY_AR[weakDay.day], count: weakDay.count, avg: weakDay.avg } : {}) },
+    { key: 'low_item', available: !!(lowItem && lowItem.item), ...(lowItem && lowItem.item ? { name: lowItem.name, count: lowItem.count, avg: lowItem.avg, item: lowItem.item } : {}) },
+    { key: 'new_customers', available: newCustomersAvailable },
+  ];
+
+  // Primary opportunity — strongest signal first; suppressed under kitchen pressure
+  let primary = null;
+  const basePrefill = { pickup_allowed: true, delivery_allowed: true };
+  if (capacityLevel !== 'high_pressure') {
+    if (weakHour) {
+      const h = weakHour.hour; const end = (h + 2) % 24;
+      primary = {
+        type: 'WEAK_HOUR', type_label: 'تقوية ساعة هادئة',
+        reason: `الطلبات بين ${pad2(h)}:00 و${pad2(h)}:59 أقل من متوسط اليوم (${weakHour.count} طلب مقابل متوسط ${weakHour.avg}).`,
+        meal: null, meal_label: 'اقترح وجبة تناسب الساعة الهادئة',
+        window: `${pad2(h)}:00 - ${pad2(end)}:00`,
+        max_orders: null, max_orders_label: 'حدّد الكمية اللي يقدر مطبخك',
+        audience: 'new_customers', audience_label: 'زبائن جدد قريبون من المطعم',
+        strategy: 'limited_time', strategy_label: 'وقت محدود — بدون حرق سعر',
+        goal: 'quiet_hour',
+        prefill: { ...basePrefill, goal: 'quiet_hour', allowed_time_ranges: [`${pad2(h)}:00-${pad2(end)}:00`], operational_reason: `تحريك ساعة هادئة ${pad2(h)}:00` },
+      };
+    } else if (lowItem && lowItem.item) {
+      const maxQ = (lowItem.item.available_quantity && lowItem.item.available_quantity > 0) ? Math.min(20, lowItem.item.available_quantity) : null;
+      primary = {
+        type: 'LOW_SELLING_ITEM', type_label: 'تحريك وجبة ضعيفة',
+        reason: `وجبة "${lowItem.name}" مبيعاتها أقل من متوسط المنيو (${lowItem.count} طلب مقابل متوسط ${lowItem.avg}).`,
+        meal: { id: lowItem.item.id, name: lowItem.item.name, price: lowItem.item.price },
+        meal_label: lowItem.item.name,
+        window: null,
+        max_orders: maxQ, max_orders_label: maxQ ? `${maxQ} طلب` : 'حدّد الكمية',
+        audience: 'all', audience_label: 'كل الزبائن',
+        strategy: 'highlight_item', strategy_label: 'إبراز الوجبة — بدون حرق سعر',
+        goal: 'strengthen_item',
+        prefill: { ...basePrefill, goal: 'strengthen_item', requested_menu_items: [lowItem.item.id], available_quantity: maxQ || undefined, operational_reason: `تحريك وجبة ضعيفة: ${lowItem.name}` },
+      };
+    } else if (weakDay) {
+      primary = {
+        type: 'WEAK_DAY', type_label: 'تقوية يوم ضعيف',
+        reason: `يوم ${DAY_AR[weakDay.day]} طلباته أقل من متوسط الأسبوع (${weakDay.count} طلب مقابل متوسط ${weakDay.avg}).`,
+        meal: null, meal_label: 'اقترح وجبة لهاليوم',
+        window: null,
+        max_orders: null, max_orders_label: 'حدّد الكمية',
+        audience: 'new_customers', audience_label: 'زبائن جدد',
+        strategy: 'limited_time', strategy_label: 'وقت محدود لهاليوم',
+        goal: 'quiet_hour',
+        prefill: { ...basePrefill, goal: 'quiet_hour', allowed_days: [weakDay.day], operational_reason: `تقوية يوم ${DAY_AR[weakDay.day]}` },
+      };
+    } else if (returnCustomers) {
+      primary = {
+        type: 'RETURN_CUSTOMERS', type_label: 'استرجاع زبائن غائبين',
+        reason: `عندك ${returnCustomers.count} زبون طلب منك قبل بس ما طلب من فوق 30 يوم.`,
+        meal: null, meal_label: 'اقترح وجبة ترحيبية',
+        window: null,
+        max_orders: null, max_orders_label: 'حدّد الكمية',
+        audience: 'returning', audience_label: 'زبائن عائدون غابوا',
+        strategy: 'winback', strategy_label: 'استرجاع زبون قديم',
+        goal: 'reactivate',
+        prefill: { ...basePrefill, goal: 'reactivate', operational_reason: 'استرجاع زبائن غائبين' },
+      };
+    } else if (newCustomersAvailable) {
+      primary = {
+        type: 'NEW_CUSTOMERS', type_label: 'جلب زبائن جدد',
+        reason: 'عندك فرصة للوصول إلى زبائن جدد قريبين من المطعم ما طلبوا منك قبل.',
+        meal: null, meal_label: 'اقترح وجبة جذابة للجديد',
+        window: null,
+        max_orders: null, max_orders_label: 'حدّد الكمية',
+        audience: 'new_customers', audience_label: 'زبائن جدد',
+        strategy: 'new_only', strategy_label: 'عرض للزبون الجديد فقط',
+        goal: 'attract_new',
+        prefill: { ...basePrefill, goal: 'attract_new', operational_reason: 'جلب زبائن جدد' },
+      };
+    }
+  }
+
+  return {
+    has_data: hasEnough,
+    kitchen_capacity: { level: capacityLevel, active_orders: activeOrders, pressure },
+    hero_cards: heroCards,
+    return_customers: returnCustomers,
+    primary,
+    restaurant: { id: restaurant.id, name_ar: restaurant.name_ar, name: restaurant.name, accepts_orders: restaurant.accepts_orders, active: restaurant.active },
+  };
+}
+
+async function getCampaignResults(base44, { restaurant_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_performance');
+  const orders = await base44.asServiceRole.entities.RestaurantSubOrder
+    .filter({ restaurant_id }, '-created_date', 500).catch(() => []);
+  const all = orders || [];
+  const delivered = all.filter((o) => o.status === 'delivered');
+
+  // Campaign orders = orders whose items meta references a deal/offer id
+  const campaignDelivered = delivered.filter((o) => !!(parseOrderMeta(o.items_json).offer_id));
+
+  // Deals for this restaurant
+  const dealItems = await base44.asServiceRole.entities.GroupDealItem
+    .filter({ restaurant_id }, 'sort_order', 200).catch(() => []);
+  const dealIds = [...new Set((dealItems || []).map((i) => i.deal_id).filter(Boolean))];
+  let deals = [];
+  if (dealIds.length) {
+    const allDeals = await base44.asServiceRole.entities.GroupDeal.list('-updated_date', 200).catch(() => []);
+    deals = (allDeals || []).filter((d) => dealIds.includes(d.id));
+  }
+  const completedCampaigns = deals.filter((d) => d.status === 'completed' || d.final_status === 'success').length;
+  const stoppedByLimit = deals.filter((d) => d.stop_when_inventory_exhausted === true && ['ended', 'completed'].includes(d.status)).length;
+
+  // New customers via campaign (first-time customer on a campaign order)
+  const chrono = delivered.slice().sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
+  const seen = new Set();
+  let newViaCampaign = 0;
+  chrono.forEach((o) => {
+    const k = custKey(o);
+    const isNew = k && !seen.has(k);
+    if (k) seen.add(k);
+    if (isNew && parseOrderMeta(o.items_json).offer_id) newViaCampaign++;
+  });
+
+  const totalRevenue = delivered.reduce((s, o) => s + Number(o.total || 0), 0);
+  const campaignRevenue = campaignDelivered.reduce((s, o) => s + Number(o.total || 0), 0);
+  const aov = delivered.length ? totalRevenue / delivered.length : 0;
+
+  const custCounts = {};
+  delivered.forEach((o) => { const k = custKey(o); if (k) custCounts[k] = (custCounts[k] || 0) + 1; });
+  const uniqueCustomers = Object.keys(custCounts).length;
+  const returning = Object.values(custCounts).filter((c) => c >= 2).length;
+  const returnRate = uniqueCustomers ? Math.round((returning / uniqueCustomers) * 100) : null;
+
+  return {
+    has_data: delivered.length > 0,
+    total: {
+      orders: delivered.length,
+      revenue: Math.round(totalRevenue * 100) / 100,
+      unique_customers: uniqueCustomers,
+      aov: Math.round(aov * 100) / 100,
+      return_rate: returnRate,
+    },
+    tamam: {
+      completed_campaigns: completedCampaigns,
+      stopped_by_limit: stoppedByLimit,
+      campaign_orders: campaignDelivered.length,
+      campaign_revenue: Math.round(campaignRevenue * 100) / 100,
+      new_customers_via_campaign: newViaCampaign,
+    },
+  };
+}
+
 const ROUTES = {
   getMyContext,
   submitPartnerApplication,
   getHome,
+  getOpportunities,
+  getCampaignResults,
   listMenuItems,
   getMenuItem,
   createMenuItem,

@@ -54,6 +54,8 @@ export const listImportJobs = (restaurant_id) => invoke('listImportJobs', { rest
 
 // ---- Performance ----
 export const getPerformance = (restaurant_id) => invoke('getPerformance', { restaurant_id });
+export const getOpportunities = (restaurant_id) => invoke('getOpportunities', { restaurant_id });
+export const getCampaignResults = (restaurant_id) => invoke('getCampaignResults', { restaurant_id });
 
 // ---- Settings ----
 export const updateRestaurantSettings = (restaurant_id, data) => invoke('updateRestaurantSettings', { restaurant_id, data });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { usePartner } from '@/lib/partnerContext';
 import { listMenuItems, submitOfferRequest } from '@/lib/partnerApi';
 import { Input } from '@/components/ui/input';
@@ -18,12 +18,19 @@ const DAYS = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس'
 
 export default function PartnerOfferRequest() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeRestaurant } = usePartner();
   const rid = activeRestaurant?.id;
+  const prefill = location.state?.prefill;
+  const isReview = !!prefill;
   const [menu, setMenu] = useState([]);
-  const [form, setForm] = useState({ goal: 'strengthen_item', requested_menu_items: [], allowed_days: [], pickup_allowed: true, delivery_allowed: true });
+  const [form, setForm] = useState(() => ({
+    goal: 'strengthen_item', requested_menu_items: [], allowed_days: [], pickup_allowed: true, delivery_allowed: true,
+    ...(prefill || {}),
+  }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [done, setDone] = useState(false);
 
   useEffect(() => { listMenuItems(rid, 'available').then(setMenu).catch(() => {}); }, [rid]);
   const set = (k, v) => setForm({ ...form, [k]: v });
@@ -32,15 +39,47 @@ export default function PartnerOfferRequest() {
 
   const submit = async () => {
     setSaving(true); setError(null);
-    try { await submitOfferRequest(rid, form); navigate('/partner/offers'); }
+    try { await submitOfferRequest(rid, form); setDone(true); }
     catch (e) { setError(e?.error === 'no_permission' ? 'ما عندك صلاحية لطلب عرض' : 'صار خطأ'); }
     finally { setSaving(false); }
   };
 
+  if (done) {
+    return (
+      <div className="p-4 space-y-4">
+        <div className="bg-tamam-green/15 border border-tamam-green/30 rounded-2xl p-6 text-center space-y-3">
+          <span className="material-symbols-outlined text-tamam-green-bright text-[44px]">task_alt</span>
+          <h2 className="font-bold text-tamam-text text-base">تم إرسال الحملة إلى فريق TAMAM للمراجعة</h2>
+          <p className="text-tamam-text-muted text-xs">رح نراجعها ونشغّلها بالوقت اللي حدّدته. ما رح تنشر للزبائن قبل الموافقة.</p>
+          <Button onClick={() => navigate('/partner/offers')} className="w-full h-12 bg-tamam-green text-tamam-ink hover:bg-tamam-green-dark">روح لصفحة العروض</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 space-y-3">
-      <h1 className="font-bold text-lg">اطلب فكرة عرض</h1>
-      <p className="text-[11px] text-tamam-text-muted">احكيلنا شو بدك تحرّك، وTAMAM بتجهزلك فكرة ضمن حدودك.</p>
+      <h1 className="font-bold text-lg">{isReview ? 'مراجعة فرصة TAMAM' : 'اطلب فكرة عرض'}</h1>
+      <p className="text-[11px] text-tamam-text-muted">{isReview ? 'جهّزنالك اقتراح من بياناتك. عدّله أو وافق عليه.' : 'احكيلنا شو بدك تحرّك، وTAMAM بتجهزلك فكرة ضمن حدودك.'}</p>
+      {isReview && (
+        <div className="space-y-2">
+          <div className="bg-tamam-surface border border-tamam-outline/30 rounded-2xl p-3 space-y-1.5">
+            <p className="text-xs font-bold text-tamam-text-muted">TAMAM ستقوم بـ</p>
+            <ul className="text-[11px] text-tamam-text space-y-1 list-disc pr-4">
+              <li>تجهيز الحملة واختيار الجمهور المناسب.</li>
+              <li>تشغيلها بالوقت المحدد وإيقافها عند انتهاء الوقت أو الكمية.</li>
+              <li>متابعة النتائج وتفريفها معك.</li>
+            </ul>
+          </div>
+          <div className="bg-tamam-surface border border-tamam-outline/30 rounded-2xl p-3 space-y-1.5">
+            <p className="text-xs font-bold text-tamam-text-muted">المطلوب من المطعم</p>
+            <ul className="text-[11px] text-tamam-text space-y-1 list-disc pr-4">
+              <li>تأكيد توفر الوجبة وتجهيز الطلب بالوقت.</li>
+              <li>المحافظة على الجودة وتقديم خدمة ترجّع الزبون.</li>
+            </ul>
+          </div>
+        </div>
+      )}
       <Section title="الهدف">
         <div className="grid grid-cols-2 gap-2">
           {GOALS.map((g) => (
@@ -76,7 +115,7 @@ export default function PartnerOfferRequest() {
         <Field label="ملاحظات لفريق TAMAM"><Textarea value={form.restaurant_notes || ''} onChange={(e) => set('restaurant_notes', e.target.value)} rows={2} className="bg-tamam-surface-low border-tamam-outline/30 text-right" /></Field>
       </Section>
       {error && <p className="text-error text-xs">{error}</p>}
-      <Button onClick={submit} disabled={saving} className="w-full h-12 bg-tamam-green text-tamam-ink hover:bg-tamam-green-dark">{saving ? 'جاري الإرسال…' : 'إرسال الطلب'}</Button>
+      <Button onClick={submit} disabled={saving} className="w-full h-12 bg-tamam-green text-tamam-ink hover:bg-tamam-green-dark">{saving ? 'جاري الإرسال…' : isReview ? 'وافق وشغّل الحملة' : 'إرسال الطلب'}</Button>
     </div>
   );
 }
