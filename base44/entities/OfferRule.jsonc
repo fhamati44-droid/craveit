@@ -1,0 +1,89 @@
+{
+  "name": "OfferRule",
+  "type": "object",
+  "properties": {
+    "deal_id": {
+      "type": "string",
+      "title": "GroupDeal id this rule governs"
+    },
+    "unlock_type": {
+      "type": "string",
+      "enum": [
+        "public",
+        "point_locked"
+      ],
+      "default": "public",
+      "title": "\u0622\u0644\u064a\u0629 \u0638\u0647\u0648\u0631 \u0627\u0644\u0639\u0631\u0636"
+    },
+    "points_unlock_cost": {
+      "type": "number",
+      "default": 0,
+      "title": "\u062a\u0643\u0644\u0641\u0629 \u0641\u062a\u062d \u0627\u0644\u0639\u0631\u0636 \u0628\u0627\u0644\u0646\u0642\u0627\u0637"
+    },
+    "audience": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "public",
+          "targeted",
+          "first_restaurant_order",
+          "returning_customer",
+          "lapsed_customer",
+          "mood_eligible",
+          "community_eligible"
+        ]
+      },
+      "default": [
+        "public"
+      ],
+      "title": "\u0642\u0648\u0627\u0639\u062f \u0627\u0644\u0623\u0647\u0644\u064a\u0629 (\u0642\u0627\u0628\u0644\u0629 \u0644\u0644\u062a\u0631\u0643\u064a\u0628)"
+    },
+    "linked_mood_id": {
+      "type": "string",
+      "title": "Mood \u0645\u0631\u062a\u0628\u0637 (\u0627\u062e\u062a\u064a\u0627\u0631\u064a)"
+    },
+    "linked_community_proposal_id": {
+      "type": "string",
+      "title": "\u0627\u0642\u062a\u0631\u0627\u062d \u0645\u062c\u062a\u0645\u0639\u064a \u0645\u0635\u062f\u0631 \u0627\u0644\u0639\u0631\u0636 (\u0627\u062e\u062a\u064a\u0627\u0631\u064a)"
+    },
+    "teaser_enabled": {
+      "type": "boolean",
+      "default": true,
+      "title": "\u0625\u0638\u0647\u0627\u0631 \u0643\u0628\u0637\u0627\u0642\u0629 \u0645\u062e\u0628\u0651\u0623\u0629 (\u062e\u0628\u0627\u064a\u0627)"
+    },
+    "teaser_text_ar": {
+      "type": "string",
+      "title": "\u0646\u0635 \u0627\u0644\u062a\u0634\u0648\u064a\u0642 \u0644\u0644\u0639\u0645\u064a\u0644"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "deal_id"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -14,6 +14,7 @@ import HomeMoodBanners from '@/components/tamam/customer/HomeMoodBanners';
 import InfoFooter from '@/components/tamam/customer/InfoFooter';
 import LazySection from '@/components/tamam/customer/LazySection';
 import CommunityMoodGameSection from '@/components/community/CommunityMoodGameSection';
+import KhabyaSection from '@/components/tamam/customer/KhabyaSection';
 import TimeAwareHero from '@/components/tamam/customer/TimeAwareHero';
 import TimeAwareTopSuggestions from '@/components/tamam/customer/TimeAwareTopSuggestions';
 import HomeTrustStrip from '@/components/tamam/customer/HomeTrustStrip';
@@ -81,6 +82,9 @@ export default function Home() {
 
       {/* 5. Community preview */}
       <CommunityMoodGameSection />
+
+      {/* 5b. خبايا TAMAM (additive point-locked offers) */}
+      <KhabyaSection />
 
       {/* 6. Curated restaurants */}
       <LazySection>
