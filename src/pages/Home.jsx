@@ -16,7 +16,7 @@ import LazySection from '@/components/tamam/customer/LazySection';
 import CommunityMoodGameSection from '@/components/community/CommunityMoodGameSection';
 import KhabyaSection from '@/components/tamam/customer/KhabyaSection';
 import HomeMoodGamePreview from '@/components/tamam/customer/HomeMoodGamePreview';
-import HomeTamamGameEntry from '@/components/tamam/customer/HomeTamamGameEntry';
+import HomeTamamGamePreview from '@/components/tamam/customer/HomeTamamGamePreview';
 import TimeAwareTopSuggestions from '@/components/tamam/customer/TimeAwareTopSuggestions';
 import HomeTrustStrip from '@/components/tamam/customer/HomeTrustStrip';
 
@@ -75,8 +75,8 @@ export default function Home() {
       {/* 2. Interactive Mood Game preview (build your own mood) */}
       <HomeMoodGamePreview timeData={timeData} />
 
-      {/* 2b. TAMAM mood-orbit game entry (شو مودك هسا؟ → suggestions) */}
-      <HomeTamamGameEntry />
+      {/* 2b. TAMAM mood-orbit game — playable from Home (شو مودك هسا؟) */}
+      <HomeTamamGamePreview />
 
       {/* 3. Quick Mood selector */}
       <HomeMoodBanners />
