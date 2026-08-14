@@ -1,0 +1,94 @@
+{
+  "name": "MenuImportSession",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "created_by_user_id": {
+      "type": "string"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "tamam_master_catalog",
+        "menu_template",
+        "own_branch",
+        "csv",
+        "excel",
+        "pdf",
+        "image",
+        "manual"
+      ],
+      "default": "tamam_master_catalog",
+      "title": "\u0645\u0635\u062f\u0631 \u0627\u0644\u0627\u0633\u062a\u064a\u0631\u0627\u062f"
+    },
+    "source_template_id": {
+      "type": "string"
+    },
+    "source_branch_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "selecting",
+        "processing",
+        "needs_review",
+        "ready",
+        "importing",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "default": "selecting",
+      "title": "\u062d\u0627\u0644\u0629 \u0627\u0644\u062c\u0644\u0633\u0629"
+    },
+    "total_items": {
+      "type": "number",
+      "default": 0
+    },
+    "ready_items": {
+      "type": "number",
+      "default": 0
+    },
+    "duplicate_items": {
+      "type": "number",
+      "default": 0
+    },
+    "error_items": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "source_type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

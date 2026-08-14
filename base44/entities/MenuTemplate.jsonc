@@ -1,0 +1,92 @@
+{
+  "name": "MenuTemplate",
+  "type": "object",
+  "properties": {
+    "name_ar": {
+      "type": "string",
+      "title": "\u0627\u0633\u0645 \u0627\u0644\u0646\u0645\u0648\u0630\u062c"
+    },
+    "description_ar": {
+      "type": "string",
+      "title": "\u0648\u0635\u0641 \u0627\u0644\u0646\u0645\u0648\u0630\u062c"
+    },
+    "restaurant_type": {
+      "type": "string",
+      "title": "\u0646\u0648\u0639 \u0627\u0644\u0645\u0637\u0639\u0645 \u0627\u0644\u0645\u0646\u0627\u0633\u0628"
+    },
+    "cuisine_type": {
+      "type": "string"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "tamam_generic",
+        "own_organization",
+        "licensed_partner",
+        "reference_only"
+      ],
+      "default": "tamam_generic",
+      "title": "\u0645\u0635\u062f\u0631 \u0627\u0644\u0646\u0645\u0648\u0630\u062c"
+    },
+    "source_restaurant_id": {
+      "type": "string"
+    },
+    "owner_organization_id": {
+      "type": "string"
+    },
+    "permission_status": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "pending",
+        "rejected",
+        "not_required"
+      ],
+      "default": "not_required",
+      "title": "\u062d\u0627\u0644\u0629 \u0627\u0644\u0625\u0630\u0646"
+    },
+    "permission_reference": {
+      "type": "string",
+      "title": "\u0645\u0631\u062c\u0639 \u0627\u0644\u0625\u0630\u0646 (\u0644\u0644\u0646\u0645\u0627\u0630\u062c \u0627\u0644\u0645\u0631\u062e\u0635\u0629)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "created_by_admin_id": {
+      "type": "string"
+    },
+    "categories_included": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "item_count": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "name_ar",
+    "source_type"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

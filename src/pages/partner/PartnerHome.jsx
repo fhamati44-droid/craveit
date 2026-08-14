@@ -7,6 +7,7 @@ import QuickActionFlow from '@/components/partner/QuickActionFlow';
 import UrgentActions from '@/components/partner/UrgentActions';
 import Toggle from '@/components/partner/Toggle';
 import HomeDemandSummary from '@/components/partner/demand/HomeDemandSummary';
+import HomeMenuOnboarding from '@/components/partner/menu/HomeMenuOnboarding';
 
 const QUICK_ACTIONS = [
   { flow: 'pressure', icon: 'warning', label: 'عندي ضغط', desc: 'ارفع وقت التحضير أو أوقف', circle: 'bg-tamam-error/20 text-tamam-error' },
@@ -124,6 +125,9 @@ export default function PartnerHome() {
 
       {/* 1c. Weekly demand summary (خفايا الحركة) */}
       <HomeDemandSummary />
+
+      {/* 1d. Menu onboarding */}
+      <HomeMenuOnboarding />
 
       {/* 2. Growth Hero */}
       <section className="space-y-2">

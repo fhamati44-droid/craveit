@@ -72,6 +72,11 @@ import SelectRestaurant from '@/pages/partner/SelectRestaurant';
 import PartnerHome from '@/pages/partner/PartnerHome';
 import PartnerMenu from '@/pages/partner/PartnerMenu';
 import PartnerMenuImport from '@/pages/partner/PartnerMenuImport';
+import PartnerMenuAddCatalog from '@/pages/partner/PartnerMenuAddCatalog';
+import PartnerMenuAddReview from '@/pages/partner/PartnerMenuAddReview';
+import PartnerMenuAddTemplate from '@/pages/partner/PartnerMenuAddTemplate';
+import PartnerMenuAddBranch from '@/pages/partner/PartnerMenuAddBranch';
+import PartnerMenuDrafts from '@/pages/partner/PartnerMenuDrafts';
 import PartnerOffers from '@/pages/partner/PartnerOffers';
 import PartnerOfferRequest from '@/pages/partner/PartnerOfferRequest';
 import PartnerOrders from '@/pages/partner/PartnerOrders';
@@ -169,6 +174,11 @@ function App() {
               <Route path="menu/items/new" element={<PartnerAddMenuItem />} />
               <Route path="menu/items/:itemId" element={<PartnerMenuItemDetail />} />
               <Route path="menu/import" element={<PartnerMenuImport />} />
+              <Route path="menu/add/catalog" element={<PartnerMenuAddCatalog />} />
+              <Route path="menu/add/review" element={<PartnerMenuAddReview />} />
+              <Route path="menu/add/template" element={<PartnerMenuAddTemplate />} />
+              <Route path="menu/add/branch" element={<PartnerMenuAddBranch />} />
+              <Route path="menu/drafts" element={<PartnerMenuDrafts />} />
               <Route path="offers" element={<PartnerOffers />} />
               <Route path="offers/request" element={<PartnerOfferRequest />} />
               <Route path="offers/calendar" element={<PartnerOfferCalendar />} />

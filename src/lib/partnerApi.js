@@ -82,3 +82,13 @@ export const copyDemandDay = (restaurant_id, branch_id, from_day, to_days) => in
 export const saveDemandOverride = (restaurant_id, branch_id, data) => invoke('saveDemandOverride', { restaurant_id, branch_id: branch_id || null, ...data });
 export const listDemandOverrides = (restaurant_id, branch_id) => invoke('listDemandOverrides', { restaurant_id, branch_id: branch_id || null });
 export const requestDemandOpportunity = (restaurant_id, branch_id, data) => invoke('requestDemandOpportunity', { restaurant_id, branch_id: branch_id || null, ...data });
+
+// ---- Phase 2: Menu build (catalog/template → drafts → publish) ----
+export const createMenuSession = (restaurant_id, data) => invoke('createMenuSession', { restaurant_id, ...data });
+export const saveMenuCandidates = (restaurant_id, branch_id, data) => invoke('saveMenuCandidates', { restaurant_id, branch_id: branch_id || null, ...data });
+export const listMenuCandidates = (restaurant_id, branch_id, tab) => invoke('listMenuCandidates', { restaurant_id, branch_id: branch_id || null, tab });
+export const updateMenuCandidate = (restaurant_id, candidate_id, changes) => invoke('updateMenuCandidate', { restaurant_id, candidate_id, changes });
+export const resolveDuplicate = (restaurant_id, candidate_id, decision) => invoke('resolveDuplicate', { restaurant_id, candidate_id, decision });
+export const publishMenuCandidates = (restaurant_id, candidate_ids) => invoke('publishMenuCandidates', { restaurant_id, candidate_ids });
+export const listMenuTemplates = () => invoke('listMenuTemplates', {});
+export const getMenuTemplate = (template_id) => invoke('getMenuTemplate', { template_id });

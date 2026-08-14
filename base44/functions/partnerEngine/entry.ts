@@ -1242,6 +1242,213 @@ async function requestDemandOpportunity(base44, { restaurant_id, branch_id, day_
   return { id: rec.id, status: "submitted" };
 }
 
+// ---------------------------------------------------------------------------
+// Phase 2 — Menu build (catalog/template → draft candidates → publish)
+// Drafts live in MenuImportCandidate; published items become RestaurantMealOffer.
+// RestaurantMealOffer is never duplicated; TAMAM Master Catalog stays in Supabase.
+// ---------------------------------------------------------------------------
+function normalizeMenuName(s) {
+  return String(s || '').replace(/[\u064B-\u0652\u0670ًٌٍَُِّْـ]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+function tokenOverlap(a, b) {
+  const ta = new Set(a.split(' ').filter(Boolean)), tb = new Set(b.split(' ').filter(Boolean));
+  if (!ta.size || !tb.size) return 0;
+  let c = 0; ta.forEach((t) => { if (tb.has(t)) c++; });
+  return c / Math.max(ta.size, tb.size);
+}
+function parseUserChanges(s) { try { return JSON.parse(s || '{}') || {}; } catch { return {}; } }
+async function detectDuplicate(base44, restaurant_id, normalized, mappedId) {
+  const items = await base44.asServiceRole.entities.RestaurantMealOffer.filter({ restaurant_id }, 'display_order', 500).catch(() => []);
+  for (const it of items || []) {
+    if (mappedId && (it.mapped_tamam_product_id === mappedId || it.meal_id === mappedId)) return { id: it.id, status: 'exact', name: it.restaurant_product_name || it.name_ar };
+  }
+  for (const it of items || []) {
+    if (normalizeMenuName(it.restaurant_product_name || it.name_ar || '') === normalized) return { id: it.id, status: 'exact', name: it.restaurant_product_name || it.name_ar };
+  }
+  let best = null;
+  for (const it of items || []) {
+    const ov = tokenOverlap(normalized, normalizeMenuName(it.restaurant_product_name || it.name_ar || ''));
+    if (ov > 0.6 && (!best || ov > best.ov)) best = { id: it.id, ov, name: it.restaurant_product_name || it.name_ar };
+  }
+  if (best) return { id: best.id, status: 'likely', name: best.name };
+  return null;
+}
+function candidateMissing(c, u) {
+  const m = [];
+  const name = u.name || c.detected_name;
+  const price = u.price != null ? u.price : c.detected_price;
+  const img = u.image || c.detected_image;
+  if (!name) m.push('name');
+  if (price == null || Number(price) <= 0) m.push('price');
+  if (!img) m.push('image');
+  if (!u.category && !c.detected_category) m.push('category');
+  return m;
+}
+function candidateSummary(c) {
+  return {
+    id: c.id, session_id: c.menu_import_session_id, restaurant_id: c.restaurant_id, branch_id: c.branch_id,
+    detected_name: c.detected_name, normalized_name: c.normalized_name, detected_category: c.detected_category,
+    detected_image: c.detected_image, detected_price: c.detected_price,
+    mapped_master_catalog_product_id: c.mapped_master_catalog_product_id, mapping_confidence: c.mapping_confidence,
+    duplicate_status: c.duplicate_status, duplicate_restaurant_menu_item_id: c.duplicate_restaurant_menu_item_id,
+    rights_status: c.rights_status, review_status: c.review_status, image_source_type: c.image_source_type,
+    usage_permission_status: c.usage_permission_status, missing_fields: c.missing_fields || [],
+    user_changes: parseUserChanges(c.user_changes),
+  };
+}
+async function createMenuSession(base44, { restaurant_id, branch_id, source_type, source_template_id, source_branch_id }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'manage_menu');
+  const rec = await base44.asServiceRole.entities.MenuImportSession.create({
+    restaurant_id, branch_id: branch_id || null, created_by_user_id: user.id,
+    source_type: source_type || 'tamam_master_catalog', source_template_id: source_template_id || null,
+    source_branch_id: source_branch_id || null, status: 'selecting',
+  });
+  return { id: rec.id };
+}
+async function saveMenuCandidates(base44, { restaurant_id, branch_id, session_id, source_type, items }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'manage_menu');
+  if (!session_id) {
+    const s = await base44.asServiceRole.entities.MenuImportSession.create({
+      restaurant_id, branch_id: branch_id || null, created_by_user_id: user.id,
+      source_type: source_type || 'tamam_master_catalog', status: 'needs_review',
+    });
+    session_id = s.id;
+  }
+  const created = [];
+  for (const it of items || []) {
+    const genericName = it.generic_name || it.detected_name || '';
+    const norm = normalizeMenuName(genericName);
+    const dup = await detectDuplicate(base44, restaurant_id, norm, it.mapped_master_catalog_product_id || null);
+    const uc = {
+      name: it.name || genericName, price: it.price != null ? Number(it.price) : null,
+      description: it.description || '', image: it.image || '', available: it.available !== false,
+      prep_time: it.prep_time != null ? Number(it.prep_time) : null, category: it.category || '',
+      campaign_permission: it.campaign_permission !== false,
+      max_daily_quantity: it.max_daily_quantity != null ? Number(it.max_daily_quantity) : null,
+    };
+    const c = {
+      menu_import_session_id: session_id, restaurant_id, branch_id: branch_id || null,
+      source_reference: String(it.source_reference || 'catalog'),
+      detected_name: genericName, normalized_name: norm,
+      detected_description: it.generic_description || '', detected_price: it.price != null ? Number(it.price) : null,
+      detected_category: it.generic_category || it.category || '', detected_image: it.generic_image || '',
+      mapped_master_catalog_product_id: it.mapped_master_catalog_product_id || null,
+      mapping_confidence: it.mapped_master_catalog_product_id ? 100 : null,
+      duplicate_restaurant_menu_item_id: dup ? dup.id : null, duplicate_status: dup ? dup.status : 'none',
+      rights_status: it.rights_status || 'approved', review_status: 'needs_review',
+      user_changes: JSON.stringify(uc),
+      image_source_type: it.image_source_type || 'tamam_owned', image_source_reference: it.image_source_reference || '',
+      usage_permission_status: (it.image_source_type || 'tamam_owned') === 'tamam_owned' ? 'approved' : 'unknown',
+    };
+    c.missing_fields = candidateMissing(c, uc);
+    if (!c.missing_fields.length && c.duplicate_status === 'none') c.review_status = 'ready';
+    const rec = await base44.asServiceRole.entities.MenuImportCandidate.create(c);
+    created.push(rec.id);
+  }
+  const all = await base44.asServiceRole.entities.MenuImportCandidate.filter({ menu_import_session_id: session_id }, '-created_date', 500).catch(() => []);
+  const ready = (all || []).filter((c) => c.review_status === 'ready').length;
+  const dup = (all || []).filter((c) => c.duplicate_status !== 'none').length;
+  await base44.asServiceRole.entities.MenuImportSession.update(session_id, { status: 'needs_review', total_items: (all || []).length, ready_items: ready, duplicate_items: dup });
+  await logAudit(base44, restaurant_id, user.id, user.full_name, 'import', session_id, 'menu_candidates_saved', null, { count: created.length }, '');
+  return { session_id, candidate_ids: created };
+}
+async function listMenuCandidates(base44, { restaurant_id, branch_id, tab }) {
+  await resolveMembership(base44, restaurant_id, 'manage_menu');
+  const list = await base44.asServiceRole.entities.MenuImportCandidate.filter({ restaurant_id }, '-created_date', 300).catch(() => []);
+  let res = list || [];
+  if (tab === 'needs_review') res = res.filter((c) => c.review_status === 'needs_review');
+  else if (tab === 'ready') res = res.filter((c) => c.review_status === 'ready');
+  else if (tab === 'imported') res = res.filter((c) => c.review_status === 'imported');
+  else if (tab === 'issues') res = res.filter((c) => c.review_status === 'failed' || c.duplicate_status === 'unresolved' || c.usage_permission_status === 'pending' || c.usage_permission_status === 'unknown');
+  return res.map(candidateSummary);
+}
+async function updateMenuCandidate(base44, { restaurant_id, candidate_id, changes }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'manage_menu');
+  const ex = await base44.asServiceRole.entities.MenuImportCandidate.get(candidate_id).catch(() => null);
+  if (!ex || ex.restaurant_id !== restaurant_id) throw authError(404, 'not_found');
+  const next = { ...parseUserChanges(ex.user_changes), ...(changes || {}) };
+  const fields = { user_changes: JSON.stringify(next) };
+  const composite = { ...ex, detected_name: next.name || ex.detected_name, detected_price: next.price != null ? next.price : ex.detected_price, detected_image: next.image || ex.detected_image, detected_category: next.category || ex.detected_category };
+  const miss = candidateMissing(composite, next);
+  fields.missing_fields = miss;
+  fields.review_status = (!miss.length && ex.duplicate_status !== 'unresolved' && ex.usage_permission_status !== 'pending') ? 'ready' : 'needs_review';
+  if (changes.review_status) fields.review_status = changes.review_status;
+  if (changes.rights_status) fields.rights_status = changes.rights_status;
+  await base44.asServiceRole.entities.MenuImportCandidate.update(candidate_id, fields);
+  await logAudit(base44, restaurant_id, user.id, user.full_name, 'import', candidate_id, 'candidate_updated', null, fields, '');
+  return { id: candidate_id, review_status: fields.review_status, missing_fields: miss };
+}
+async function resolveDuplicate(base44, { restaurant_id, candidate_id, decision }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'manage_menu');
+  const ex = await base44.asServiceRole.entities.MenuImportCandidate.get(candidate_id).catch(() => null);
+  if (!ex || ex.restaurant_id !== restaurant_id) throw authError(404, 'not_found');
+  const u = parseUserChanges(ex.user_changes); u.duplicate_decision = decision;
+  let status = 'needs_review';
+  let dupStatus = ex.duplicate_status;
+  if (decision === 'update' || decision === 'new') { if (!candidateMissing(ex, u).length) status = 'ready'; }
+  else if (decision === 'later') { status = 'needs_review'; dupStatus = 'unresolved'; }
+  await base44.asServiceRole.entities.MenuImportCandidate.update(candidate_id, { user_changes: JSON.stringify(u), review_status: status, duplicate_status: dupStatus });
+  await logAudit(base44, restaurant_id, user.id, user.full_name, 'import', candidate_id, 'duplicate_resolved', ex.duplicate_status, decision, '');
+  return { ok: true };
+}
+async function publishMenuCandidates(base44, { restaurant_id, candidate_ids }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'manage_menu');
+  if (!Array.isArray(candidate_ids) || !candidate_ids.length) throw authError(400, 'no_candidates');
+  const created = []; const skipped = [];
+  for (const cid of candidate_ids) {
+    const c = await base44.asServiceRole.entities.MenuImportCandidate.get(cid).catch(() => null);
+    if (!c || c.restaurant_id !== restaurant_id || c.review_status !== 'ready') { skipped.push(cid); continue; }
+    const u = parseUserChanges(c.user_changes);
+    const name = u.name || c.detected_name;
+    const price = u.price != null ? u.price : c.detected_price;
+    const image = u.image || c.detected_image;
+    if (!name || price == null || Number(price) <= 0) { skipped.push(cid); continue; }
+    const fields = {
+      restaurant_id, mapped_tamam_product_id: c.mapped_master_catalog_product_id || null,
+      meal_id: c.mapped_master_catalog_product_id || null, meal_name_snapshot: c.detected_name,
+      restaurant_product_name: name, price: Number(price),
+      short_description_ar: u.description || c.detected_description || '',
+      customer_visible_description: u.description || c.detected_description || '',
+      primary_image: image || null, available: u.available !== false, active: true,
+      available_quantity: u.max_daily_quantity || null,
+      preparation_time_override: u.prep_time != null ? Number(u.prep_time) : null,
+      restaurant_category_name: u.category || c.detected_category || '',
+      mapping_status: c.mapped_master_catalog_product_id ? 'mapped' : 'unmapped',
+      mapping_confidence: c.mapping_confidence || 0, mapped_at: new Date().toISOString(), mapped_by: user.id,
+      display_order: 0, dietary_labels: [], currency: 'ILS', tax_included: true,
+      import_batch_id: c.menu_import_session_id,
+    };
+    const rec = await base44.asServiceRole.entities.RestaurantMealOffer.create(fields);
+    await base44.asServiceRole.entities.MenuImportCandidate.update(cid, { review_status: 'imported' });
+    created.push(rec.id);
+  }
+  await logAudit(base44, restaurant_id, user.id, user.full_name, 'import', restaurant_id, 'menu_published', null, { count: created.length }, '');
+  return { created: created.length, skipped: skipped.length };
+}
+async function listMenuTemplates(base44) {
+  await base44.auth.me();
+  const list = await base44.asServiceRole.entities.MenuTemplate.filter({ is_active: true }, 'name_ar', 50).catch(() => []);
+  return (list || []).map((t) => ({
+    id: t.id, name_ar: t.name_ar, description_ar: t.description_ar, restaurant_type: t.restaurant_type,
+    source_type: t.source_type, permission_status: t.permission_status, item_count: t.item_count || 0,
+  }));
+}
+async function getMenuTemplate(base44, { template_id }) {
+  await base44.auth.me();
+  const t = await base44.asServiceRole.entities.MenuTemplate.get(template_id).catch(() => null);
+  if (!t) throw authError(404, 'not_found');
+  const items = await base44.asServiceRole.entities.MenuTemplateItem.filter({ menu_template_id: template_id }, 'display_order', 200).catch(() => []);
+  return {
+    template: { id: t.id, name_ar: t.name_ar, description_ar: t.description_ar, restaurant_type: t.restaurant_type, source_type: t.source_type, permission_status: t.permission_status },
+    items: (items || []).map((i) => ({
+      id: i.id, tamam_master_catalog_product_id: i.tamam_master_catalog_product_id,
+      generic_name_ar: i.generic_name_ar, generic_description_ar: i.generic_description_ar,
+      approved_image_url: i.approved_image_url, default_category_name: i.default_category_name,
+      is_optional: i.is_optional, display_order: i.display_order,
+    })),
+  };
+}
+
 const ROUTES = {
   getMyContext,
   submitPartnerApplication,
@@ -1284,4 +1491,12 @@ const ROUTES = {
   saveDemandOverride,
   listDemandOverrides,
   requestDemandOpportunity,
+  createMenuSession,
+  saveMenuCandidates,
+  listMenuCandidates,
+  updateMenuCandidate,
+  resolveDuplicate,
+  publishMenuCandidates,
+  listMenuTemplates,
+  getMenuTemplate,
 };

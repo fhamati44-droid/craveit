@@ -4,6 +4,7 @@ import { usePartner } from '@/lib/partnerContext';
 import { listMenuItems, updateMenuItem } from '@/lib/partnerApi';
 import { EmptyState } from '@/components/tamam/customer/States';
 import Toggle from '@/components/partner/Toggle';
+import AddMenuSheet from '@/components/partner/menu/AddMenuSheet';
 
 const FILTERS = [
   { key: 'all', label: 'الكل' },
@@ -22,6 +23,7 @@ export default function PartnerMenu() {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [togglingId, setTogglingId] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
 
   const load = () => {
     if (!rid) return;
@@ -70,7 +72,7 @@ export default function PartnerMenu() {
         ) : error ? (
           <EmptyState icon="⚠️" title="ما قدرنا نحمّل المنيو" actionLabel="إعادة" onAction={load} />
         ) : grouped.length === 0 ? (
-          <EmptyState icon="🍽️" title="ما في أصناف" subtitle="ابدأ بإضافة صنف أو استيراد ملف" actionLabel="إضافة وجبة" onAction={() => navigate('/partner/menu/items/new')} />
+          <EmptyState icon="🍽️" title="ما في أصناف" subtitle="ابدأ بإضافة صنف أو استيراد ملف" actionLabel="أضف أصناف" onAction={() => setShowAdd(true)} />
         ) : (
           grouped.map(([cat, list]) => (
             <div key={cat} className="space-y-2">
@@ -119,12 +121,17 @@ export default function PartnerMenu() {
       </div>
 
       <div className="fixed bottom-24 inset-x-0 z-30 pointer-events-none">
-        <div className="max-w-[430px] mx-auto px-4 flex justify-start">
-          <button onClick={() => navigate('/partner/menu/items/new')} className="pointer-events-auto h-12 px-5 bg-tamam-green-bright text-tamam-ink rounded-full shadow-lg flex items-center gap-2 font-bold text-sm active:scale-95 transition-transform">
-            <span className="material-symbols-outlined text-[20px]">add</span> أضف وجبة
+        <div className="max-w-[430px] mx-auto px-4 flex justify-start gap-2">
+          <button onClick={() => setShowAdd(true)} className="pointer-events-auto h-12 px-5 bg-tamam-green-bright text-tamam-ink rounded-full shadow-lg flex items-center gap-2 font-bold text-sm active:scale-95 transition-transform">
+            <span className="material-symbols-outlined text-[20px]">add</span> أضف أصناف
+          </button>
+          <button onClick={() => navigate('/partner/menu/drafts')} className="pointer-events-auto h-12 px-4 bg-tamam-surface border border-tamam-outline/40 text-tamam-text rounded-full shadow-lg flex items-center gap-1.5 font-bold text-sm active:scale-95 transition-transform">
+            <span className="material-symbols-outlined text-[18px]">edit_note</span> المراجعة
           </button>
         </div>
       </div>
+
+      <AddMenuSheet open={showAdd} onClose={() => setShowAdd(false)} onNavigate={(to) => navigate(to)} />
     </div>
   );
 }
