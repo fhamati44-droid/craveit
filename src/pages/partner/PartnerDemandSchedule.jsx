@@ -70,8 +70,11 @@ export default function PartnerDemandSchedule() {
   // persistDay takes the explicitly-computed next day map so it never reads a
   // stale closure value of localByDay (the old persist(day) read localByDay[day]
   // from the closure, which lagged behind the setState just triggered).
+  // Returns true only after saveDemandSlots succeeds; false otherwise. On
+  // failure we stay on the page, keep local selections, and surface the
+  // retry UI (saveState === 'error').
   const persistDay = useCallback(async (day, nextDayMap) => {
-    if (!rid) return;
+    if (!rid) return false;
     const map = nextDayMap || localByDay[day] || {};
     setSaveState('saving');
     const slots = Object.entries(map)
@@ -90,8 +93,10 @@ export default function PartnerDemandSchedule() {
       setSaveState('saved');
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setSaveState('idle'), 2000);
+      return true;
     } catch {
       setSaveState('error');
+      return false;
     }
   }, [rid, localByDay]);
 
@@ -258,7 +263,7 @@ export default function PartnerDemandSchedule() {
         {saveState === 'error' && (
           <div className="mt-3 bg-tamam-error/10 border border-tamam-error/30 rounded-xl p-3 text-center">
             <p className="text-[11px] text-tamam-error font-bold mb-2">ما قدرنا نحفظ التعديل. اختياراتك ضلت موجودة.</p>
-            <button onClick={() => persistDay(selectedDay)} className="h-10 px-4 rounded-xl bg-tamam-surface-high text-tamam-text font-bold text-xs">حاول مرة ثانية</button>
+            <button onClick={() => persistDay(selectedDay, { ...(localByDay[selectedDay] || {}) })} className="h-10 px-4 rounded-xl bg-tamam-surface-high text-tamam-text font-bold text-xs">حاول مرة ثانية</button>
           </div>
         )}
       </div>
@@ -283,7 +288,7 @@ export default function PartnerDemandSchedule() {
         <SheetContent side="bottom" className="bg-tamam-surface text-tamam-text font-tamam" dir="rtl">
           <h2 className="font-bold text-base">في تعديلات لسه ما انحفظت</h2>
           <div className="flex flex-col gap-2 mt-4">
-            <button onClick={async () => { setBackGuard(false); await persistDay(selectedDay); navigate(-1); }} className="h-12 rounded-xl bg-tamam-green text-tamam-ink font-bold text-sm">احفظ واطلع</button>
+            <button onClick={async () => { setBackGuard(false); const ok = await persistDay(selectedDay, { ...(localByDay[selectedDay] || {}) }); if (ok) navigate(-1); }} disabled={saveState === 'saving'} className="h-12 rounded-xl bg-tamam-green text-tamam-ink font-bold text-sm disabled:opacity-50 disabled:active:scale-100">احفظ واطلع</button>
             <button onClick={() => setBackGuard(false)} className="h-12 rounded-xl bg-tamam-surface-high text-tamam-text font-bold text-sm">كمّل التعديل</button>
             <button onClick={() => { setBackGuard(false); navigate(-1); }} className="h-12 rounded-xl bg-tamam-surface text-tamam-text-muted font-bold text-sm">اطلع بدون حفظ</button>
           </div>
