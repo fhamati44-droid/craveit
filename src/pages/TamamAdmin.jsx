@@ -113,7 +113,10 @@ export default function TamamAdmin() {
             <ArrowRight size={16} /> לאתר
           </Link>
           <h1 className="text-lg font-extrabold">TAMAM Admin</h1>
-          <Link to="/tamam-game" className="text-blue text-sm font-bold">צפה במשחק</Link>
+          <div className="flex items-center gap-3">
+            <Link to="/admin/demo-data" className="text-amber-600 text-sm font-bold">بيانات تجريبية</Link>
+            <Link to="/tamam-game" className="text-blue text-sm font-bold">צפה במשחק</Link>
+          </div>
         </div>
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
           <button onClick={() => setTab('moods')}

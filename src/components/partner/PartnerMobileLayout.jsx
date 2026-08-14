@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usePartner } from '@/lib/partnerContext';
+import DemoModeBanner from '@/components/partner/DemoModeBanner';
 
 const NAV = [
   { to: '/partner/home', label: 'الرئيسية', icon: 'dashboard' },
@@ -50,6 +51,8 @@ export default function PartnerMobileLayout({ children }) {
           </div>
         </div>
       </header>
+
+      {r?.is_demo && <DemoModeBanner />}
 
       {/* Body */}
       <main className="flex-1">{children}</main>

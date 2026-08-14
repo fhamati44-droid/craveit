@@ -57,6 +57,15 @@
     },
     "note": {
       "type": "string"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false,
+      "title": "Demo record flag"
+    },
+    "demo_batch_id": {
+      "type": "string",
+      "title": "Demo batch id"
     }
   },
   "required": [

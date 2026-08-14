@@ -48,6 +48,7 @@ import HomepageAdmin from '@/pages/admin/HomepageAdmin';
 import HomepagePreview from '@/pages/admin/HomepagePreview';
 import HomepageMedia from '@/pages/admin/HomepageMedia';
 import SystemCheck from '@/pages/admin/SystemCheck';
+import AdminDemoData from '@/pages/admin/AdminDemoData';
 import HomepageTimeAdmin from '@/pages/admin/HomepageTimeAdmin';
 import MoodGame from '@/pages/MoodGame';
 import CommunityMoods from '@/pages/CommunityMoods';
@@ -165,6 +166,7 @@ function App() {
               <Route path="/admin/mood-game/review" element={<MoodGameReview />} />
               <Route path="/admin/mood-game/comments" element={<MoodGameComments />} />
               <Route path="/admin/system-check" element={<SystemCheck />} />
+              <Route path="/admin/demo-data" element={<AdminDemoData />} />
             </Route>
             <Route path="/partner" element={<PartnerRoute />}>
               <Route index element={<Navigate to="/partner/home" replace />} />

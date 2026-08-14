@@ -95,6 +95,15 @@
     "converted_offer_id": {
       "type": "string",
       "title": "GroupDeal id created from this request"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false,
+      "title": "Demo record flag"
+    },
+    "demo_batch_id": {
+      "type": "string",
+      "title": "Demo batch id"
     }
   },
   "required": [

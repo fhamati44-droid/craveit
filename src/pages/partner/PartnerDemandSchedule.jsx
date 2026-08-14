@@ -67,10 +67,14 @@ export default function PartnerDemandSchedule() {
   const operating = profile?.operating_hours?.[selectedDay] || { open: '10:00', close: '22:00' };
   const blocks = useMemo(() => buildBlocks(operating.open, operating.close, 60, showAll24), [operating.open, operating.close, showAll24]);
 
-  const persist = useCallback(async (day) => {
+  // persistDay takes the explicitly-computed next day map so it never reads a
+  // stale closure value of localByDay (the old persist(day) read localByDay[day]
+  // from the closure, which lagged behind the setState just triggered).
+  const persistDay = useCallback(async (day, nextDayMap) => {
     if (!rid) return;
+    const map = nextDayMap || localByDay[day] || {};
     setSaveState('saving');
-    const slots = Object.entries(localByDay[day] || {})
+    const slots = Object.entries(map)
       .filter(([, l]) => l && l !== 'unknown')
       .map(([start, l]) => ({ start_time: start, end_time: endOf(start), demand_level: l }));
     try {
@@ -94,14 +98,10 @@ export default function PartnerDemandSchedule() {
   const applyHour = (level) => {
     const start = hourSheet?.start;
     if (start == null) return;
-    setLocalByDay((prev) => {
-      const next = { ...prev };
-      if (!next[selectedDay]) next[selectedDay] = {};
-      next[selectedDay] = { ...next[selectedDay], [start]: level };
-      return next;
-    });
+    const dayMap = { ...(localByDay[selectedDay] || {}), [start]: level };
+    setLocalByDay((prev) => ({ ...prev, [selectedDay]: dayMap }));
     setHourSheet(null);
-    persist(selectedDay);
+    persistDay(selectedDay, dayMap);
   };
 
   const togglePaint = (start) => setPaintSel((prev) => {
@@ -111,16 +111,11 @@ export default function PartnerDemandSchedule() {
   });
   const paintApply = () => {
     if (!paintSel.size) return;
-    setLocalByDay((prev) => {
-      const next = { ...prev };
-      if (!next[selectedDay]) next[selectedDay] = {};
-      const dayMap = { ...next[selectedDay] };
-      paintSel.forEach((start) => { dayMap[start] = paintLevel; });
-      next[selectedDay] = dayMap;
-      return next;
-    });
+    const dayMap = { ...(localByDay[selectedDay] || {}) };
+    paintSel.forEach((start) => { dayMap[start] = paintLevel; });
+    setLocalByDay((prev) => ({ ...prev, [selectedDay]: dayMap }));
     setPaintSel(new Set());
-    persist(selectedDay);
+    persistDay(selectedDay, dayMap);
   };
   const applyPeriod = (p) => setPaintSel((prev) => {
     const s = new Set(prev);
@@ -263,7 +258,7 @@ export default function PartnerDemandSchedule() {
         {saveState === 'error' && (
           <div className="mt-3 bg-tamam-error/10 border border-tamam-error/30 rounded-xl p-3 text-center">
             <p className="text-[11px] text-tamam-error font-bold mb-2">ما قدرنا نحفظ التعديل. اختياراتك ضلت موجودة.</p>
-            <button onClick={() => persist(selectedDay)} className="h-10 px-4 rounded-xl bg-tamam-surface-high text-tamam-text font-bold text-xs">حاول مرة ثانية</button>
+            <button onClick={() => persistDay(selectedDay)} className="h-10 px-4 rounded-xl bg-tamam-surface-high text-tamam-text font-bold text-xs">حاول مرة ثانية</button>
           </div>
         )}
       </div>
@@ -288,7 +283,7 @@ export default function PartnerDemandSchedule() {
         <SheetContent side="bottom" className="bg-tamam-surface text-tamam-text font-tamam" dir="rtl">
           <h2 className="font-bold text-base">في تعديلات لسه ما انحفظت</h2>
           <div className="flex flex-col gap-2 mt-4">
-            <button onClick={async () => { setBackGuard(false); await persist(selectedDay); navigate(-1); }} className="h-12 rounded-xl bg-tamam-green text-tamam-ink font-bold text-sm">احفظ واطلع</button>
+            <button onClick={async () => { setBackGuard(false); await persistDay(selectedDay); navigate(-1); }} className="h-12 rounded-xl bg-tamam-green text-tamam-ink font-bold text-sm">احفظ واطلع</button>
             <button onClick={() => setBackGuard(false)} className="h-12 rounded-xl bg-tamam-surface-high text-tamam-text font-bold text-sm">كمّل التعديل</button>
             <button onClick={() => { setBackGuard(false); navigate(-1); }} className="h-12 rounded-xl bg-tamam-surface text-tamam-text-muted font-bold text-sm">اطلع بدون حفظ</button>
           </div>
