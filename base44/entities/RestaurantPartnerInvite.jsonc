@@ -1,83 +1,75 @@
 {
-  "name": "RestaurantMembership",
+  "name": "RestaurantPartnerInvite",
   "type": "object",
   "properties": {
-    "user_id": {
+    "email": {
       "type": "string",
-      "title": "Base44 user id"
+      "title": "Invited email (normalized lowercase)"
     },
     "restaurant_id": {
       "type": "string",
       "title": "Restaurant (Base44 id)"
-    },
-    "branch_id": {
-      "type": "string",
-      "title": "Branch (optional)"
     },
     "partner_role": {
       "type": "string",
       "enum": [
         "owner",
         "manager",
-        "kitchen_staff",
-        "menu_manager",
         "employee",
         "demo_reviewer"
       ],
-      "title": "Partner role"
-    },
-    "status": {
-      "type": "string",
-      "enum": [
-        "pending",
-        "active",
-        "suspended",
-        "revoked"
-      ],
-      "default": "pending"
+      "title": "Partner role granted on claim"
     },
     "permissions": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "title": "Granted permissions"
+      "title": "Permissions copied into the membership on claim"
     },
-    "invited_by": {
+    "status": {
       "type": "string",
-      "title": "Inviting admin/owner user id"
+      "enum": [
+        "pending",
+        "accepted",
+        "revoked",
+        "expired"
+      ],
+      "default": "pending"
     },
-    "activated_at": {
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Null = no expiry"
+    },
+    "accepted_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "accepted_user_id": {
+      "type": "string",
+      "title": "Base44 user id that claimed the invite"
+    },
+    "invited_by_user_id": {
+      "type": "string",
+      "title": "Admin user id that sent the invite"
     },
     "is_demo": {
       "type": "boolean",
       "default": false,
-      "title": "Demo record flag"
-    },
-    "demo_batch_id": {
-      "type": "string",
-      "title": "Demo batch id"
+      "title": "Mirrors the target restaurant is_demo flag"
     }
   },
   "required": [
-    "user_id",
+    "email",
     "restaurant_id",
     "partner_role"
   ],
   "rls": {
     "read": {
-      "$or": [
-        {
-          "data.user_id": "{{user.id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "create": {
       "user_condition": {

@@ -26,7 +26,17 @@ export function PartnerProvider({ children }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getMyContext();
+      let res = await getMyContext();
+      // First-login claim: a non-admin user with no memberships yet may have a
+      // pending email-bound partner invitation. Claim it (server-side, email
+      // match enforced there) before resolving to the "no access" state.
+      if (res && !res.isAdmin && (res.memberships || []).length === 0) {
+        try {
+          const claimRes = await base44.functions.invoke('partnerAccessAdmin', { action: 'claim_my_partner_invites', payload: {} });
+          const claimed = claimRes?.data?.data?.claimed || claimRes?.data?.claimed || [];
+          if (Array.isArray(claimed) && claimed.length > 0) res = await getMyContext();
+        } catch { /* ignore — fall through to denied state */ }
+      }
       setCtx(res);
     } catch (e) {
       if (e?.error === 'auth_required' || e?.status === 401) setNeedLogin(true);
