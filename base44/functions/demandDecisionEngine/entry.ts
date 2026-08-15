@@ -2,12 +2,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { requireAdmin } from '../../shared/partnerShared.ts';
 import { json } from '../../shared/httpHelpers.ts';
 import {
-  DEMO_SCENARIOS, DEMO_BATCH, STRATEGY_OBJECTIVE, PRIORITY_SCORE, CONFIDENCE, SAFETY,
+  DEMO_SCENARIOS, DEMO_BATCH, PRIORITY_SCORE, CONFIDENCE, SAFETY, CAPACITY,
+  OBJECTIVE_TO_CAMPAIGN, MECHANISM_TO_OFFER_TYPE,
 } from '../../shared/demandDecisionConfig.ts';
 import {
   calcSafeAdditionalCapacity, calcDemandGap, calcDemandState, hardBlockers,
-  calcOpportunityScore, decideDemandAction, recommendStrategy, recommendQuota,
-  mapDecisionToOpportunityType, generateExplanation, cannibalizationLabel,
+  calcOpportunityScore, decideDemandAction, recommendStrategy, recommendObjective,
+  recommendQuota, mapDecisionToOpportunityType, generateExplanation,
+  cannibalizationLabel, compareStrategies, calcInterventionCost,
+  calcExpectedIncrementalValue, mechanismVariant, costLabel,
   type DecisionInputs,
 } from '../../shared/demandDecisionLogic.ts';
 
@@ -18,6 +21,11 @@ import {
 // a strategy + quota. It does NOT build offers or touch checkout safety.
 // Accepted decisions reuse the EXISTING Opportunity entity (mapped to an
 // existing opportunity_type) — no second opportunity system.
+//
+// MILESTONE 2: corrected capacity/gap semantics (no double subtraction),
+// partner-owned capacity model with source priority + confidence, strategy V2
+// (objective + mechanism), intervention cost, expected incremental value,
+// strategy comparison, data-source labeling, active-campaign reevaluation.
 // ============================================================================
 
 function iso(d: Date) { return d.toISOString(); }
@@ -71,10 +79,11 @@ async function buildScenarioInputs(SR: any, scenario: any, testTime?: string): P
     product_priority: inp.product_priority,
     product_available: inp.product_available,
     mapping_valid: inp.mapping_valid,
+    safe_operational_target: inp.safe_operational_target ?? inp.safe_capacity ?? 0,
     baseline_orders: inp.baseline_orders,
     projected_natural_orders: inp.projected_natural_orders,
-    safe_capacity: inp.safe_capacity,
     existing_campaign_commitment: inp.existing_campaign_commitment,
+    desired_demand_target: inp.desired_demand_target ?? null,
     audience_segment: inp.audience_segment,
     audience_size: inp.audience_size,
     audience_intent_score: inp.audience_intent_score,
@@ -91,14 +100,50 @@ async function buildScenarioInputs(SR: any, scenario: any, testTime?: string): P
     learning_mode: inp.learning_mode,
     automation_mode: inp.automation_mode,
     surplus_qty: inp.surplus_qty ?? null,
+    capacity_source: inp.capacity_source || 'heuristic_fallback',
   };
   return { inputs, window_start: iso(startD), window_end: iso(endD), now_ms: nowMs, upcoming };
 }
 
+// ============================================================================
+// CAPACITY RESOLUTION (Milestone 2) — strict source priority + confidence.
+// Returns { target, source, confidence }.
+// ============================================================================
+function resolveCapacity(rest: any, trafficLight: string, pressure: boolean, surplusQty: number | null, dayLevel: string): {
+  target: number; source: string; confidence: number;
+} {
+  // 1. real-time operational restriction -> cap 0 (high confidence for "now")
+  if (pressure || trafficLight === 'RED' || rest.current_status === 'busy' || rest.current_status === 'temporarily_unavailable' || !rest.accepts_orders) {
+    return { target: 0, source: 'realtime_restriction', confidence: CAPACITY.source_confidence.realtime_restriction };
+  }
+  // 2. temporary restaurant signal (surplus quantity IS the available capacity)
+  if (surplusQty != null && surplusQty > 0) {
+    return { target: Number(surplusQty), source: 'temporary_signal', confidence: CAPACITY.source_confidence.temporary_signal };
+  }
+  // 3. time-specific configured capacity (weak/peak) by traffic light
+  if (dayLevel === 'quiet' && rest.capacity_weak_period_additional != null) {
+    return { target: Number(rest.capacity_weak_period_additional), source: 'time_specific', confidence: CAPACITY.source_confidence.time_specific };
+  }
+  if (dayLevel === 'busy' && rest.capacity_peak_period_additional != null) {
+    return { target: Math.round(Number(rest.capacity_peak_period_additional)), source: 'time_specific', confidence: CAPACITY.source_confidence.time_specific };
+  }
+  // 4. restaurant default configured capacity (partner-provided)
+  if (rest.capacity_normal_additional_per_hour != null) {
+    let cap = Number(rest.capacity_normal_additional_per_hour);
+    // apply peak multiplier under yellow (reduced capacity)
+    if (trafficLight === 'YELLOW') cap = Math.round(cap * CAPACITY.peak_multiplier);
+    // use weak multiplier under green (full)
+    return { target: cap, source: 'restaurant_default', confidence: rest.capacity_confidence != null ? Number(rest.capacity_confidence) : CAPACITY.source_confidence.restaurant_default };
+  }
+  // 5. historical inferred capacity — handled by caller via order history; here we signal unknown
+  // 6. heuristic fallback (lowest confidence)
+  let fb = SAFETY.default_safe_capacity;
+  if (trafficLight === 'YELLOW') fb = Math.round(fb * 0.6);
+  return { target: fb, source: 'heuristic_fallback', confidence: CAPACITY.source_confidence.heuristic_fallback };
+}
+
 // ---- Build DecisionInputs from REAL data (production path) ----
-// Documented fallback heuristics are used where real data is insufficient;
-// confidence is reduced accordingly. No fabricated history.
-async function buildRealInputs(SR: any, payload: any): Promise<{ inputs: DecisionInputs; window_start: string; window_end: string; now_ms: number; upcoming: boolean }> {
+async function buildRealInputs(SR: any, payload: any): Promise<{ inputs: DecisionInputs; window_start: string; window_end: string; now_ms: number; upcoming: boolean; data_sources: any }> {
   const rid: string = payload.restaurant_id;
   if (!rid) throw new Error('restaurant_id required');
   const rest = await SR.entities.Restaurant.get(rid).catch(() => null);
@@ -133,7 +178,10 @@ async function buildRealInputs(SR: any, payload: any): Promise<{ inputs: Decisio
   const restaurantOpen = rest.current_status === 'open' && rest.accepts_orders;
   const restaurantStatus = rest.current_status || 'open';
 
-  // existing campaign commitment (real) — active/scheduled CampaignOffers for this restaurant overlapping window
+  // CAPACITY resolution (source priority + confidence)
+  const cap = resolveCapacity(rest, trafficLight, pressure, surplusQty, effLevel);
+
+  // existing campaign commitment (real) — active/scheduled CampaignOffers overlapping window
   const offers = await SR.entities.CampaignOffer.filter({ restaurant_id: rid }).catch(() => []);
   let committed = 0;
   for (const o of (offers || [])) {
@@ -145,7 +193,6 @@ async function buildRealInputs(SR: any, payload: any): Promise<{ inputs: Decisio
       committed += Math.max(0, (o.quota_total == null ? 0 : o.quota_total) - (o.quota_used || 0));
     }
   }
-  const campaignCount = (offers || []).filter((o: any) => !o.is_demo && ['active', 'scheduled'].includes(o.status)).length;
 
   // baseline from REAL history: delivered RestaurantSubOrders in same weekday + same hour-band, last 8 weeks
   const allOrders = await SR.entities.RestaurantSubOrder.filter({ restaurant_id: rid, status: 'delivered' }).catch(() => []);
@@ -160,33 +207,47 @@ async function buildRealInputs(SR: any, payload: any): Promise<{ inputs: Decisio
     comparable.push(o);
   }
   let baseline: number;
+  let baselineSource: string;
   let confidence: number;
   if (comparable.length >= CONFIDENCE.min_sample_size) {
     baseline = comparable.length / Math.max(1, Math.min(8, new Set(comparable.map((o) => new Date(o.updated_date || o.created_date).toDateString())).size));
+    baselineSource = 'ACTUAL';
     confidence = Math.min(0.85, 0.4 + comparable.length * 0.05);
   } else {
-    // fallback heuristic: quiet traffic light → low baseline; medium → mid; busy → high. Reduced confidence.
+    // fallback heuristic: traffic-light-based estimate. Reduced confidence.
     const fb = trafficLight === 'RED' ? 22 : trafficLight === 'YELLOW' ? 12 : trafficLight === 'GREEN' ? 6 : 8;
     baseline = fb;
+    baselineSource = 'HEURISTIC';
     confidence = 0.3;
   }
 
-  // projected natural = baseline + small lift from recent intent (TamamSuggestionClick last 24h for this restaurant)
+  // projected natural = baseline + small lift from recent intent (TamamSuggestionClick last 24h)
   const clicks = await SR.entities.TamamSuggestionClick.filter({ restaurant_id: rid }).catch(() => []);
   const recentClicks = (clicks || []).filter((c: any) => now() - new Date(c.created_date).getTime() < 86400000).length;
   const intentLift = Math.min(3, Math.round(recentClicks * 0.2));
   const projected = Math.max(0, Math.round((baseline + intentLift) * 10) / 10);
 
-  // safe capacity: heuristic from operating status + default, reduced by pressure. Surplus uses surplus qty.
-  let safeCap = SAFETY.default_safe_capacity;
-  if (pressure || trafficLight === 'RED') safeCap = 0;
-  else if (trafficLight === 'YELLOW') safeCap = Math.round(SAFETY.default_safe_capacity * 0.6);
-  if (surplusQty != null) safeCap = surplusQty;
+  // If capacity was heuristic fallback but we have decent order history, try historical inference
+  let capacityTarget = cap.target;
+  let capacitySource = cap.source;
+  let capacityConfidence = cap.confidence;
+  if (capacitySource === 'heuristic_fallback' && comparable.length >= 2) {
+    // historical inferred: peak comparable-hour orders as a proxy for absorbable capacity
+    const peakHour = comparable.reduce((mx: number, o: any) => {
+      const od = new Date(o.updated_date || o.created_date);
+      return Math.max(mx, od.getHours() === startH ? 1 : 0);
+    }, 0);
+    // crude: average weekly comparable orders, scaled to per-window absorbable
+    const inferred = Math.max(5, Math.round((comparable.length / Math.max(1, new Set(comparable.map((o) => new Date(o.updated_date || o.created_date).toDateString())).size)) * 2));
+    capacityTarget = inferred;
+    capacitySource = 'historical_inferred';
+    capacityConfidence = comparable.length >= 6 ? 0.65 : 0.5;
+  }
 
-  // audience — real segment sizes (reuse logic similar to campaignEngine.computeSegments but returns sizes)
+  // audience — real segment sizes
   const audience = await findAudience(SR, rid, null);
 
-  // cannibalization: if chosen audience is repeat customers at this window → higher
+  // cannibalization
   const repeatAtWindow = (allOrders || []).filter((o: any) => {
     const t = o.updated_date ? new Date(o.updated_date).getTime() : 0;
     return t && new Date(t).getDay() === day && Math.abs(new Date(t).getHours() - startH) <= 2;
@@ -200,26 +261,34 @@ async function buildRealInputs(SR: any, payload: any): Promise<{ inputs: Decisio
   const recentImpressions = (events || []).filter((e: any) => now() - new Date(e.created_date).getTime() < 7 * 86400000).length;
   const fatigueScore = Math.min(1, recentImpressions / (audience.size || 1) / 3);
 
-  // commercial safety: if we have an item with a price, check a candidate offer price (heuristic 90% of normal)
+  // commercial safety: candidate offer price vs CommercialGuardrail floor
   let commercialSafe = true, commercialScore = 0.85, approvalRequired = false;
+  let normalPrice: number | null = null, customerPrice: number | null = null, tamamContribution = 0, restaurantContribution = 0, unlockPoints = 0;
   if (item && item.price) {
-    const floor = item.price * 0.7; // heuristic customer offer floor (would be CommercialGuardrail in full)
+    normalPrice = Number(item.price);
     const guardrails = await SR.entities.CommercialGuardrail.filter({ restaurant_id: rid, status: 'active' }).catch(() => []);
     const g = (guardrails || []).find((x: any) => !x.menu_item_id || x.menu_item_id === item.id);
+    // candidate: 90% of normal (heuristic offer)
+    customerPrice = Math.round(normalPrice * 0.9 * 100) / 100;
+    tamamContribution = Math.round((normalPrice - customerPrice) * 0.4 * 100) / 100; // heuristic split
+    restaurantContribution = Math.round((normalPrice - customerPrice - tamamContribution) * 100) / 100;
     if (g && g.minimum_customer_offer_price) {
-      const candidate = item.price * 0.9;
-      commercialSafe = candidate >= g.minimum_customer_offer_price;
+      commercialSafe = customerPrice >= g.minimum_customer_offer_price;
       commercialScore = commercialSafe ? 0.9 : 0.3;
       approvalRequired = !commercialSafe;
     }
+    if (g && g.minimum_restaurant_net != null) {
+      const net = customerPrice - tamamContribution;
+      if (net < g.minimum_restaurant_net) { commercialSafe = false; commercialScore = 0.3; approvalRequired = true; }
+    }
   }
 
-  // data confidence adjustment
+  // data confidence: blend baseline confidence + capacity confidence
+  confidence = Math.min(confidence, Math.max(confidence * 0.6 + capacityConfidence * 0.4, capacityConfidence));
   if (!profile) confidence = Math.min(confidence, 0.4);
   if (!mappingValid) confidence = Math.min(confidence, 0.3);
-  const learningMode = comparable.length < CONFIDENCE.min_sample_size;
+  const learningMode = comparable.length < CONFIDENCE.min_sample_size || capacitySource === 'heuristic_fallback';
 
-  // priority
   const priority = payload.product_priority || (surplusQty != null ? 'SURPLUS' : 'NORMAL');
 
   const inputs: DecisionInputs = {
@@ -234,17 +303,18 @@ async function buildRealInputs(SR: any, payload: any): Promise<{ inputs: Decisio
     product_priority: priority,
     product_available: productAvailable,
     mapping_valid: mappingValid,
+    safe_operational_target: capacityTarget,
     baseline_orders: baseline,
     projected_natural_orders: projected,
-    safe_capacity: safeCap,
     existing_campaign_commitment: committed,
+    desired_demand_target: payload.desired_demand_target ?? null,
     audience_segment: audience.segment,
     audience_size: audience.size,
     audience_intent_score: audience.intent,
     cannibalization_score: cannibalizationScore,
     fatigue_score: fatigueScore,
     operational_risk: pressure ? 0.9 : trafficLight === 'RED' ? 0.8 : trafficLight === 'YELLOW' ? 0.4 : 0.1,
-    campaign_saturation: safeCap > 0 ? Math.min(1, committed / safeCap) : 0,
+    campaign_saturation: capacityTarget > 0 ? Math.min(1, committed / capacityTarget) : 0,
     commercial_safe: commercialSafe,
     commercial_score: commercialScore,
     approval_required: approvalRequired,
@@ -254,19 +324,33 @@ async function buildRealInputs(SR: any, payload: any): Promise<{ inputs: Decisio
     learning_mode: learningMode,
     automation_mode: 'MANUAL',
     surplus_qty: surplusQty,
+    capacity_source: capacitySource,
+    normal_price: normalPrice,
+    customer_price: customerPrice,
+    tamam_contribution: tamamContribution,
+    restaurant_contribution: restaurantContribution,
+    unlock_points: unlockPoints,
   };
-  return { inputs, window_start: iso(new Date(winStart)), window_end: iso(new Date(winEnd)), now_ms: nowMs, upcoming };
+
+  const data_sources = {
+    baseline_orders: baselineSource,
+    projected_natural_orders: baselineSource === 'ACTUAL' ? 'INFERRED' : 'HEURISTIC',
+    safe_operational_target: capacitySource === 'restaurant_default' || capacitySource === 'time_specific' ? 'PARTNER_PROVIDED' : capacitySource === 'historical_inferred' ? 'INFERRED' : 'HEURISTIC',
+    existing_campaign_commitment: 'ACTUAL',
+    audience: 'INFERRED',
+    cannibalization: 'INFERRED',
+    commercial: item ? 'PARTNER_PROVIDED' : 'HEURISTIC',
+  };
+  return { inputs, window_start: iso(new Date(winStart)), window_end: iso(new Date(winEnd)), now_ms: nowMs, upcoming, data_sources };
 }
 
 // ---- Find a real audience segment + size for a restaurant ----
 async function findAudience(SR: any, rid: string, phoneHint?: string): Promise<{ segment: string; size: number; intent: number }> {
-  // NEW_TO_RESTAURANT: users with clicks but no delivered orders
   const clicks = await SR.entities.TamamSuggestionClick.filter({ restaurant_id: rid }).catch(() => []);
   const orderPhones = new Set(((await SR.entities.RestaurantSubOrder.filter({ restaurant_id: rid, status: 'delivered' }).catch(() => [])) || []).map((o: any) => o.customer_phone).filter(Boolean));
   const clickPhones = new Set((clicks || []).map((c: any) => c.phone).filter(Boolean));
   const newToRest = [...clickPhones].filter((p) => !orderPhones.has(p)).length;
 
-  // LAPSED_30 / LAPSED_60 from order history
   const allOrders = (await SR.entities.RestaurantSubOrder.filter({ restaurant_id: rid, status: 'delivered' }).catch(() => [])) || [];
   const lastByPhone: Record<string, number> = {};
   for (const o of allOrders) {
@@ -277,11 +361,9 @@ async function findAudience(SR: any, rid: string, phoneHint?: string): Promise<{
   const lapsed30 = Object.values(lastByPhone).filter((t) => { const d = (now() - t) / 86400000; return d >= 30 && d < 60; }).length;
   const lapsed60 = Object.values(lastByPhone).filter((t) => (now() - t) / 86400000 >= 60).length;
 
-  // POINTS_ENGAGED
   const accs = await SR.entities.LoyaltyAccount.list('-balance', 200).catch(() => []);
   const pointsEngaged = (accs || []).filter((a: any) => (a.balance || 0) >= 40).length;
 
-  // choose best segment by size + intent
   const candidates = [
     { segment: 'NEW_TO_RESTAURANT', size: newToRest, intent: 0.8 },
     { segment: 'LAPSED_30', size: lapsed30, intent: 0.6 },
@@ -294,13 +376,23 @@ async function findAudience(SR: any, rid: string, phoneHint?: string): Promise<{
 }
 
 // ---- Run the full decision pipeline on built inputs ----
-async function runDecision(SR: any, ctx: { inputs: DecisionInputs; window_start: string; window_end: string; now_ms: number; upcoming: boolean; scenario_key?: string; test_time?: string }) {
-  const { inputs, window_start, window_end, upcoming, scenario_key, test_time } = ctx;
+async function runDecision(SR: any, ctx: { inputs: DecisionInputs; window_start: string; window_end: string; now_ms: number; upcoming: boolean; scenario_key?: string; test_time?: string; data_sources?: any }) {
+  const { inputs, window_start, window_end, upcoming, scenario_key, test_time, data_sources } = ctx;
   const { decision, blockers, score, components, state } = decideDemandAction(inputs, upcoming);
+  const objectiveV2 = recommendObjective(inputs, decision);
+  const alternatives = compareStrategies(inputs, objectiveV2, decision);
   const rec = recommendStrategy(inputs, decision);
-  const { quota, explore_exploit } = recommendQuota(inputs, decision);
+  const { quota, explore_exploit } = recommendQuota(inputs, decision, rec.strategy || undefined);
   const expl = generateExplanation(inputs, decision, rec, quota, { score, components });
   const cann = cannibalizationLabel(inputs.cannibalization_score);
+  const safeAdditional = calcSafeAdditionalCapacity(inputs);
+  const gap = calcDemandGap(inputs);
+  const target = inputs.surplus_qty != null ? inputs.surplus_qty : inputs.safe_operational_target;
+
+  // intervention cost + expected value for the recommended mechanism
+  const mech = rec.strategy || '';
+  const interventionCost = mech ? calcInterventionCost(inputs, mech) : 0;
+  const ev = mech ? calcExpectedIncrementalValue(inputs, mech, quota) : { orders: 0, revenue: 0, tamam_cost: 0, restaurant_settlement: 0 };
 
   const record = {
     restaurant_id: inputs.restaurant_id,
@@ -311,9 +403,11 @@ async function runDecision(SR: any, ctx: { inputs: DecisionInputs; window_start:
     demand_state: state,
     baseline_orders: inputs.baseline_orders,
     projected_natural_orders: inputs.projected_natural_orders,
-    safe_additional_capacity: calcSafeAdditionalCapacity(inputs),
+    safe_operational_target: target,
+    safe_additional_capacity: safeAdditional,
     existing_campaign_commitment: inputs.existing_campaign_commitment,
-    demand_gap: calcDemandGap(inputs),
+    desired_demand_target: inputs.desired_demand_target ?? null,
+    demand_gap: gap,
     audience_segment: inputs.audience_segment,
     audience_size: inputs.audience_size,
     audience_intent_score: inputs.audience_intent_score,
@@ -325,6 +419,7 @@ async function runDecision(SR: any, ctx: { inputs: DecisionInputs; window_start:
     restaurant_priority_score: inputs.restaurant_priority_score,
     data_confidence_score: inputs.data_confidence,
     urgency_score: inputs.urgency_score,
+    capacity_source: inputs.capacity_source || '',
     opportunity_score: score,
     score_components: JSON.stringify(components),
     hard_blockers: blockers,
@@ -336,14 +431,97 @@ async function runDecision(SR: any, ctx: { inputs: DecisionInputs; window_start:
     explore_exploit,
     learning_mode: inputs.learning_mode,
     automation_mode: inputs.automation_mode,
+    intervention_cost_score: interventionCost,
+    expected_incremental_orders: ev.orders,
+    expected_incremental_revenue: ev.revenue,
+    expected_tamam_contribution_cost: ev.tamam_cost,
+    expected_restaurant_settlement: ev.restaurant_settlement,
+    strategy_alternatives: JSON.stringify(alternatives),
+    data_sources: JSON.stringify(data_sources || {}),
     explanation_internal: expl.internal,
     explanation_partner: expl.partner,
+    source_signal_ids: [],
     scenario_key: scenario_key || '',
     test_time: test_time || '',
     is_demo: !!scenario_key,
     demo_batch_id: scenario_key ? DEMO_BATCH : '',
   };
-  return { record, score, components, decision, blockers, rec, quota };
+  return { record, score, components, decision, blockers, rec, quota, alternatives, objectiveV2 };
+}
+
+// ============================================================================
+// ACTIVE CAMPAIGN SAFETY REEVALUATION (recommendation only — no autonomous change)
+// Scenarios 28 (pressure) & 29 (pressure cleared).
+// Returns: CONTINUE | PAUSE_RECOMMENDED | COMPLETE_RECOMMENDED | RESUME_RECOMMENDED
+// ============================================================================
+async function reevaluateActiveCampaign(SR: any, payload: any): Promise<any> {
+  const offer = await SR.entities.CampaignOffer.get(payload.offer_id).catch(() => null);
+  if (!offer) return { recommendation: 'COMPLETE_RECOMMENDED', reason: 'offer_not_found' };
+  if (offer.is_demo && !payload.include_demo) return { recommendation: 'COMPLETE_RECOMMENDED', reason: 'demo_not_included' };
+
+  const rest = await SR.entities.Restaurant.get(offer.restaurant_id).catch(() => null);
+  const sigs = await SR.entities.RestaurantOperationalSignal.filter({ restaurant_id: offer.restaurant_id, status: 'active' }).catch(() => []);
+  const pressure = (sigs || []).some((s: any) => s.type === 'kitchen_pressure' || s.type === 'temporary_pause');
+  const restaurantOpen = rest ? (rest.current_status === 'open' && rest.accepts_orders) : true;
+  const restaurantBusy = rest?.current_status === 'busy' || rest?.current_status === 'temporarily_unavailable';
+
+  const evalNow = (payload.include_demo && payload.test_time) ? new Date(payload.test_time).getTime() : now();
+  const start = offer.start_at ? new Date(offer.start_at).getTime() : 0;
+  const end = offer.end_at ? new Date(offer.end_at).getTime() : Infinity;
+  const total = offer.quota_total == null ? null : offer.quota_total;
+  const soldOut = total != null && (offer.quota_used || 0) >= total;
+  const expired = evalNow >= end;
+  const upcoming = evalNow < start;
+
+  // PAUSE if pressure / busy / closed (scenario 28)
+  if (pressure || restaurantBusy || !restaurantOpen) {
+    return {
+      recommendation: 'PAUSE_RECOMMENDED',
+      reason: pressure ? 'restaurant_pressure' : !restaurantOpen ? 'restaurant_closed' : 'restaurant_busy',
+      safe_additional_capacity: 0,
+      demand_state: 'OVERLOADED',
+      message_ar: 'المطعم عليه ضغط — بنوصي بإيقاف الحملة مؤقتاً. الطلبات المدفوعة ما تتأثر.',
+    };
+  }
+  // COMPLETE if expired / sold out (scenario 29 negative branch)
+  if (expired) return { recommendation: 'COMPLETE_RECOMMENDED', reason: 'offer_expired', message_ar: 'العرض انتهى.' };
+  if (soldOut) return { recommendation: 'COMPLETE_RECOMMENDED', reason: 'sold_out', message_ar: 'الكمية خلصت.' };
+  if (upcoming) return { recommendation: 'CONTINUE', reason: 'offer_upcoming', message_ar: 'العرض لسه ما بدأ.' };
+
+  // Pressure cleared: reevaluate value (scenario 29)
+  // If time remains, capacity available, offer valid, expected value positive -> RESUME
+  const timeRemainsMs = end - evalNow;
+  const timeRemainsMin = Math.round(timeRemainsMs / 60000);
+  const remaining = total != null ? Math.max(0, total - (offer.quota_used || 0)) : null;
+  // expected value proxy: remaining quota * price > 0
+  const valuePositive = (remaining == null || remaining > 0) && timeRemainsMin > 5 && (offer.customer_price || 0) > 0;
+
+  // Heuristic capacity: if restaurant configured capacity, check room
+  let safeAdditional = null;
+  if (rest?.capacity_normal_additional_per_hour != null) {
+    const cap = Number(rest.capacity_normal_additional_per_hour);
+    // crude: assume projected natural ~ half cap; safe additional ~ cap - projected
+    safeAdditional = Math.max(0, cap - Math.round(cap * 0.5));
+  }
+
+  if (valuePositive && (safeAdditional == null || safeAdditional > 0)) {
+    return {
+      recommendation: 'RESUME_RECOMMENDED',
+      reason: 'pressure_cleared_capacity_available',
+      time_remaining_min: timeRemainsMin,
+      remaining_quota: remaining,
+      safe_additional_capacity: safeAdditional,
+      message_ar: 'الضغط انفرج — في قدرة وقت متبقي، بنوصي باستئناف الحملة.',
+    };
+  }
+  return {
+    recommendation: 'COMPLETE_RECOMMENDED',
+    reason: 'no_remaining_value',
+    time_remaining_min: timeRemainsMin,
+    remaining_quota: remaining,
+    safe_additional_capacity: safeAdditional,
+    message_ar: 'ما في قيمة متبقية — بنوصي بإغلاق الحملة.',
+  };
 }
 
 // ============================================================================
@@ -365,13 +543,71 @@ export default async function (req) {
         ctx = await buildScenarioInputs(SR, scenario, payload.test_time);
         ctx.scenario_key = payload.scenario_key;
         ctx.test_time = payload.test_time || '';
+        ctx.data_sources = {
+          baseline_orders: 'DEMO_OVERRIDE', projected_natural_orders: 'DEMO_OVERRIDE',
+          safe_operational_target: 'DEMO_OVERRIDE', existing_campaign_commitment: 'DEMO_OVERRIDE',
+          audience: 'DEMO_OVERRIDE', cannibalization: 'DEMO_OVERRIDE', commercial: 'DEMO_OVERRIDE',
+        };
+      } else if (payload.custom_inputs) {
+        // Lab custom override mode — every input is DEMO_OVERRIDE, no real data read.
+        const ci = payload.custom_inputs;
+        const rest = ci.restaurant_id ? await SR.entities.Restaurant.get(ci.restaurant_id).catch(() => null) : null;
+        const inputs: DecisionInputs = {
+          restaurant_id: ci.restaurant_id || '',
+          tamam_product_id: ci.tamam_product_id ?? null,
+          restaurant_item_id: ci.restaurant_item_id ?? null,
+          mealset_variant_id: ci.mealset_variant_id || null,
+          restaurant_open: ci.restaurant_open ?? true,
+          restaurant_status: ci.restaurant_status || 'open',
+          pressure_active: !!ci.pressure_active,
+          traffic_light: ci.traffic_light || 'GREEN',
+          product_priority: ci.product_priority || 'NORMAL',
+          product_available: ci.product_available ?? true,
+          mapping_valid: ci.mapping_valid ?? true,
+          safe_operational_target: ci.safe_operational_target ?? ci.safe_capacity ?? 20,
+          baseline_orders: ci.baseline_orders ?? 0,
+          projected_natural_orders: ci.projected_natural_orders ?? 0,
+          existing_campaign_commitment: ci.existing_campaign_commitment ?? 0,
+          desired_demand_target: ci.desired_demand_target ?? null,
+          audience_segment: ci.audience_segment || 'NEW_TO_RESTAURANT',
+          audience_size: ci.audience_size ?? 0,
+          audience_intent_score: ci.audience_intent_score ?? 0.5,
+          cannibalization_score: ci.cannibalization_score ?? 0.1,
+          fatigue_score: ci.fatigue_score ?? 0.1,
+          operational_risk: ci.operational_risk ?? 0.1,
+          campaign_saturation: ci.campaign_saturation ?? 0,
+          commercial_safe: ci.commercial_safe ?? true,
+          commercial_score: ci.commercial_score ?? 0.85,
+          approval_required: !!ci.approval_required,
+          restaurant_priority_score: ci.restaurant_priority_score ?? PRIORITY_SCORE[ci.product_priority || 'NORMAL'] ?? 0.6,
+          urgency_score: ci.urgency_score ?? 0.5,
+          data_confidence: ci.data_confidence ?? 0.7,
+          learning_mode: !!ci.learning_mode,
+          automation_mode: ci.automation_mode || 'MANUAL',
+          surplus_qty: ci.surplus_qty ?? null,
+          capacity_source: ci.capacity_source || 'heuristic_fallback',
+          normal_price: ci.normal_price ?? null,
+          customer_price: ci.customer_price ?? null,
+          tamam_contribution: ci.tamam_contribution ?? null,
+          restaurant_contribution: ci.restaurant_contribution ?? null,
+          unlock_points: ci.unlock_points ?? null,
+        };
+        const winStart = ci.window_start || iso(new Date());
+        const winEnd = ci.window_end || iso(new Date(Date.now() + 2 * 3600000));
+        ctx = { inputs, window_start: winStart, window_end: winEnd, now_ms: payload.test_time ? new Date(payload.test_time).getTime() : now(), upcoming: false, data_sources: { baseline_orders: 'DEMO_OVERRIDE', projected_natural_orders: 'DEMO_OVERRIDE', safe_operational_target: 'DEMO_OVERRIDE', existing_campaign_commitment: 'DEMO_OVERRIDE', audience: 'DEMO_OVERRIDE', cannibalization: 'DEMO_OVERRIDE', commercial: 'DEMO_OVERRIDE' } };
       } else {
         ctx = await buildRealInputs(SR, payload);
       }
       const result = await runDecision(SR, ctx);
-      // persist the decision record
       const saved = await SR.entities.DemandDecision.create(result.record).catch((e: any) => { console.error('DemandDecision create', e); return null; });
-      return json({ data: { ...result.record, id: saved?.id || null, score_components_obj: result.components, expected_match: payload.scenario_key ? matchExpected(payload.scenario_key, result.decision, result.rec.strategy) : null } });
+      return json({
+        data: {
+          ...result.record, id: saved?.id || null,
+          score_components_obj: result.components,
+          strategy_alternatives_obj: result.alternatives,
+          expected_match: payload.scenario_key ? matchExpected(payload.scenario_key, result.decision, result.rec.strategy) : null,
+        },
+      });
     }
 
     // ---- run all demo scenarios (checkpoint convenience) ----
@@ -381,6 +617,7 @@ export default async function (req) {
       for (const scenario of DEMO_SCENARIOS) {
         const ctx = await buildScenarioInputs(SR, scenario);
         ctx.scenario_key = scenario.key;
+        ctx.data_sources = {};
         const result = await runDecision(SR, ctx);
         out.push({
           key: scenario.key,
@@ -390,13 +627,19 @@ export default async function (req) {
           demand_state: result.record.demand_state,
           demand_gap: result.record.demand_gap,
           safe_additional: result.record.safe_additional_capacity,
+          safe_operational_target: result.record.safe_operational_target,
           recommended_strategy: result.rec.strategy,
           recommended_objective: result.rec.objective,
           recommended_quota: result.quota,
+          explore_exploit: result.record.explore_exploit,
           cannibalization: result.record.cannibalization_risk,
           hard_blockers: result.blockers,
+          capacity_source: result.record.capacity_source,
+          intervention_cost_score: result.record.intervention_cost_score,
+          expected_incremental_orders: result.record.expected_incremental_orders,
+          alternatives: result.alternatives,
           expected: scenario.expected,
-          expected_strategy: scenario.expected_strategy,
+          expected_mechanism: scenario.expected_mechanism,
           expected_match: matchExpected(scenario.key, result.decision, result.rec.strategy),
           explanation_partner: result.record.explanation_partner,
         });
@@ -407,15 +650,25 @@ export default async function (req) {
     // ---- list / get ----
     if (action === 'listDecisions') {
       if (!await requireAdmin(base44)) return json({ error: 'forbidden' }, 403);
-      const list = payload?.restaurant_id
-        ? await SR.entities.DemandDecision.filter({ restaurant_id: payload.restaurant_id }).catch(() => [])
+      let list = payload?.restaurant_id
+        ? await SR.entities.DemandDecision.filter({ restaurant_id: payload.restaurant_id }, '-created_date', 100).catch(() => [])
         : await SR.entities.DemandDecision.list('-created_date', 100).catch(() => []);
-      return json({ data: list || [] });
+      list = list || [];
+      if (payload?.decision) list = list.filter((d: any) => d.decision === payload.decision);
+      return json({ data: list });
     }
     if (action === 'getDecision') {
       if (!await requireAdmin(base44)) return json({ error: 'forbidden' }, 403);
       const d = await SR.entities.DemandDecision.get(payload.id).catch(() => null);
-      return json({ data: d });
+      if (!d) return json({ error: 'not_found' }, 404);
+      let opp = null;
+      if (d.created_opportunity_id) opp = await SR.entities.Opportunity.get(d.created_opportunity_id).catch(() => null);
+      return json({ data: { ...d, opportunity: opp } });
+    }
+    if (action === 'dismissDecision') {
+      if (!await requireAdmin(base44)) return json({ error: 'forbidden' }, 403);
+      const d = await SR.entities.DemandDecision.update(payload.id, { decision: 'NO_ACTION', hard_blockers: ['dismissed_by_admin'] }).catch(() => null);
+      return json({ data: { id: d?.id } });
     }
 
     // ---- acceptDecision: create an EXISTING Opportunity (mapped), link back ----
@@ -450,10 +703,17 @@ export default async function (req) {
       return json({ data: { opportunity_id: opp.id, opportunity_type: oppType, demand_decision_id: d.id } });
     }
 
-    // ---- list demo scenarios (for future Lab UI) ----
+    // ---- active campaign safety reevaluation ----
+    if (action === 'reevaluateActiveCampaign') {
+      if (!await requireAdmin(base44)) return json({ error: 'forbidden' }, 403);
+      const result = await reevaluateActiveCampaign(SR, payload);
+      return json({ data: result });
+    }
+
+    // ---- list demo scenarios (for Lab UI) ----
     if (action === 'listScenarios') {
       if (!await requireAdmin(base44)) return json({ error: 'forbidden' }, 403);
-      return json({ data: DEMO_SCENARIOS.map((s) => ({ key: s.key, label: s.label, description: s.description, expected: s.expected, expected_strategy: s.expected_strategy })) });
+      return json({ data: DEMO_SCENARIOS.map((s) => ({ key: s.key, label: s.label, description: s.description, expected: s.expected, expected_mechanism: s.expected_mechanism, expected_explore: s.expected_explore, expected_quota_max: s.expected_quota_max, expected_not: s.expected_not, expected_mechanism_blacklist: s.expected_mechanism_blacklist })) });
     }
 
     return json({ error: 'unknown_action' }, 400);
@@ -463,10 +723,20 @@ export default async function (req) {
   }
 }
 
-function matchExpected(scenarioKey: string, decision: string, strategy: string): { decision_ok: boolean; strategy_ok: boolean } {
+function matchExpected(scenarioKey: string, decision: string, mechanism: string): { decision_ok: boolean; strategy_ok: boolean } {
   const sc = DEMO_SCENARIOS.find((s) => s.key === scenarioKey);
   if (!sc) return { decision_ok: false, strategy_ok: false };
-  const decision_ok = (sc.expected as string[]).includes(decision);
-  const strategy_ok = sc.expected_strategy.length === 0 || (strategy && (sc.expected_strategy as string[]).includes(strategy));
+  let decision_ok = (sc.expected as string[]).includes(decision);
+  // mechanism check: whitelist OR blacklist OR empty
+  let strategy_ok = true;
+  if (sc.expected_mechanism && sc.expected_mechanism.length) {
+    strategy_ok = !!(mechanism && (sc.expected_mechanism as string[]).includes(mechanism));
+  }
+  if (sc.expected_mechanism_blacklist && mechanism && (sc.expected_mechanism_blacklist as string[]).includes(mechanism)) {
+    strategy_ok = false;
+  }
+  if (sc.expected_not && (sc.expected_not as string[]).includes(decision)) {
+    decision_ok = false;
+  }
   return { decision_ok, strategy_ok };
 }

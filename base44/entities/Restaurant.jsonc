@@ -106,6 +106,38 @@
       "type": "number",
       "title": "Linked Supabase restaurant id (optional)"
     },
+    "capacity_normal_additional_per_hour": {
+      "type": "number",
+      "title": "Partner-provided: typical extra orders/hour absorbable in a quiet period"
+    },
+    "capacity_max_additional_per_hour": {
+      "type": "number",
+      "title": "Partner-provided: short-burst max extra orders/hour (optional)"
+    },
+    "capacity_weak_period_additional": {
+      "type": "number",
+      "title": "Time-specific capacity for weak periods (optional)"
+    },
+    "capacity_peak_period_additional": {
+      "type": "number",
+      "title": "Time-specific capacity for peak periods (optional)"
+    },
+    "capacity_pickup": {
+      "type": "number",
+      "title": "Pickup capacity (optional)"
+    },
+    "capacity_delivery": {
+      "type": "number",
+      "title": "Delivery capacity (optional)"
+    },
+    "capacity_confidence": {
+      "type": "number",
+      "title": "0-1 confidence in the configured capacity (optional)"
+    },
+    "capacity_source": {
+      "type": "string",
+      "title": "Last source used to resolve capacity (set by engine)"
+    },
     "is_demo": {
       "type": "boolean",
       "default": false,

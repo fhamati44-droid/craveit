@@ -476,6 +476,43 @@ async function toggleAcceptingOrders(base44, { restaurant_id, accepting }) {
   return { id: updated.id, accepts_orders: !!accepting };
 }
 
+// Capacity model (Milestone 2) — partner-provided operational capacity.
+// Natural Arabic UX maps answers to internal fields; technical names are
+// never exposed to the restaurant. If unsure -> null + reduced confidence.
+async function getRestaurantCapacity(base44, { restaurant_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_dashboard');
+  const r = await base44.asServiceRole.entities.Restaurant.get(restaurant_id).catch(() => null);
+  if (!r) throw authError(404, 'restaurant_not_found');
+  return {
+    capacity_normal_additional_per_hour: r.capacity_normal_additional_per_hour ?? null,
+    capacity_max_additional_per_hour: r.capacity_max_additional_per_hour ?? null,
+    capacity_weak_period_additional: r.capacity_weak_period_additional ?? null,
+    capacity_peak_period_additional: r.capacity_peak_period_additional ?? null,
+    capacity_pickup: r.capacity_pickup ?? null,
+    capacity_delivery: r.capacity_delivery ?? null,
+    capacity_confidence: r.capacity_confidence ?? null,
+  };
+}
+async function updateRestaurantCapacity(base44, { restaurant_id, data }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'manage_restaurant_settings');
+  const allowed = [
+    'capacity_normal_additional_per_hour', 'capacity_max_additional_per_hour',
+    'capacity_weak_period_additional', 'capacity_peak_period_additional',
+    'capacity_pickup', 'capacity_delivery', 'capacity_confidence',
+  ];
+  const fields = {};
+  for (const k of allowed) if (data[k] !== undefined) fields[k] = data[k];
+  if (data.unsure === true) {
+    fields.capacity_normal_additional_per_hour = null;
+    fields.capacity_confidence = 0.3;
+  }
+  if (Object.keys(fields).length === 0) throw authError(400, 'no_fields');
+  fields.capacity_source = 'restaurant_default';
+  const updated = await base44.asServiceRole.entities.Restaurant.update(restaurant_id, fields);
+  await logAudit(base44, restaurant_id, user.id, user.full_name, 'restaurant', restaurant_id, 'capacity_updated', null, fields, '');
+  return { id: updated.id };
+}
+
 // ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
@@ -1474,6 +1511,8 @@ const ROUTES = {
   listOfferRequests,
   getPerformance,
   updateRestaurantSettings,
+  updateRestaurantCapacity,
+  getRestaurantCapacity,
   toggleAcceptingOrders,
   createImportJob,
   listImportJobs,

@@ -54,6 +54,8 @@ import Campaigns from '@/pages/admin/Campaigns';
 import CampaignDetail from '@/pages/admin/CampaignDetail';
 import OfferValidationLab from '@/pages/admin/OfferValidationLab';
 import Phase2Readiness from '@/pages/admin/Phase2Readiness';
+import DemandDecisionLab from '@/pages/admin/DemandDecisionLab';
+import DemandDecisions from '@/pages/admin/DemandDecisions';
 import HomepageTimeAdmin from '@/pages/admin/HomepageTimeAdmin';
 import MoodGame from '@/pages/MoodGame';
 import CommunityMoods from '@/pages/CommunityMoods';
@@ -182,6 +184,8 @@ function App() {
               <Route path="/admin/campaigns/:id" element={<CampaignDetail />} />
               <Route path="/admin/offer-validation" element={<OfferValidationLab />} />
               <Route path="/admin/phase2-readiness" element={<Phase2Readiness />} />
+              <Route path="/admin/demand-decision-lab" element={<DemandDecisionLab />} />
+              <Route path="/admin/demand-decisions" element={<DemandDecisions />} />
             </Route>
             <Route path="/partner" element={<PartnerRoute />}>
               <Route index element={<Navigate to="/partner/home" replace />} />

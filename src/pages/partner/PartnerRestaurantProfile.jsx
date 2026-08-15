@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePartner } from '@/lib/partnerContext';
 import { getRestaurantReadiness } from '@/lib/partnerApi';
 import { EmptyState } from '@/components/tamam/customer/States';
+import CapacityCard from '@/components/partner/CapacityCard';
 
 const STATUS_ICON = {
   complete: { icon: 'check_circle', cls: 'text-tamam-green-bright' },
@@ -70,6 +71,9 @@ export default function PartnerRestaurantProfile() {
           </div>
         )}
       </div>
+
+      {/* Capacity (Milestone 2) */}
+      <CapacityCard />
 
       {/* Sections */}
       <div className="space-y-2">

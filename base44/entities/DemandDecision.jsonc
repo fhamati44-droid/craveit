@@ -52,17 +52,25 @@
       "type": "number",
       "title": "Projected natural orders WITHOUT a new campaign"
     },
+    "safe_operational_target": {
+      "type": "number",
+      "title": "Total orders the restaurant can safely handle during the window (Milestone 2)"
+    },
     "safe_additional_capacity": {
       "type": "number",
-      "title": "Additional orders the restaurant can safely absorb"
+      "title": "target - projected - committed - buffer (>=0)"
     },
     "existing_campaign_commitment": {
       "type": "number",
       "title": "Quota already committed by active/scheduled campaigns"
     },
+    "desired_demand_target": {
+      "type": "number",
+      "title": "Optional separate business target (null = use operational capacity)"
+    },
     "demand_gap": {
       "type": "number",
-      "title": "Safe target - projected - commitment (never < 0)"
+      "title": "Additional demand TAMAM should consider creating (derives from safe_additional_capacity, never < 0)"
     },
     "audience_segment": {
       "type": "string",
@@ -107,6 +115,10 @@
     },
     "urgency_score": {
       "type": "number"
+    },
+    "capacity_source": {
+      "type": "string",
+      "title": "Which capacity source was used (realtime_restriction | temporary_signal | time_specific | restaurant_default | historical_inferred | heuristic_fallback)"
     },
     "opportunity_score": {
       "type": "number",
@@ -168,6 +180,38 @@
         "ADVANCED_AUTOMATION"
       ],
       "default": "MANUAL"
+    },
+    "intervention_cost_score": {
+      "type": "number",
+      "title": "0-1 cost of the recommended intervention (Milestone 2)"
+    },
+    "expected_incremental_orders": {
+      "type": "number",
+      "title": "ESTIMATE of incremental orders (not causal)"
+    },
+    "expected_incremental_revenue": {
+      "type": "number",
+      "title": "ESTIMATE of incremental revenue"
+    },
+    "expected_tamam_contribution_cost": {
+      "type": "number",
+      "title": "ESTIMATE of TAMAM contribution cost"
+    },
+    "expected_restaurant_settlement": {
+      "type": "number",
+      "title": "ESTIMATE of restaurant settlement"
+    },
+    "strategy_alternatives": {
+      "type": "string",
+      "title": "JSON array of up to 3 candidate strategies (mechanism, score, cost, quota, expected value)"
+    },
+    "data_sources": {
+      "type": "string",
+      "title": "JSON map of input -> source label (ACTUAL | INFERRED | PARTNER_PROVIDED | HEURISTIC | DEMO_OVERRIDE)"
+    },
+    "campaign_safety_recommendation": {
+      "type": "string",
+      "title": "For active-campaign reevaluation: CONTINUE | PAUSE_RECOMMENDED | COMPLETE_RECOMMENDED | RESUME_RECOMMENDED"
     },
     "explanation_internal": {
       "type": "string"

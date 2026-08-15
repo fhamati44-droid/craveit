@@ -3,11 +3,26 @@
 // No SDK, no IO, no black-box AI. Every function is explainable.
 // Consumes a normalized `inputs` object (built by the backend function from
 // real data OR from a demo scenario config) + the central config weights.
+//
+// MILESTONE 2 SEMANTICS (no double subtraction):
+//   safe_operational_target  = total orders the restaurant can safely handle
+//   projected_natural_demand  = expected orders WITHOUT a new TAMAM campaign
+//   existing_campaign_commitment = incremental orders already committed
+//   safety_buffer             = capacity intentionally held back
+//   safe_additional_capacity  = target - projected - committed - buffer (>=0)
+//   demand_gap                = safe_additional_capacity  (unless a separate
+//                               desired_demand_target exists, then the smaller
+//                               of (target' - projected - committed) and
+//                               safe_additional_capacity). Demand gap is NEVER
+//                               recomputed from scratch — it derives from
+//                               safe_additional_capacity so the same inputs are
+//                               not subtracted twice.
 // ============================================================================
 
 import {
   SCORE_WEIGHTS, PENALTY_WEIGHTS, DECISION_THRESHOLDS, SAFETY,
-  CANNIBALIZATION, LEARNING_MODE,
+  CANNIBALIZATION, LEARNING_MODE, CAPACITY, INTERVENTION_COST,
+  EXPECTED_VALUE, STRATEGY_COMPARISON, OBJECTIVE_TO_CAMPAIGN,
 } from './demandDecisionConfig.ts';
 
 export interface DecisionInputs {
@@ -23,11 +38,12 @@ export interface DecisionInputs {
   product_priority: string;
   product_available: boolean;
   mapping_valid: boolean;
-  // demand
+  // demand / capacity (Milestone 2 corrected model)
+  safe_operational_target: number;   // A — total safe capacity for window
   baseline_orders: number;
-  projected_natural_orders: number;
-  safe_capacity: number;
-  existing_campaign_commitment: number;
+  projected_natural_orders: number;   // B
+  existing_campaign_commitment: number; // C
+  desired_demand_target?: number | null; // optional separate business target
   // audience
   audience_segment: string;
   audience_size: number;
@@ -48,24 +64,44 @@ export interface DecisionInputs {
   learning_mode: boolean;
   automation_mode: string;
   surplus_qty?: number | null;
+  capacity_source?: string; // realtime_restriction | temporary_signal | time_specific | restaurant_default | historical_inferred | heuristic_fallback
+  // optional commercial breakdown for cost/expected-value (filled by engine)
+  normal_price?: number | null;
+  customer_price?: number | null;
+  tamam_contribution?: number | null;
+  restaurant_contribution?: number | null;
+  unlock_points?: number | null;
 }
 
 function clamp(x: number, lo = 0, hi = 1): number {
   return Math.max(lo, Math.min(hi, x));
 }
+function round(x: number): number {
+  return Math.round(x * 100) / 100;
+}
+function floor1(x: number): number {
+  return Math.max(0, Math.round(x * 10) / 10);
+}
 
-// ---- Safe additional capacity: what the restaurant can absorb safely ----
+// ---- Safe additional capacity: target - projected - committed - buffer (>=0) ----
+// surplus_qty overrides the target (a surplus signal IS the available capacity).
 export function calcSafeAdditionalCapacity(i: DecisionInputs): number {
   if (i.pressure_active || i.traffic_light === 'RED') return 0;
-  const cap = i.surplus_qty != null ? i.surplus_qty : i.safe_capacity;
-  const add = cap - i.projected_natural_orders - i.existing_campaign_commitment - SAFETY.buffer;
+  const target = i.surplus_qty != null ? i.surplus_qty : i.safe_operational_target;
+  const add = target - i.projected_natural_orders - i.existing_campaign_commitment - SAFETY.buffer;
   return Math.max(0, Math.round(add * 10) / 10);
 }
 
-// ---- Demand gap: safe target - projected - committed (never < 0) ----
+// ---- Demand gap: derives from safe_additional_capacity (no double subtraction) ----
+// If a separate desired_demand_target exists, the gap is the smaller of
+//   (desired_target - projected - committed) and safe_additional_capacity.
 export function calcDemandGap(i: DecisionInputs): number {
-  const gap = i.safe_capacity - i.projected_natural_orders - i.existing_campaign_commitment;
-  return Math.max(0, Math.round(gap * 10) / 10);
+  const safeAdditional = calcSafeAdditionalCapacity(i);
+  if (i.desired_demand_target != null && isFinite(Number(i.desired_demand_target))) {
+    const byTarget = Number(i.desired_demand_target) - i.projected_natural_orders - i.existing_campaign_commitment;
+    return Math.max(0, Math.round(Math.min(byTarget, safeAdditional) * 10) / 10);
+  }
+  return safeAdditional;
 }
 
 // ---- Demand state (internal TAMAM, NOT the partner traffic light) ----
@@ -74,10 +110,10 @@ export function calcDemandState(i: DecisionInputs): string {
     return 'BLOCKED';
   if (i.pressure_active || i.traffic_light === 'RED' || i.restaurant_status === 'busy')
     return 'OVERLOADED';
-  if (i.safe_capacity <= 0) return 'UNKNOWN';
+  if (i.safe_operational_target <= 0) return 'UNKNOWN';
   const gap = calcDemandGap(i);
   if (gap <= 0) return 'HEALTHY';
-  const ratio = gap / i.safe_capacity;
+  const ratio = gap / i.safe_operational_target;
   if (ratio > 0.5) return 'NEEDS_DEMAND';
   return 'CAUTION';
 }
@@ -99,8 +135,9 @@ export function hardBlockers(i: DecisionInputs): string[] {
   if (!i.product_available) b.push('product_unavailable');
   if (i.mapping_valid === false) b.push('invalid_mapping');
   if (!i.commercial_safe) b.push('commercial_unsafe');
-  const sat = i.safe_capacity > 0 ? i.existing_campaign_commitment / i.safe_capacity : 0;
-  if (i.safe_capacity > 0 && sat >= SAFETY.saturation_block) b.push('campaign_saturation');
+  const target = i.surplus_qty != null ? i.surplus_qty : i.safe_operational_target;
+  const sat = target > 0 ? i.existing_campaign_commitment / target : 0;
+  if (target > 0 && sat >= SAFETY.saturation_block) b.push('campaign_saturation');
   const gap = calcDemandGap(i);
   if (gap <= 0 && i.existing_campaign_commitment > 0) b.push('existing_campaign_fills_gap');
   if ((i.data_confidence ?? 0) < 0.2) b.push('critical_data_missing');
@@ -109,10 +146,11 @@ export function hardBlockers(i: DecisionInputs): string[] {
 
 // ---- Opportunity score: explainable, component-based ----
 export function calcOpportunityScore(i: DecisionInputs): { score: number; components: any } {
+  const target = i.surplus_qty != null ? i.surplus_qty : i.safe_operational_target;
   const safeAdditional = calcSafeAdditionalCapacity(i);
   const gap = calcDemandGap(i);
-  const demandNeed = i.safe_capacity > 0 ? clamp(gap / i.safe_capacity) : 0;
-  const capacityFit = i.safe_capacity > 0 ? clamp(safeAdditional / i.safe_capacity) : 0;
+  const demandNeed = target > 0 ? clamp(gap / target) : 0;
+  const capacityFit = target > 0 ? clamp(safeAdditional / target) : 0;
   const audienceIntent = clamp(i.audience_intent_score || 0);
   const commercialSafety = clamp(i.commercial_score || 0);
   const priorityScore = clamp(i.restaurant_priority_score || 0);
@@ -151,6 +189,7 @@ export function calcOpportunityScore(i: DecisionInputs): { score: number; compon
       operationalRisk: round(operationalRisk), saturation: round(saturation),
       positive: round(positive), negative: round(negative),
       demand_gap: gap, safe_additional: safeAdditional,
+      safe_operational_target: target,
     },
   };
 }
@@ -186,26 +225,156 @@ export function decideDemandAction(i: DecisionInputs, upcoming: boolean): {
   return { decision, blockers, score, components, state };
 }
 
-// ---- Strategy recommendation (rule-based, not deepest discount) ----
+// ============================================================================
+// STRATEGY V2 — objective (WHY) separated from mechanism (HOW).
+// The objective is chosen from business intent; the mechanism is chosen from
+// the minimum-intervention principle (least costly sufficient intervention).
+// ============================================================================
+export function recommendObjective(i: DecisionInputs, decision: string): string {
+  if (['NO_ACTION', 'NEEDS_HUMAN_REVIEW', 'NEEDS_RESTAURANT_APPROVAL'].includes(decision)) return '';
+  if (i.surplus_qty != null) return 'SURPLUS';
+  const seg = i.audience_segment;
+  const cann = cannibalizationLabel(i.cannibalization_score);
+  // high cannibalization on repeat customers -> strengthen/loyalty, not acquisition
+  if (cann === 'HIGH' && seg === 'REPEAT_CUSTOMER') return 'PRODUCT_STRENGTHENING';
+  if (seg === 'LAPSED_30' || seg === 'LAPSED_60') return 'REACTIVATION';
+  if (seg === 'POINTS_ENGAGED') return 'LOYALTY';
+  if (seg === 'HIGH_INTENT_NO_PURCHASE') return 'CONVERSION_RECOVERY';
+  if (seg === 'NEW_TO_RESTAURANT') return 'CUSTOMER_ACQUISITION';
+  if (seg === 'FAMILY' || seg === 'HIGH_AOV') return 'AOV_GROWTH';
+  // HEALTHY state with capacity -> strategic demand (loyalty) over recovery
+  if (calcDemandState(i) === 'HEALTHY') return 'LOYALTY';
+  return 'DEMAND_RECOVERY';
+}
+
+// Candidate mechanisms for an objective, in least-cost order.
+// The engine then scores each by fit + cost and returns up to 3.
+export function candidateMechanisms(objective: string): string[] {
+  switch (objective) {
+    case 'CUSTOMER_ACQUISITION': return ['VALUE_ADD', 'MIX_VALUE', 'FIRST_TRIAL'];
+    case 'REACTIVATION': return ['PERSONALIZED_VALUE', 'VALUE_ADD', 'MIX_VALUE'];
+    case 'AOV_GROWTH': return ['PLUS_UPSELL', 'VALUE_ADD', 'MIX_VALUE'];
+    case 'SURPLUS': return ['TIME_AND_QUANTITY', 'LIMITED_QUANTITY', 'VALUE_ADD'];
+    case 'LOYALTY': return ['POINT_LOCKED', 'VALUE_ADD', 'NO_DISCOUNT'];
+    case 'CONVERSION_RECOVERY': return ['VALUE_ADD', 'MIX_VALUE', 'LIMITED_QUANTITY'];
+    case 'PRODUCT_STRENGTHENING': return ['NO_DISCOUNT', 'VALUE_ADD', 'POINT_LOCKED'];
+    case 'DEMAND_RECOVERY': return ['LIMITED_QUANTITY', 'VALUE_ADD', 'MIX_VALUE'];
+    default: return ['VALUE_ADD', 'MIX_VALUE', 'NO_DISCOUNT'];
+  }
+}
+
+// Mechanism -> recommended variant (classic | mix | plus)
+export function mechanismVariant(mechanism: string): string {
+  switch (mechanism) {
+    case 'PLUS_UPSELL': return 'plus';
+    case 'FIRST_TRIAL':
+    case 'MIX_VALUE':
+    case 'TIME_AND_QUANTITY': return 'mix';
+    case 'PERSONALIZED_VALUE':
+    case 'POINT_LOCKED':
+    case 'NO_DISCOUNT': return 'mix';
+    default: return 'classic';
+  }
+}
+
+// ---- Intervention cost score (0 = free, 1 = expensive) ----
+export function calcInterventionCost(i: DecisionInputs, mechanism: string): number {
+  const c = INTERVENTION_COST;
+  const base = c.mechanism_base[mechanism] ?? 0.5;
+  const normal = Number(i.normal_price || 0);
+  const customer = Number(i.customer_price || 0);
+  const discountDepth = normal > 0 ? clamp((normal - customer) / normal) : 0;
+  const tamamShare = normal > customer ? clamp(((i.tamam_contribution || 0)) / Math.max(1, normal - customer)) : 0;
+  const pointsCost = clamp((i.unlock_points || 0) / 100);
+  const opsComplexity = (mechanism === 'LIMITED_QUANTITY' || mechanism === 'TIME_AND_QUANTITY') ? 1 : 0;
+  const cost = clamp(
+    base +
+    c.discount_depth_weight * discountDepth +
+    c.tamam_contribution_weight * tamamShare +
+    c.points_cost_weight * pointsCost +
+    c.operational_complexity_weight * opsComplexity,
+  );
+  return Math.round(cost * 100) / 100;
+}
+
+export function costLabel(cost: number): string {
+  if (cost <= 0.33) return 'low';
+  if (cost <= 0.6) return 'medium';
+  return 'high';
+}
+
+// ---- Expected incremental value (ESTIMATE, not causal) ----
+export function calcExpectedIncrementalValue(i: DecisionInputs, mechanism: string, quota: number): {
+  orders: number; revenue: number; tamam_cost: number; restaurant_settlement: number;
+} {
+  const conv = EXPECTED_VALUE.conversion_rate[mechanism] ?? 0.1;
+  const intentMult = 0.7 + clamp(i.audience_intent_score || 0) * 0.6; // 0.7..1.3
+  const orders = Math.max(0, Math.round(quota * conv * intentMult * 10) / 10);
+  const normal = Number(i.normal_price || 0);
+  const customer = Number(i.customer_price || normal) || normal;
+  const revenue = Math.round(orders * customer * 100) / 100;
+  const tamamCost = Math.round(orders * Number(i.tamam_contribution || 0) * 100) / 100;
+  const restaurantSettlement = Math.round(orders * Number(i.restaurant_contribution || (customer - tamamCost)) * 100) / 100;
+  return { orders, revenue, tamam_cost: tamamCost, restaurant_settlement: restaurantSettlement };
+}
+
+// ---- Strategy comparison: up to 3 candidate mechanisms ranked by fit - cost ----
+export function compareStrategies(i: DecisionInputs, objective: string, decision: string): any[] {
+  if (!objective) return [];
+  const cands = candidateMechanisms(objective);
+  const gap = calcDemandGap(i);
+  const out: any[] = [];
+  for (const m of cands) {
+    // fit score: how well the mechanism matches the situation (0-100)
+    let fit = 60;
+    if (m === 'TIME_AND_QUANTITY' && i.surplus_qty != null) fit = 92;
+    else if (m === 'PERSONALIZED_VALUE' && i.audience_size <= 1) fit = 90;
+    else if (m === 'POINT_LOCKED' && i.audience_segment === 'POINTS_ENGAGED') fit = 88;
+    else if (m === 'FIRST_TRIAL' && i.audience_segment === 'NEW_TO_RESTAURANT') fit = 85;
+    else if (m === 'NO_DISCOUNT' && cannibalizationLabel(i.cannibalization_score) === 'HIGH') fit = 80;
+    else if (m === 'VALUE_ADD') fit = 70;
+    // penalize acquisition mechanisms under high cannibalization
+    if (cannibalizationLabel(i.cannibalization_score) === 'HIGH' && ['FIRST_TRIAL', 'DIRECT_PRICE', 'MIX_VALUE'].includes(m)) fit -= 30;
+    // reduce fit if commercial unsafe (only non-discount alternatives stay)
+    if (!i.commercial_safe && ['DIRECT_PRICE', 'FIRST_TRIAL', 'MIX_VALUE', 'LIMITED_QUANTITY'].includes(m)) fit -= 40;
+    const cost = calcInterventionCost(i, m);
+    const netScore = Math.max(0, Math.min(100, Math.round(fit - cost * 25)));
+    const variant = mechanismVariant(m);
+    // quota for this mechanism
+    const safeAdditional = calcSafeAdditionalCapacity(i);
+    let q = Math.min(gap, safeAdditional, i.audience_size || 0);
+    if (i.learning_mode) q = Math.min(q, LEARNING_MODE.quota_cap);
+    if (m === 'PERSONALIZED_VALUE') q = Math.min(q, 1); // 1:1
+    q = Math.max(0, Math.floor(q));
+    const ev = calcExpectedIncrementalValue(i, m, q);
+    out.push({
+      mechanism: m, objective, variant,
+      score: netScore, cost, cost_label: costLabel(cost),
+      quota: q,
+      expected_incremental_orders: ev.orders,
+      expected_incremental_revenue: ev.revenue,
+      expected_tamam_contribution_cost: ev.tamam_cost,
+      expected_restaurant_settlement: ev.restaurant_settlement,
+    });
+  }
+  out.sort((a, b) => b.score - a.score || a.cost - b.cost);
+  return out.slice(0, STRATEGY_COMPARISON.max_alternatives);
+}
+
+// Back-compat: single recommended strategy (top alternative) + objective mapping.
 export function recommendStrategy(i: DecisionInputs, decision: string): {
   objective: string; strategy: string; variant: string;
 } {
-  if (['NO_ACTION', 'NEEDS_HUMAN_REVIEW', 'NEEDS_RESTAURANT_APPROVAL'].includes(decision))
-    return { objective: '', strategy: '', variant: '' };
-  const seg = i.audience_segment;
-  const cann = cannibalizationLabel(i.cannibalization_score);
-  if (i.surplus_qty != null) return { objective: 'SURPLUS', strategy: 'TIME_AND_QUANTITY', variant: 'mix' };
-  if (cann === 'HIGH') return { objective: 'STRENGTHEN_ITEM', strategy: 'NO_DISCOUNT', variant: 'classic' };
-  if (seg === 'LAPSED_30' || seg === 'LAPSED_60') return { objective: 'REACTIVATION', strategy: 'PERSONALIZED_VALUE', variant: 'mix' };
-  if (seg === 'POINTS_ENGAGED') return { objective: 'LOYALTY_ENGAGEMENT', strategy: 'POINT_LOCKED', variant: 'mix' };
-  if (seg === 'HIGH_INTENT_NO_PURCHASE') return { objective: 'CONVERSION_RECOVERY', strategy: 'VALUE_ADD', variant: 'classic' };
-  if (seg === 'NEW_TO_RESTAURANT') return { objective: 'NEW_CUSTOMERS', strategy: 'FIRST_TRIAL', variant: 'mix' };
-  if (seg === 'FAMILY' || seg === 'HIGH_AOV') return { objective: 'INCREASE_AOV', strategy: 'PLUS_UPSELL', variant: 'plus' };
-  return { objective: 'NEW_CUSTOMERS', strategy: 'VALUE_ADD', variant: 'mix' };
+  const objective = recommendObjective(i, decision);
+  if (!objective) return { objective: '', strategy: '', variant: '' };
+  const alts = compareStrategies(i, objective, decision);
+  const top = alts[0];
+  if (!top) return { objective: OBJECTIVE_TO_CAMPAIGN[objective] || '', strategy: '', variant: '' };
+  return { objective: OBJECTIVE_TO_CAMPAIGN[objective] || '', strategy: top.mechanism, variant: top.variant };
 }
 
 // ---- Quota: never above safe additional capacity / gap / audience / learning cap ----
-export function recommendQuota(i: DecisionInputs, decision: string): { quota: number; explore_exploit: string } {
+export function recommendQuota(i: DecisionInputs, decision: string, mechanism?: string): { quota: number; explore_exploit: string } {
   if (['NO_ACTION', 'NEEDS_HUMAN_REVIEW', 'NEEDS_RESTAURANT_APPROVAL', 'WATCH'].includes(decision))
     return { quota: 0, explore_exploit: 'EXPLORE' };
   const safeAdditional = calcSafeAdditionalCapacity(i);
@@ -214,19 +383,20 @@ export function recommendQuota(i: DecisionInputs, decision: string): { quota: nu
   let mode = 'EXPLOIT';
   if (i.learning_mode) { quota = Math.min(quota, LEARNING_MODE.quota_cap); mode = 'EXPLORE'; }
   else if ((i.data_confidence || 0) < 0.6) mode = 'EXPLORE';
+  if (mechanism === 'PERSONALIZED_VALUE') quota = Math.min(quota, 1); // 1:1 reactivation
   return { quota: Math.max(0, Math.floor(quota)), explore_exploit: mode };
 }
 
 // ---- Map decision -> EXISTING Opportunity.opportunity_type (no new enum) ----
-export function mapDecisionToOpportunityType(i: DecisionInputs, objective: string): string {
-  if (i.surplus_qty != null || objective === 'SURPLUS') return 'surplus';
-  if (objective === 'NEW_CUSTOMERS') return 'new_customers';
-  if (objective === 'REACTIVATION') return 'reactivation';
-  if (objective === 'IMMEDIATE_DEMAND') return 'immediate_demand';
-  if (objective === 'INCREASE_AOV') return 'increase_aov';
-  if (objective === 'LOYALTY_ENGAGEMENT') return 'loyalty_engagement';
-  if (objective === 'CONVERSION_RECOVERY') return 'conversion_recovery';
-  if (objective === 'STRENGTHEN_ITEM') return 'strengthen_item';
+export function mapDecisionToOpportunityType(i: DecisionInputs, objectiveCampaign: string): string {
+  if (i.surplus_qty != null || objectiveCampaign === 'SURPLUS') return 'surplus';
+  if (objectiveCampaign === 'NEW_CUSTOMERS') return 'new_customers';
+  if (objectiveCampaign === 'REACTIVATION') return 'reactivation';
+  if (objectiveCampaign === 'IMMEDIATE_DEMAND') return 'immediate_demand';
+  if (objectiveCampaign === 'INCREASE_AOV') return 'increase_aov';
+  if (objectiveCampaign === 'LOYALTY_ENGAGEMENT') return 'loyalty_engagement';
+  if (objectiveCampaign === 'CONVERSION_RECOVERY') return 'conversion_recovery';
+  if (objectiveCampaign === 'STRENGTHEN_ITEM') return 'strengthen_item';
   return 'low_demand';
 }
 
@@ -237,16 +407,18 @@ export function generateExplanation(
 ): { internal: string; partner: string } {
   const gap = calcDemandGap(i);
   const safeAdd = calcSafeAdditionalCapacity(i);
+  const target = i.surplus_qty != null ? i.surplus_qty : i.safe_operational_target;
   const cann = cannibalizationLabel(i.cannibalization_score);
 
   const internal =
     `Window state: ${calcDemandState(i)}. ` +
-    `Baseline ${i.baseline_orders} | projected natural ${i.projected_natural_orders} | safe capacity ${i.safe_capacity} | existing commitment ${i.existing_campaign_commitment}. ` +
-    `Demand gap ${gap} | safe additional ${safeAdd}. ` +
+    `Safe operational target ${target} | baseline ${i.baseline_orders} | projected natural ${i.projected_natural_orders} | existing commitment ${i.existing_campaign_commitment} | buffer ${SAFETY.buffer}. ` +
+    `Safe additional capacity ${safeAdd} | demand gap ${gap}. ` +
     `Audience ${i.audience_segment} (${i.audience_size}, intent ${round(i.audience_intent_score)}). ` +
     `Cannibalization ${cann} (${round(i.cannibalization_score)}) | fatigue ${round(i.fatigue_score)} | operational risk ${round(i.operational_risk)} | saturation ${round(i.campaign_saturation)}. ` +
     `Commercial ${i.commercial_safe ? 'safe' : 'unsafe'} (${round(i.commercial_score)}). ` +
     `Priority ${i.product_priority} (${round(i.restaurant_priority_score)}) | urgency ${round(i.urgency_score)} | confidence ${round(i.data_confidence)}. ` +
+    `Capacity source ${i.capacity_source || 'unknown'}. ` +
     `Opportunity score ${scoreData.score}. ` +
     `Blockers: ${(hardBlockers(i).length ? hardBlockers(i).join(', ') : 'none')}. ` +
     `Decision ${decision}` + (rec.strategy ? ` -> ${rec.objective} / ${rec.strategy} / ${rec.variant}, quota ${quota}` : '');
@@ -257,35 +429,32 @@ export function generateExplanation(
     if (hardBlockers(i).includes('restaurant_pressure')) partner = 'المطعم عليه ضغط هلا، ما بنوصي نزيد طلبات.';
     else if (hardBlockers(i).includes('existing_campaign_fills_gap') || hardBlockers(i).includes('campaign_saturation'))
       partner = 'في حملة شغالة هلا بتسكر الفجوة، ما محتاجين حملة إضافية.';
+    else if (cann === 'HIGH') partner = 'الزبائن المستهدفين غالباً رح يشتروا بدون حافز، فما بدنا نحرق سعر.';
     else if (calcDemandState(i) === 'HEALTHY') partner = 'الطلب الطبيعي ممتاز بهالفترة، ما محتاجين تدخل.';
+    else if (!i.commercial_safe) partner = 'ما في مساحة تجارية آمنة لهالعرض هلا.';
     else partner = 'ما في فرصة تدخل آمنة بهاللحظة.';
   } else if (decision === 'NEEDS_RESTAURANT_APPROVAL') {
-    partner = 'في فرصة بس التجاري لازم موافقتك قبل ما نفعّل.';
+    partner = 'في فرصة بس التجاري لازم موافقتك قبل ما نفعّل (السعر المقترح تحت الحد).';
   } else if (decision === 'NEEDS_HUMAN_REVIEW') {
     partner = 'محتاجين نراجع البيانات قبل ما نقرر.';
   } else {
-    const win = `الفترة ${fmtWin(i)}`;
     const cap = safeAdd > 0 ? `عندك قدرة تستقبل لحد ${Math.floor(safeAdd)} طلب` : 'عندك قدرة تستقبل طلبات';
     const aud = i.audience_segment === 'NEW_TO_RESTAURANT' ? 'في جمهور مهتم ولسه ما جرّب مطعمك'
       : i.audience_segment === 'LAPSED_30' || i.audience_segment === 'LAPSED_60' ? 'في زباين رجعوا من فترة'
       : i.audience_segment === 'POINTS_ENGAGED' ? 'في جمهور مفعّل بالنقاط'
+      : i.audience_segment === 'HIGH_INTENT_NO_PURCHASE' ? 'في جمهور نية عالية ما طلبت لسا'
       : 'في جمهور مناسب';
     const strat = rec.strategy === 'FIRST_TRIAL' ? `اقتراح TAMAM: ميكس لتجربة أولى، لحد ${quota} طلب`
       : rec.strategy === 'TIME_AND_QUANTITY' ? `اقتراح TAMAM: عرض بوقت وكمية، لحد ${quota} وحدة`
-      : rec.strategy === 'PERSONALIZED_VALUE' ? `اقتراح TAMAM: قيمة مضافة شخصية، لحد ${quota} طلب`
+      : rec.strategy === 'PERSONALIZED_VALUE' ? `اقتراح TAMAM: قيمة مضافة شخصية، لزبون واحد`
       : rec.strategy === 'POINT_LOCKED' ? `اقتراح TAMAM: عرض بالنقاط، لحد ${quota} طلب`
-      : rec.strategy === 'VALUE_ADD' ? `اقتراح TAMAM: قيمة مضافة، لحد ${quota} طلب`
+      : rec.strategy === 'VALUE_ADD' ? `اقتراح TAMAM: قيمة مضافة بدون حرق سعر، لحد ${quota} طلب`
+      : rec.strategy === 'MIX_VALUE' ? `اقتراح TAMAM: ميكس بقيمة، لحد ${quota} طلب`
+      : rec.strategy === 'NO_DISCOUNT' ? `اقتراح TAMAM: إبراز الوجبة بدون خصم`
       : rec.strategy === 'PLUS_UPSELL' ? `اقتراح TAMAM: بلس لرفع السلة، لحد ${quota} طلب`
       : `اقتراح TAMAM: ${rec.strategy || 'تدخل محسوب'}، لحد ${quota} طلب`;
-    partner = `${win}. ${cap}. ${aud}. ${strat}.`;
+    partner = `${cap}. ${aud}. ${strat}.`;
   }
 
   return { internal, partner };
-}
-
-function fmtWin(i: DecisionInputs): string {
-  return 'هادي شوي';
-}
-function round(x: number): number {
-  return Math.round(x * 100) / 100;
 }

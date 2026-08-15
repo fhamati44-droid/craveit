@@ -61,6 +61,10 @@ export const getCampaignResults = (restaurant_id) => invoke('getCampaignResults'
 export const updateRestaurantSettings = (restaurant_id, data) => invoke('updateRestaurantSettings', { restaurant_id, data });
 export const toggleAcceptingOrders = (restaurant_id, accepting) => invoke('toggleAcceptingOrders', { restaurant_id, accepting });
 
+// Capacity model (Milestone 2) — partner-owned operational capacity.
+export const getRestaurantCapacity = (restaurant_id) => invoke('getRestaurantCapacity', { restaurant_id });
+export const updateRestaurantCapacity = (restaurant_id, data) => invoke('updateRestaurantCapacity', { restaurant_id, data });
+
 // ---- Offer calendar & monthly plan ----
 export const listOfferCalendar = (restaurant_id, date) => invoke('listOfferCalendar', { restaurant_id, date });
 export const listMonthlyPlan = (restaurant_id, year, month) => invoke('listMonthlyPlan', { restaurant_id, year, month });

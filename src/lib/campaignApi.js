@@ -49,3 +49,19 @@ export const recordCampaignEvent = (data) => call('recordEvent', data);
 
 // Phase 2 readiness — runs real server-side verification, returns per-test results.
 export const getPhase2Readiness = () => call('getPhase2Readiness', {});
+
+// ============================================================================
+// Demand Decision Engine (Milestone 2) — intelligence layer above Campaigns.
+// ============================================================================
+const dde = (action, payload = {}) =>
+  base44.functions.invoke('demandDecisionEngine', { action, payload }).then((r) => r?.data?.data ?? r?.data ?? r);
+
+export const listDecisionScenarios = () => dde('listScenarios', {});
+export const runDecisionScenarios = () => dde('runScenarios', {});
+export const evaluateDecision = (data) => dde('evaluate', data);
+export const listDemandDecisions = (decision) => dde('listDecisions', decision ? { decision } : {});
+export const getDemandDecision = (id) => dde('getDecision', { id });
+export const acceptDemandDecision = (id) => dde('acceptDecision', { id });
+export const dismissDemandDecision = (id) => dde('dismissDecision', { id });
+export const reevaluateActiveCampaign = (offer_id, test_time, include_demo) =>
+  dde('reevaluateActiveCampaign', { offer_id, test_time, include_demo });
