@@ -591,18 +591,21 @@ export default async function (req) {
       const acc = await loyaltyAccount(SR, phone);
       if (!acc || (acc.balance || 0) < o.unlock_points) return json({ error: 'insufficient_points', balance: acc?.balance || 0, cost: o.unlock_points }, 400);
       const oldBal = Number(acc.balance || 0);
-      // CAS: only deduct if balance still equals our read. Concurrent unlockers
-      // racing past the existence check lose this compare-and-set safely —
-      // exactly one deduction happens, no duplicate OfferUnlock/PointsTransaction.
-      await SR.entities.LoyaltyAccount.updateMany({ id: acc.id, balance: oldBal }, { $inc: { balance: -o.unlock_points, used_points: o.unlock_points } } as any).catch(() => {});
-      const after = await SR.entities.LoyaltyAccount.get(acc.id).catch(() => acc);
-      const afterBal = Number((after as any)?.balance || 0);
-      if (afterBal !== oldBal - o.unlock_points) {
+      // CAS: the deduction IS the atomic claim. updateMany matches only if
+      // balance still equals oldBal, and returns the matched count — so the
+      // caller with updated>0 is the sole winner. Concurrent racers that read
+      // the same pre-deduction balance get updated=0 (balance no longer
+      // matches) and return already_unlocked. Exactly one deduction, one
+      // OfferUnlock, one PointsTransaction — no duplicate ledger entries.
+      const cas: any = await SR.entities.LoyaltyAccount.updateMany({ id: acc.id, balance: oldBal }, { $inc: { balance: -o.unlock_points, used_points: o.unlock_points } } as any).catch(() => ({ updated: 0 }));
+      if (!cas || (cas.updated || 0) === 0) {
         // we lost the race — another caller already unlocked/deducted
         const existing2 = await SR.entities.OfferUnlock.filter({ deal_id: o.id, phone }).catch(() => []);
-        if (existing2 && existing2.length) return json({ data: { already_unlocked: true, offer_id: o.id, balance_after: afterBal } });
+        if (existing2 && existing2.length) return json({ data: { already_unlocked: true, offer_id: o.id } });
+        const afterBal = Number((await SR.entities.LoyaltyAccount.get(acc.id).catch(() => acc))?.balance || 0);
         return json({ error: 'insufficient_points', balance: afterBal, cost: o.unlock_points }, 400);
       }
+      const afterBal = oldBal - o.unlock_points;
       await SR.entities.PointsTransaction.create({ account_id: acc.id, phone, points: -o.unlock_points, type: 'offer_unlock', status: 'available' });
       await SR.entities.OfferUnlock.create({ deal_id: o.id, phone, user_id: user?.id || '', unlocked_at: iso(new Date()), points_spent: o.unlock_points });
       await SR.entities.CampaignEvent.create({ campaign_id: o.campaign_id, offer_id: o.id, restaurant_id: o.restaurant_id, user_id: user?.id || '', phone, channel: payload.channel || 'khabya', event_type: 'unlock', is_demo: o.is_demo, demo_batch_id: o.demo_batch_id || '' });
@@ -801,12 +804,16 @@ export default async function (req) {
         if (total == null) return json({ data: { consumed: true, unlimited: true, offer_id: o.id } });
         const oldUsed = Number(o.quota_used || 0);
         if (oldUsed >= total) return json({ data: { consumed: false, reason: 'sold_out', card_state: 'SOLD_OUT', message_ar: 'العرض خلص' } });
-        // CAS increment: filter matches only if quota_used still equals oldUsed
-        await SR.entities.CampaignOffer.updateMany({ id: o.id, quota_used: oldUsed }, { $inc: { quota_used: 1 } } as any).catch(() => {});
-        const after = await SR.entities.CampaignOffer.get(o.id).catch(() => o);
-        const newUsed = Number((after as any)?.quota_used || 0);
-        const consumed = newUsed === oldUsed + 1;
-        if (!consumed) return json({ data: { consumed: false, reason: 'sold_out', card_state: 'SOLD_OUT', message_ar: 'العرض خلص', quota_used: newUsed } });
+        // CAS increment: updateMany matches only if quota_used still equals
+        // oldUsed, and returns the matched count. The caller with updated>0 is
+        // the sole winner — concurrent racers get updated=0 (someone else
+        // already incremented) and see sold_out. No overselling.
+        const cas: any = await SR.entities.CampaignOffer.updateMany({ id: o.id, quota_used: oldUsed }, { $inc: { quota_used: 1 } } as any).catch(() => ({ updated: 0 }));
+        if (!cas || (cas.updated || 0) === 0) {
+          const afterUsed = Number((await SR.entities.CampaignOffer.get(o.id).catch(() => o))?.quota_used || 0);
+          return json({ data: { consumed: false, reason: 'sold_out', card_state: 'SOLD_OUT', message_ar: 'العرض خلص', quota_used: afterUsed } });
+        }
+        const newUsed = oldUsed + 1;
         return json({ data: { consumed: true, offer_id: o.id, quota_used: newUsed, quota_remaining: Math.max(0, total - newUsed) } });
       }
 
