@@ -590,12 +590,23 @@ export default async function (req) {
       if (existing && existing.length) return json({ data: { already_unlocked: true, offer_id: o.id } });
       const acc = await loyaltyAccount(SR, phone);
       if (!acc || (acc.balance || 0) < o.unlock_points) return json({ error: 'insufficient_points', balance: acc?.balance || 0, cost: o.unlock_points }, 400);
-      const newBal = (acc.balance || 0) - o.unlock_points;
-      await SR.entities.LoyaltyAccount.update(acc.id, { balance: newBal, used_points: (acc.used_points || 0) + o.unlock_points });
+      const oldBal = Number(acc.balance || 0);
+      // CAS: only deduct if balance still equals our read. Concurrent unlockers
+      // racing past the existence check lose this compare-and-set safely —
+      // exactly one deduction happens, no duplicate OfferUnlock/PointsTransaction.
+      await SR.entities.LoyaltyAccount.updateMany({ id: acc.id, balance: oldBal }, { $inc: { balance: -o.unlock_points, used_points: o.unlock_points } } as any).catch(() => {});
+      const after = await SR.entities.LoyaltyAccount.get(acc.id).catch(() => acc);
+      const afterBal = Number((after as any)?.balance || 0);
+      if (afterBal !== oldBal - o.unlock_points) {
+        // we lost the race — another caller already unlocked/deducted
+        const existing2 = await SR.entities.OfferUnlock.filter({ deal_id: o.id, phone }).catch(() => []);
+        if (existing2 && existing2.length) return json({ data: { already_unlocked: true, offer_id: o.id, balance_after: afterBal } });
+        return json({ error: 'insufficient_points', balance: afterBal, cost: o.unlock_points }, 400);
+      }
       await SR.entities.PointsTransaction.create({ account_id: acc.id, phone, points: -o.unlock_points, type: 'offer_unlock', status: 'available' });
       await SR.entities.OfferUnlock.create({ deal_id: o.id, phone, user_id: user?.id || '', unlocked_at: iso(new Date()), points_spent: o.unlock_points });
       await SR.entities.CampaignEvent.create({ campaign_id: o.campaign_id, offer_id: o.id, restaurant_id: o.restaurant_id, user_id: user?.id || '', phone, channel: payload.channel || 'khabya', event_type: 'unlock', is_demo: o.is_demo, demo_batch_id: o.demo_batch_id || '' });
-      return json({ data: { unlocked: true, offer_id: o.id, points_spent: o.unlock_points, balance_after: newBal } });
+      return json({ data: { unlocked: true, offer_id: o.id, points_spent: o.unlock_points, balance_after: afterBal } });
     }
     if (action === 'recordEvent') {
       const user = await currentUser(base44);
