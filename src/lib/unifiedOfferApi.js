@@ -19,12 +19,29 @@ export const listUnifiedOffers = ({ restaurant_id, phone, include_demo, variant 
 export const resolveUnifiedOffer = ({ restaurant_id, variant, restaurant_item_id, tamam_product_id, phone, include_demo }) =>
   campaignCall('unifiedResolve', { restaurant_id, variant, restaurant_item_id, tamam_product_id, phone, include_demo });
 
-export const getUnifiedOffer = ({ source_type, id, phone, include_demo }) =>
-  campaignCall('unifiedGet', { source_type, id, phone, include_demo });
+export const getUnifiedOffer = ({ source_type, id, phone, include_demo, test_time }) =>
+  campaignCall('unifiedGet', { source_type, id, phone, include_demo, test_time });
+
+// ---- Pre-restaurant resolution (Mood → MealSet → product mapping → fulfillments) ----
+// Does NOT require a restaurant_id. Returns every mapped, available restaurant
+// that carries the TAMAM product, each with its best unified offer (if any).
+export const resolveUnifiedOfferByMealSet = ({ tamam_product_id, tamam_product_ids, mealset_variant_id, variant, phone, include_demo, test_time }) =>
+  campaignCall('unifiedResolveByMealSet', { tamam_product_id, tamam_product_ids, mealset_variant_id, variant, phone, include_demo, test_time });
+
+// ---- Checkout revalidation — server is the ONLY price authority ----
+export const revalidateUnifiedCheckout = ({ source_type, id, restaurant_id, restaurant_item_id, phone, include_demo, test_time }) =>
+  campaignCall('revalidateCheckout', { source_type, id, restaurant_id, restaurant_item_id, phone, include_demo, test_time });
+
+// ---- Atomic quota consumption (prevents overselling under concurrency) ----
+export const consumeUnifiedQuota = ({ source_type, id, include_demo, test_time }) => {
+  if (source_type === 'CAMPAIGN') return campaignCall('consumeQuota', { offer_id: id, include_demo, test_time });
+  // GroupDeal participation has its own atomic join flow in offerEngine.
+  return Promise.resolve({ consumed: false, reason: 'not_campaign_offer' });
+};
 
 // ---- Unlock (routes to the correct backend; each is idempotent per deal_id) ----
-export const unlockUnifiedOffer = ({ source_type, id, phone, channel }) => {
-  if (source_type === 'CAMPAIGN') return campaignCall('unlockOffer', { offer_id: id, phone, channel });
+export const unlockUnifiedOffer = ({ source_type, id, phone, channel, include_demo, test_time }) => {
+  if (source_type === 'CAMPAIGN') return campaignCall('unlockOffer', { offer_id: id, phone, channel, include_demo, test_time });
   if (source_type === 'GROUP_DEAL') return offerCall('unlockOffer', { deal_id: id, phone });
   return Promise.reject(new Error('unknown_source'));
 };
