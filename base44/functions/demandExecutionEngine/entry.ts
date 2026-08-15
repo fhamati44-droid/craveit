@@ -160,6 +160,7 @@ async function runSafetyGate(SR: any, plan: any, dd: any, policy: any, evalMs: n
       if (bd.restaurant_settlement < g.minimum_restaurant_net) { commercialOk = false; commercialReason = 'below_restaurant_net'; }
     }
   }
+  if (!commercialOk && commercialReason === 'ok') commercialReason = 'commercial_unsafe';
   checks.commercial_guardrails = { ok: commercialOk, reason: commercialReason };
   if (!commercialOk) approvalRequired = true;
 
@@ -894,9 +895,9 @@ export default async function (req: any) {
         } else t('E_active_pressure_pauses', false, 'no C plan');
       } catch (e: any) { t('E_active_pressure_pauses', false, e.message); }
 
-      // F. commercial violation requires approval
+      // F. commercial violation requires approval (scenario I is commercial_unsafe + demo-isolated)
       try {
-        const dd = await makeCustomDD({ traffic_light: 'GREEN', restaurant_open: true, pressure_active: false, product_priority: 'STRENGTHEN', product_available: true, mapping_valid: true, safe_operational_target: 20, projected_natural_orders: 4, existing_campaign_commitment: 0, baseline_orders: 6, audience_segment: 'NEW_TO_RESTAURANT', audience_size: 100, audience_intent_score: 0.85, cannibalization_score: 0.1, fatigue_score: 0.1, commercial_safe: false, commercial_score: 0.3, approval_required: true, restaurant_priority_score: 1.0, urgency_score: 0.5, data_confidence: 0.7, learning_mode: false, automation_mode: 'MANUAL' });
+        const dd = await makeDD('I_commercial_unsafe');
         const plan = await genPlan(dd.id);
         t('F_commercial_violation_approval', plan.status === 'APPROVAL_REQUIRED', `plan=${plan.status} kill=${plan.kill_reason || ''}`, { plan_status: plan.status });
       } catch (e: any) { t('F_commercial_violation_approval', false, e.message); }
