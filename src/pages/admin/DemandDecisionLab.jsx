@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listDecisionScenarios, evaluateDecision, runDecisionScenarios } from '@/lib/campaignApi';
-import { listRestaurants } from '@/lib/api';
+import { base44 } from '@/api/base44Client';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 const TL = { GREEN: { bg: 'bg-green-100', text: 'text-green-700', label: 'أخضر' }, YELLOW: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'أصفر' }, RED: { bg: 'bg-red-100', text: 'text-red-700', label: 'أحمر' }, BLOCKED: { bg: 'bg-gray-200', text: 'text-gray-700', label: 'مقفل' } };
@@ -29,7 +29,7 @@ export default function DemandDecisionLab() {
   });
 
   useEffect(() => { listDecisionScenarios().then((d) => { setScenarios(d || []); if (d && d[0]) setScenarioKey(d[0].key); }); }, []);
-  useEffect(() => { listRestaurants().then(setRestaurants).catch(() => {}); }, []);
+  useEffect(() => { base44.entities.Restaurant.list('name', 200).then((r) => setRestaurants(r || [])).catch(() => {}); }, []);
 
   const run = async () => {
     setLoading(true); setError(''); setResult(null);
