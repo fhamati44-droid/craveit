@@ -1,0 +1,232 @@
+{
+  "name": "DemandDecision",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "tamam_product_id": {
+      "type": "number",
+      "title": "TAMAM master product id (optional)"
+    },
+    "restaurant_item_id": {
+      "type": "string",
+      "title": "RestaurantMealOffer id (optional)"
+    },
+    "mealset_id": {
+      "type": "string"
+    },
+    "mealset_variant_id": {
+      "type": "string"
+    },
+    "window_start": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Decision window start"
+    },
+    "window_end": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Decision window end"
+    },
+    "demand_state": {
+      "type": "string",
+      "enum": [
+        "NEEDS_DEMAND",
+        "HEALTHY",
+        "CAUTION",
+        "OVERLOADED",
+        "BLOCKED",
+        "UNKNOWN"
+      ]
+    },
+    "baseline_orders": {
+      "type": "number",
+      "title": "Estimated natural baseline orders for the window"
+    },
+    "projected_natural_orders": {
+      "type": "number",
+      "title": "Projected natural orders WITHOUT a new campaign"
+    },
+    "safe_additional_capacity": {
+      "type": "number",
+      "title": "Additional orders the restaurant can safely absorb"
+    },
+    "existing_campaign_commitment": {
+      "type": "number",
+      "title": "Quota already committed by active/scheduled campaigns"
+    },
+    "demand_gap": {
+      "type": "number",
+      "title": "Safe target - projected - commitment (never < 0)"
+    },
+    "audience_segment": {
+      "type": "string",
+      "title": "Chosen audience segment"
+    },
+    "audience_size": {
+      "type": "number"
+    },
+    "audience_intent_score": {
+      "type": "number",
+      "title": "0-1 audience intent"
+    },
+    "commercial_safety_score": {
+      "type": "number",
+      "title": "0-1 commercial safety"
+    },
+    "commercial_safe": {
+      "type": "boolean",
+      "default": true
+    },
+    "cannibalization_risk": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "UNKNOWN"
+      ]
+    },
+    "cannibalization_risk_score": {
+      "type": "number",
+      "title": "0-1 cannibalization"
+    },
+    "campaign_fatigue_score": {
+      "type": "number"
+    },
+    "restaurant_priority_score": {
+      "type": "number"
+    },
+    "data_confidence_score": {
+      "type": "number"
+    },
+    "urgency_score": {
+      "type": "number"
+    },
+    "opportunity_score": {
+      "type": "number",
+      "title": "0-100 normalized opportunity score"
+    },
+    "score_components": {
+      "type": "string",
+      "title": "JSON breakdown of score components"
+    },
+    "hard_blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "NO_ACTION",
+        "WATCH",
+        "PREPARE",
+        "SCHEDULE",
+        "ACT_NOW",
+        "NEEDS_HUMAN_REVIEW",
+        "NEEDS_RESTAURANT_APPROVAL"
+      ]
+    },
+    "recommended_objective": {
+      "type": "string",
+      "title": "Maps to existing Campaign.objective enum"
+    },
+    "recommended_strategy": {
+      "type": "string",
+      "title": "Strategy mechanism (FIRST_TRIAL / VALUE_ADD / ...)"
+    },
+    "recommended_variant": {
+      "type": "string",
+      "title": "classic | mix | plus"
+    },
+    "recommended_quota": {
+      "type": "number"
+    },
+    "explore_exploit": {
+      "type": "string",
+      "enum": [
+        "EXPLORE",
+        "EXPLOIT"
+      ]
+    },
+    "learning_mode": {
+      "type": "boolean",
+      "default": false
+    },
+    "automation_mode": {
+      "type": "string",
+      "enum": [
+        "MANUAL",
+        "GUARDED_AUTOMATION",
+        "ADVANCED_AUTOMATION"
+      ],
+      "default": "MANUAL"
+    },
+    "explanation_internal": {
+      "type": "string"
+    },
+    "explanation_partner": {
+      "type": "string",
+      "title": "Partner-facing Arabic explanation (no raw scores / user data)"
+    },
+    "source_signal_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "created_opportunity_id": {
+      "type": "string",
+      "title": "Existing Opportunity id created when this decision was accepted"
+    },
+    "scenario_key": {
+      "type": "string",
+      "title": "Demo scenario key (empty for real evaluations)"
+    },
+    "test_time": {
+      "type": "string",
+      "title": "Demo test-time override (empty in production)"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "demo_batch_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "window_start",
+    "decision"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

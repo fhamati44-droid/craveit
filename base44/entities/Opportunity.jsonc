@@ -98,6 +98,10 @@
       "type": "string",
       "title": "Campaign created from this opportunity"
     },
+    "demand_decision_id": {
+      "type": "string",
+      "title": "DemandDecision id this opportunity was generated from (optional)"
+    },
     "is_demo": {
       "type": "boolean",
       "default": false
