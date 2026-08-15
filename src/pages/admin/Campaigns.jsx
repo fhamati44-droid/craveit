@@ -55,6 +55,10 @@ export default function Campaigns() {
             <button onClick={reset} disabled={busy} className="flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-2 rounded-xl text-sm font-bold"><Trash2 size={15} /> تصفير</button>
           </div>
         </div>
+        <div className="flex gap-3 mb-2 text-xs">
+          <Link to="/admin/offer-validation" className="text-indigo-600 font-bold">مختبر التحقق</Link>
+          <Link to="/admin/phase2-readiness" className="text-green-700 font-bold">جاهزية Phase 2</Link>
+        </div>
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
           <Tab v="calendar" cur={tab} set={setTab} icon={<Calendar size={14} />} label="التقويم" />
           <Tab v="campaigns" cur={tab} set={setTab} icon={<TrendingUp size={14} />} label="الحملات" />

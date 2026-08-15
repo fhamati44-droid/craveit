@@ -107,6 +107,19 @@ export function CartProvider({ children }) {
 
   const clearCart = useCallback(() => { setItems([]); setRestaurant(null); }, []);
 
+  // Checkout fallback: when a UnifiedOffer is expired/sold_out at checkout and
+  // the customer accepts the normal price, strip the offer metadata and reprice
+  // the item so the order proceeds as a NORMAL purchase (no offer, no quota).
+  const overrideItemToNormal = useCallback((cartId, normalPrice) => {
+    setItems((prev) => prev.map((i) => (i.cartId === cartId ? {
+      ...i,
+      price: normalPrice,
+      unified_offer_source: null,
+      unified_offer_id: null,
+      campaign_id: null,
+    } : i)));
+  }, []);
+
   const restaurantTotals = useMemo(() => computeCartTotals(items, restaurant), [items, restaurant]);
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
   const subtotal = restaurantTotals.products_subtotal;
@@ -117,7 +130,7 @@ export function CartProvider({ children }) {
     <CartContext.Provider value={{
       items, restaurant, isOpen, setIsOpen,
       addItem, removeItem, updateQuantity, clearCart,
-      setItemRestaurant, restaurantTotals, switching,
+      setItemRestaurant, overrideItemToNormal, restaurantTotals, switching,
       totalItems, subtotal, deliveryFee, total,
     }}>
       {children}

@@ -8,6 +8,9 @@ import { genOrderNumber, genDeliveryRef, METHOD_LABELS, paymentStatusLabel } fro
 import { recordPendingPoints, redeemPoints, markCouponUsed } from '@/lib/loyaltyApi';
 import { verifyStripeSession } from '@/lib/stripeApi';
 import { computeCartTotals } from '@/lib/restaurantOfferApi';
+import { revalidateCartOffers, reserveCartQuota, hasOfferItems } from '@/lib/checkoutRevalidation';
+import { getUnifiedOffer } from '@/lib/unifiedOfferApi';
+import { recordCampaignEvent } from '@/lib/campaignApi';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 const STEPS = ['عم نتأكد من الوجبات والأسعار', 'عم نأكد طريقة الدفع', 'عم نرسل الطلب للمطعم', 'عم ننشئ رقم الطلب', 'عم نجهز مرجع التوصيل'];
@@ -16,9 +19,10 @@ const PENDING_KEY = 'tamam_pending_order';
 export default function CheckoutProcessing() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { items, restaurant, subtotal, deliveryFee, clearCart } = useCart();
+  const { items, restaurant, subtotal, deliveryFee, clearCart, overrideItemToNormal } = useCart();
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
+  const [offerIssue, setOfferIssue] = useState(null);
   const started = useRef(false);
   const sessionId = params.get('session_id');
   const isPaidReturn = params.get('paid') === '1' && !!sessionId;
@@ -98,6 +102,16 @@ export default function CheckoutProcessing() {
         });
       }
     } catch (e) { console.error('sub-orders', e); }
+    // Campaign attribution: record purchase events for unified-offer items.
+    // Quota was already consumed atomically by the checkout gate → pass
+    // quota_already_consumed so recordEvent skips its non-atomic increment.
+    try {
+      for (const it of items) {
+        if (it.unified_offer_id && it.unified_offer_source) {
+          await recordCampaignEvent({ offer_id: it.unified_offer_id, event_type: 'purchase', channel: 'checkout', phone, campaign_id: it.campaign_id, restaurant_id: it.selected_restaurant_id, quota_already_consumed: true }).catch(() => null);
+        }
+      }
+    } catch (e) { console.error('campaign events', e); }
     // Loyalty: coupon + points redemption + pending earn
     if (form.couponCode) await markCouponUsed(form.couponCode).catch(() => null);
     if (form.pointsUsed > 0) await redeemPoints({ phone, points: form.pointsUsed, order_id: order.id, order_number: orderData.order_number }).catch(() => null);
@@ -123,6 +137,16 @@ export default function CheckoutProcessing() {
     (async () => {
       const form = getCheckout();
       if (!items.length || !form) { navigate('/cart', { replace: true }); return; }
+      // UnifiedOffer safety gate: the server revalidates every offer item and
+      // atomically reserves quota BEFORE createOrder. Stale/expired/sold-out
+      // offers never reach payment — the customer is asked to confirm a change.
+      if (hasOfferItems(items)) {
+        const gatePhone = '972' + form.phone.replace(/^0/, '').replace(/[^\d]/g, '');
+        const issue = await revalidateCartOffers({ items, phone: gatePhone });
+        if (issue) { setOfferIssue(issue); return; }
+        const soldOut = await reserveCartQuota({ items });
+        if (soldOut) { setOfferIssue(soldOut); return; }
+      }
       try {
         if (isPaidReturn) {
           // Verify Stripe payment before creating the order
@@ -141,6 +165,41 @@ export default function CheckoutProcessing() {
       }
     })();
   }, []);
+
+  if (offerIssue) {
+    const isUnavailable = offerIssue.kind === 'item_unavailable' || offerIssue.kind === 'restaurant_unavailable';
+    const canFallback = offerIssue.kind === 'offer_changed' || offerIssue.kind === 'sold_out';
+    const continueNormal = async () => {
+      let normalPrice = offerIssue.fallback_price;
+      if (normalPrice == null && offerIssue.offer_id) {
+        try {
+          const ck = getCheckout();
+          const p = '972' + (ck?.phone || '').replace(/^0/, '').replace(/[^\d]/g, '');
+          const u = await getUnifiedOffer({ source_type: offerIssue.source_type || 'CAMPAIGN', id: offerIssue.offer_id, phone: p });
+          normalPrice = u?.normal_price;
+        } catch {}
+      }
+      if (normalPrice == null) { navigate('/cart'); return; }
+      overrideItemToNormal(offerIssue.cartId, normalPrice);
+      navigate('/checkout/review');
+    };
+    const icon = isUnavailable ? 'error' : (offerIssue.kind === 'sold_out' ? 'inventory_2' : 'schedule');
+    return (
+      <div dir="rtl" className="font-tamam min-h-[100dvh] bg-surface text-on-surface max-w-[480px] mx-auto flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-error/15 flex items-center justify-center mb-4"><Icon name={icon} className="text-error text-4xl" /></div>
+        <h1 className="text-xl font-bold mb-2">{offerIssue.message_ar || 'ما قدرنا نكمل بهذا العرض هسّا'}</h1>
+        {canFallback && offerIssue.fallback_price != null && <p className="text-on-surface-variant mb-1 text-sm">السعر الحالي: ₪{Math.round(offerIssue.fallback_price)}</p>}
+        {!isUnavailable && <p className="text-on-surface-variant mb-6 text-sm">سلّطك وتفاصيلك محفوظة.</p>}
+        {isUnavailable && <p className="text-on-surface-variant mb-6 text-sm">بتقدر تختار شي ثاني.</p>}
+        <div className="w-full space-y-3">
+          {canFallback && <button onClick={continueNormal} className="w-full bg-primary text-on-primary h-14 rounded-full font-bold">كمّل بالسعر الحالي</button>}
+          <button onClick={() => navigate('/cart')} className="w-full bg-surface border border-outline-variant/30 text-on-surface h-14 rounded-full font-bold">رجوع للسلة</button>
+          {(isUnavailable || offerIssue.kind === 'sold_out') && <button onClick={() => navigate('/tamam-game')} className="text-primary font-semibold">شوف اقتراح ثاني</button>}
+          {offerIssue.kind === 'restaurant_unavailable' && <button onClick={() => navigate('/restaurants')} className="text-primary font-semibold">شوف مطعم ثاني</button>}
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (

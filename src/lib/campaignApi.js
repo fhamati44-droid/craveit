@@ -46,3 +46,6 @@ export const listEligibleOffers = (restaurant_id, phone) => call('listEligibleOf
 export const getOfferEligibility = (offer_id, phone) => call('getOfferEligibility', { offer_id, phone });
 export const unlockOffer = (offer_id, phone, channel) => call('unlockOffer', { offer_id, phone, channel });
 export const recordCampaignEvent = (data) => call('recordEvent', data);
+
+// Phase 2 readiness — runs real server-side verification, returns per-test results.
+export const getPhase2Readiness = () => call('getPhase2Readiness', {});
