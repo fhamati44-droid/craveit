@@ -6,6 +6,8 @@ const LINKS = [
   { icon: 'account_tree', label: 'الفروع', to: null },
   { icon: 'schedule', label: 'ساعات العمل', to: '/partner/settings' },
   { icon: 'insights', label: 'حركة المطعم بالأسبوع', to: '/partner/demand-schedule' },
+  { icon: 'bolt', label: 'عندي فرصة اليوم', to: '/partner/opportunity-signal' },
+  { icon: 'campaign', label: 'TAMAM شغالة إسا', to: '/partner/campaigns' },
   { icon: 'shield', label: 'حدود الشغل', to: '/partner/guardrails' },
   { icon: 'upload', label: 'استيراد المنيو', to: '/partner/menu/import' },
   { icon: 'bar_chart', label: 'الأداء', to: '/partner/performance' },

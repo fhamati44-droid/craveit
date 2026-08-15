@@ -116,6 +116,7 @@ export default function TamamAdmin() {
           <div className="flex items-center gap-3">
             <Link to="/admin/partner-access" className="text-amber-600 text-sm font-bold">إدارة دخول أصحاب المطاعم</Link>
             <Link to="/admin/demo-data" className="text-amber-600 text-sm font-bold">بيانات تجريبية</Link>
+            <Link to="/admin/campaigns" className="text-purple-600 text-sm font-bold">محرك الحملات</Link>
             <Link to="/tamam-game" className="text-blue text-sm font-bold">צפה במשחק</Link>
           </div>
         </div>

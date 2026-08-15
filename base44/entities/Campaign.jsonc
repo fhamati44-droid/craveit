@@ -1,0 +1,120 @@
+{
+  "name": "Campaign",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "campaign_name": {
+      "type": "string",
+      "title": "Campaign name (Arabic)"
+    },
+    "objective": {
+      "type": "string",
+      "enum": [
+        "NEW_CUSTOMERS",
+        "REACTIVATION",
+        "IMMEDIATE_DEMAND",
+        "INCREASE_AOV",
+        "LOYALTY_ENGAGEMENT",
+        "CONVERSION_RECOVERY",
+        "SURPLUS",
+        "STRENGTHEN_ITEM",
+        "TEST_RESTAURANT",
+        "REPEAT_PURCHASE",
+        "PAYDAY_AOV",
+        "ACQUISITION"
+      ],
+      "title": "Business objective (WHY)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "READY",
+        "SCHEDULED",
+        "ACTIVE",
+        "PAUSED",
+        "COMPLETED",
+        "CANCELLED"
+      ],
+      "default": "DRAFT"
+    },
+    "start_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "end_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "primary_audience": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Audience segments"
+    },
+    "source_opportunity_id": {
+      "type": "string"
+    },
+    "internal_notes": {
+      "type": "string"
+    },
+    "why_tamam_json": {
+      "type": "string",
+      "title": "JSON human story: input/goal/limits/action"
+    },
+    "linked_offer_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "CampaignOffer ids"
+    },
+    "channels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "demo_batch_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "campaign_name",
+    "objective"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

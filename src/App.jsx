@@ -50,6 +50,8 @@ import HomepageMedia from '@/pages/admin/HomepageMedia';
 import SystemCheck from '@/pages/admin/SystemCheck';
 import AdminDemoData from '@/pages/admin/AdminDemoData';
 import PartnerAccess from '@/pages/admin/PartnerAccess';
+import Campaigns from '@/pages/admin/Campaigns';
+import CampaignDetail from '@/pages/admin/CampaignDetail';
 import HomepageTimeAdmin from '@/pages/admin/HomepageTimeAdmin';
 import MoodGame from '@/pages/MoodGame';
 import CommunityMoods from '@/pages/CommunityMoods';
@@ -93,6 +95,8 @@ import PartnerAddMenuItem from '@/pages/partner/PartnerAddMenuItem';
 import PartnerMenuItemDetail from '@/pages/partner/PartnerMenuItemDetail';
 import PartnerOrderDetail from '@/pages/partner/PartnerOrderDetail';
 import PartnerDemandSchedule from '@/pages/partner/PartnerDemandSchedule';
+import PartnerOpportunitySignal from '@/pages/partner/PartnerOpportunitySignal';
+import PartnerCampaigns from '@/pages/partner/PartnerCampaigns';
 
 function App() {
   return (
@@ -169,6 +173,8 @@ function App() {
               <Route path="/admin/system-check" element={<SystemCheck />} />
               <Route path="/admin/demo-data" element={<AdminDemoData />} />
               <Route path="/admin/partner-access" element={<PartnerAccess />} />
+              <Route path="/admin/campaigns" element={<Campaigns />} />
+              <Route path="/admin/campaigns/:id" element={<CampaignDetail />} />
             </Route>
             <Route path="/partner" element={<PartnerRoute />}>
               <Route index element={<Navigate to="/partner/home" replace />} />
@@ -190,6 +196,8 @@ function App() {
               <Route path="orders" element={<PartnerOrders />} />
               <Route path="orders/:orderId" element={<PartnerOrderDetail />} />
               <Route path="demand-schedule" element={<PartnerDemandSchedule />} />
+              <Route path="opportunity-signal" element={<PartnerOpportunitySignal />} />
+              <Route path="campaigns" element={<PartnerCampaigns />} />
               <Route path="more" element={<PartnerMore />} />
               <Route path="performance" element={<PartnerPerformance />} />
               <Route path="guardrails" element={<PartnerGuardrails />} />

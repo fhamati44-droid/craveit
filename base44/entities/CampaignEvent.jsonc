@@ -1,0 +1,81 @@
+{
+  "name": "CampaignEvent",
+  "type": "object",
+  "properties": {
+    "campaign_id": {
+      "type": "string"
+    },
+    "offer_id": {
+      "type": "string",
+      "title": "CampaignOffer id"
+    },
+    "restaurant_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string",
+      "title": "home | mood_game | offers | khabya | push | whatsapp | crm | social | deep_link"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "impression",
+        "offer_open",
+        "unlock",
+        "add_to_cart",
+        "checkout_started",
+        "purchase",
+        "revenue"
+      ]
+    },
+    "amount": {
+      "type": "number",
+      "title": "Customer price paid (purchase/revenue)"
+    },
+    "restaurant_settlement": {
+      "type": "number"
+    },
+    "tamam_revenue": {
+      "type": "number"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "demo_batch_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "event_type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

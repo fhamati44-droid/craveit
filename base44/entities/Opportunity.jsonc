@@ -1,0 +1,135 @@
+{
+  "name": "Opportunity",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "opportunity_type": {
+      "type": "string",
+      "enum": [
+        "weak_period",
+        "surplus",
+        "strengthen_item",
+        "raw_material",
+        "temporary_capacity",
+        "low_demand",
+        "new_customers",
+        "reactivation",
+        "immediate_demand",
+        "increase_aov",
+        "loyalty_engagement",
+        "conversion_recovery",
+        "payday",
+        "cross_restaurant"
+      ],
+      "title": "Why TAMAM should act"
+    },
+    "related_menu_item_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Affected RestaurantMealOffer ids"
+    },
+    "related_demand_day": {
+      "type": "number",
+      "title": "0=Sun \u2026 6=Sat (optional)"
+    },
+    "related_demand_time": {
+      "type": "string",
+      "title": "HH:MM-HH:MM (optional)"
+    },
+    "start_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "end_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "capacity": {
+      "type": "number",
+      "title": "Additional orders/capacity available"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "STRENGTHEN",
+        "NORMAL",
+        "AVOID_PROMOTION",
+        "SURPLUS",
+        "NEW_ITEM",
+        "TEMPORARY_OPPORTUNITY"
+      ],
+      "default": "NORMAL"
+    },
+    "reason": {
+      "type": "string",
+      "title": "Human reason (Arabic)"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "merchant",
+        "restaurant_manager",
+        "tamam_admin",
+        "analytics",
+        "system"
+      ],
+      "default": "merchant"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "NEW",
+        "REVIEWING",
+        "USED",
+        "DISMISSED",
+        "EXPIRED"
+      ],
+      "default": "NEW"
+    },
+    "linked_campaign_id": {
+      "type": "string",
+      "title": "Campaign created from this opportunity"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "demo_batch_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "opportunity_type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

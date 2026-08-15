@@ -1,0 +1,184 @@
+{
+  "name": "CampaignOffer",
+  "type": "object",
+  "properties": {
+    "campaign_id": {
+      "type": "string",
+      "title": "Campaign id"
+    },
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "offer_title": {
+      "type": "string"
+    },
+    "offer_type": {
+      "type": "string",
+      "enum": [
+        "STANDARD_VALUE",
+        "DIRECT_PRICE",
+        "VALUE_ADD",
+        "FIRST_TRIAL",
+        "REACTIVATION",
+        "LIMITED_TIME",
+        "LIMITED_QUANTITY",
+        "TIME_AND_QUANTITY",
+        "POINT_LOCKED",
+        "COUPON_LOCKED",
+        "LOYALTY",
+        "AOV_UPSELL",
+        "SURPLUS",
+        "RAW_MATERIAL_OPPORTUNITY",
+        "COMMUNITY",
+        "CROSS_RESTAURANT"
+      ],
+      "default": "STANDARD_VALUE"
+    },
+    "tamam_product_id": {
+      "type": "number",
+      "title": "TAMAM Master Catalog product id"
+    },
+    "restaurant_item_id": {
+      "type": "string",
+      "title": "RestaurantMealOffer id"
+    },
+    "mealset_id": {
+      "type": "string"
+    },
+    "mealset_variant_id": {
+      "type": "string",
+      "title": "classic | mix | plus"
+    },
+    "customer_price": {
+      "type": "number",
+      "title": "Customer TAMAM price"
+    },
+    "normal_reference_price": {
+      "type": "number",
+      "title": "Normal combined value"
+    },
+    "value_add_description": {
+      "type": "string",
+      "title": "What is added (value-add, no price burn)"
+    },
+    "start_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "end_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "quota_total": {
+      "type": "number",
+      "title": "Null = no limit"
+    },
+    "quota_used": {
+      "type": "number",
+      "default": 0
+    },
+    "unlock_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "point_locked",
+        "coupon_locked"
+      ],
+      "default": "none"
+    },
+    "unlock_points": {
+      "type": "number",
+      "default": 0
+    },
+    "coupon_id": {
+      "type": "string"
+    },
+    "audience_rule": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Eligible segments"
+    },
+    "audience_size": {
+      "type": "number",
+      "default": 0,
+      "title": "0 = all eligible; 1 = single user"
+    },
+    "target_user_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "For audience_size=1"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "ready",
+        "scheduled",
+        "active",
+        "sold_out",
+        "expired",
+        "paused",
+        "completed"
+      ],
+      "default": "draft"
+    },
+    "priority": {
+      "type": "number",
+      "default": 0
+    },
+    "channels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "restaurant_contribution": {
+      "type": "number",
+      "default": 0
+    },
+    "tamam_contribution": {
+      "type": "number",
+      "default": 0
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "demo_batch_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "restaurant_id",
+    "offer_title",
+    "offer_type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
