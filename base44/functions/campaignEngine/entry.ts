@@ -95,10 +95,10 @@ async function loyaltyAccount(SR, phone) {
   return SR.entities.LoyaltyAccount.create({ phone, balance: 0, pending_balance: 0, used_points: 0, expired_points: 0 });
 }
 
-function offerStatus(offer) {
+function offerStatus(offer, nowMs?: number) {
   const start = offer.start_at ? new Date(offer.start_at).getTime() : 0;
   const end = offer.end_at ? new Date(offer.end_at).getTime() : Infinity;
-  const t = now();
+  const t = nowMs != null ? nowMs : now();
   if (offer.status === 'paused' || offer.status === 'completed') return offer.status;
   if (t < start) return 'scheduled';
   if (t >= end) return 'expired';
@@ -200,11 +200,11 @@ async function demoSeed(SR) {
 // Adapters: CampaignOffer -> UnifiedOffer, GroupDeal -> UnifiedOffer.
 // One deterministic precedence so the customer never sees contradictory prices.
 // ============================================================================
-function gdStatus(d: any) {
+function gdStatus(d: any, nowMs?: number) {
   if (!d) return 'draft';
   if (d.finalized) return d.status;
   if (['paused', 'cancelled', 'draft'].includes(d.status)) return d.status;
-  const t = now();
+  const t = nowMs != null ? nowMs : now();
   const s = d.start_at ? new Date(d.start_at).getTime() : 0;
   const e = d.end_at ? new Date(d.end_at).getTime() : Infinity;
   if (t < s) return 'scheduled';
@@ -228,11 +228,11 @@ async function gdUnlocked(SR: any, dealId: string, phone: string) {
   return !!(u && u.length);
 }
 
-async function campaignToUnified(SR: any, o: any, segs: string[], phone: string, user: any) {
+async function campaignToUnified(SR: any, o: any, segs: string[], phone: string, user: any, nowMs?: number) {
   const unlocked = await hasUnlockedOffer(SR, o.id, phone, user?.id);
   const bal = phone ? ((await loyaltyAccount(SR, phone))?.balance || 0) : 0;
   const isTarget = (o.audience_size === 1) && (user?.id ? (o.target_user_ids || []).includes(user.id) : false);
-  const res = evaluateOfferPure({ offer: o, nowMs: now(), segments: segs, isTargetedUser: isTarget, pointsBalance: bal, hasUnlocked: unlocked });
+  const res = evaluateOfferPure({ offer: o, nowMs: nowMs != null ? nowMs : now(), segments: segs, isTargetedUser: isTarget, pointsBalance: bal, hasUnlocked: unlocked });
   const remaining = o.quota_total == null ? null : Math.max(0, (o.quota_total || 0) - (o.quota_used || 0));
   return {
     id: o.id, source_type: 'CAMPAIGN', source_id: o.id,
@@ -251,8 +251,8 @@ async function campaignToUnified(SR: any, o: any, segs: string[], phone: string,
   };
 }
 
-async function groupDealToUnified(SR: any, d: any, phone: string) {
-  const status = gdStatus(d);
+async function groupDealToUnified(SR: any, d: any, phone: string, nowMs?: number) {
+  const status = gdStatus(d, nowMs);
   const rule = await gdRule(SR, d.id);
   const { participants, quantity } = await gdCountParticipations(SR, d.id);
   const total = d.total_inventory || d.maximum_participants || null;
@@ -299,6 +299,21 @@ function unifiedPrecedence(a: any, b: any) {
     return s;
   };
   return score(b) - score(a);
+}
+
+// Human-readable selection reason mirroring the deterministic policy order:
+// safety/availability -> eligibility -> exclusive targeting -> unlock state ->
+// priority -> customer value -> commercial validity -> stable tie-breaker.
+function explainSelection(sel: any, all: any[]): string {
+  if (!sel) return 'none';
+  if (!sel.eligible) return 'visible_only_no_eligible_offer';
+  if (sel.card_state === 'UNLOCKED') return 'unlocked_point_offer';
+  if (sel.card_state === 'ACTIVE') {
+    if (all.some((c) => c.id !== sel.id && c.eligible && c.source_type !== sel.source_type))
+      return 'active_eligible_resolved_conflict_deterministic';
+    return 'active_eligible_campaign';
+  }
+  return 'eligible_fallback';
 }
 
 async function fulfillmentSnapshot(SR: any, rid: string) {
@@ -563,10 +578,14 @@ export default async function (req) {
       const user = await currentUser(base44);
       const phone = payload.phone;
       if (!phone) return json({ error: 'phone_required' }, 400);
+      const includeDemo = !!payload.include_demo;
+      const evalNow = (includeDemo && payload.test_time) ? new Date(payload.test_time).getTime() : now();
       const o = await SR.entities.CampaignOffer.get(payload.offer_id).catch(() => null);
       if (!o) return json({ error: 'not_found' }, 404);
       if (o.unlock_type !== 'point_locked' || !o.unlock_points) return json({ error: 'not_point_locked' }, 400);
-      if (offerStatus(o) !== 'active') return json({ error: 'not_active' }, 400);
+      const st = offerStatus(o, evalNow);
+      if (st === 'expired') return json({ error: 'expired', message_ar: 'العرض انتهى' }, 400);
+      if (st !== 'active') return json({ error: 'not_active', status: st }, 400);
       const existing = await SR.entities.OfferUnlock.filter({ deal_id: o.id, phone }).catch(() => []);
       if (existing && existing.length) return json({ data: { already_unlocked: true, offer_id: o.id } });
       const acc = await loyaltyAccount(SR, phone);
@@ -605,10 +624,23 @@ export default async function (req) {
     // Single customer-facing contract over CampaignOffer + GroupDeal.
     // Customer UI never sees source_type. This layer is the ONLY place that
     // merges both systems, so no contradictory prices can reach the customer.
-    if (action === 'unifiedResolve' || action === 'unifiedList' || action === 'unifiedGet') {
+    //
+    // DEMO-ONLY test_time: when include_demo is true, a payload.test_time
+    // (ISO string) overrides the evaluation clock. Production (no include_demo)
+    // ALWAYS uses real server time — test_time is ignored.
+    function evalNowMs(includeDemo, testTime) {
+      if (includeDemo && testTime) {
+        const ms = new Date(testTime).getTime();
+        if (isFinite(ms)) return ms;
+      }
+      return now();
+    }
+
+    if (action === 'unifiedResolve' || action === 'unifiedList' || action === 'unifiedGet' || action === 'unifiedResolveByMealSet' || action === 'revalidateCheckout' || action === 'consumeQuota') {
       const user = await currentUser(base44);
       const phone = payload.phone || '';
       const includeDemo = !!payload.include_demo;
+      const evalNow = evalNowMs(includeDemo, payload.test_time);
 
       if (action === 'unifiedGet') {
         const st = payload.source_type;
@@ -617,18 +649,154 @@ export default async function (req) {
           if (!o) return json({ data: null });
           if (o.is_demo && !includeDemo) return json({ data: null });
           const segs = await computeSegments(SR, user, phone, o.restaurant_id);
-          const u = await campaignToUnified(SR, o, segs, phone, user);
+          const u = await campaignToUnified(SR, o, segs, phone, user, evalNow);
           if (u && u.restaurant_id) u.restaurant_fulfillment = await fulfillmentSnapshot(SR, u.restaurant_id);
           return json({ data: u });
         }
         if (st === 'GROUP_DEAL') {
           const d = await SR.entities.GroupDeal.get(payload.id).catch(() => null);
           if (!d) return json({ data: null });
-          const u = await groupDealToUnified(SR, d, phone);
+          const u = await groupDealToUnified(SR, d, phone, evalNow);
           if (u && u.restaurant_id) u.restaurant_fulfillment = await fulfillmentSnapshot(SR, u.restaurant_id);
           return json({ data: u });
         }
         return json({ data: null });
+      }
+
+      // ---- Pre-restaurant resolution (Scenario B/C/30/31) ----
+      // Mood -> MealSet -> Variant -> TAMAM product -> Product Mapping
+      //   -> RestaurantMealOffer candidates -> per-candidate UnifiedOffer.
+      // Does NOT require restaurant_id. Only mapped, available fulfillments.
+      if (action === 'unifiedResolveByMealSet') {
+        const variant = payload.mealset_variant_id || payload.variant || null;
+        const productIds: number[] = (payload.tamam_product_ids || (payload.tamam_product_id ? [payload.tamam_product_id] : [])).map((x) => Number(x)).filter((x) => isFinite(x));
+        if (!productIds.length) return json({ error: 'tamam_product_id_required' }, 400);
+
+        // Find mapped restaurant menu items for each TAMAM product.
+        const seen = new Set<string>();
+        const itemRows: any[] = [];
+        for (const tp of productIds) {
+          const rows = await SR.entities.RestaurantMealOffer.filter({ mapped_tamam_product_id: tp }).catch(() => []);
+          for (const r of (rows || [])) {
+            if (seen.has(r.id)) continue;
+            seen.add(r.id);
+            itemRows.push(r);
+          }
+        }
+
+        const options: any[] = [];
+        for (const item of itemRows) {
+          // discard unavailable restaurants / items / invalid mappings
+          if (!item.active || !item.available || item.sold_out) continue;
+          if (item.is_demo && !includeDemo) continue;
+          const rest = await SR.entities.Restaurant.get(item.restaurant_id).catch(() => null);
+          if (!rest || !rest.active || rest.current_status === 'temporarily_unavailable') continue;
+
+          const segs = await computeSegments(SR, user, phone, item.restaurant_id);
+          // campaign offers attached to this exact restaurant item + variant
+          const cos = await SR.entities.CampaignOffer.filter({ restaurant_id: item.restaurant_id, restaurant_item_id: item.id }).catch(() => []);
+          const campU: any[] = [];
+          for (const o of (cos || [])) {
+            if (o.is_demo && !includeDemo) continue;
+            if (variant && o.mealset_variant_id && o.mealset_variant_id !== variant) continue;
+            const u = await campaignToUnified(SR, o, segs, phone, user, evalNow);
+            if (!u.visible) continue;
+            campU.push(u);
+          }
+          const best = campU.sort(unifiedPrecedence)[0] || null;
+          const normalPrice = Number(item.price) || 0;
+          const customerPrice = best && best.eligible && best.card_state !== 'LOCKED_POINTS' ? best.customer_price : normalPrice;
+          options.push({
+            restaurant_id: item.restaurant_id,
+            restaurant_item_id: item.id,
+            tamam_product_id: item.mapped_tamam_product_id,
+            mealset_variant_id: variant,
+            normal_price: normalPrice,
+            customer_price: customerPrice,
+            card_state: best ? best.card_state : 'NORMAL',
+            has_offer: !!best && best.eligible,
+            offer: best,
+            restaurant_fulfillment: await fulfillmentSnapshot(SR, item.restaurant_id),
+          });
+        }
+
+        return json({ data: { test_time_active: includeDemo && !!payload.test_time, server_time: iso(new Date(evalNow)), variant, options } });
+      }
+
+      // ---- Checkout revalidation (Scenario 13/14/15/34) ----
+      // Server is the ONLY price authority. Re-resolve offer at real/test time,
+      // verify the selected fulfillment matches, check availability + quota.
+      if (action === 'revalidateCheckout') {
+        const st = payload.source_type;
+        let u: any = null;
+        if (st === 'CAMPAIGN') {
+          const o = await SR.entities.CampaignOffer.get(payload.id).catch(() => null);
+          if (!o) return json({ data: { valid: false, reason: 'offer_not_found' } });
+          if (o.is_demo && !includeDemo) return json({ data: { valid: false, reason: 'demo_not_included' } });
+          const segs = await computeSegments(SR, user, phone, o.restaurant_id);
+          u = await campaignToUnified(SR, o, segs, phone, user, evalNow);
+        } else if (st === 'GROUP_DEAL') {
+          const d = await SR.entities.GroupDeal.get(payload.id).catch(() => null);
+          if (!d) return json({ data: { valid: false, reason: 'offer_not_found' } });
+          u = await groupDealToUnified(SR, d, phone, evalNow);
+        } else {
+          return json({ error: 'source_type_required' }, 400);
+        }
+        if (!u) return json({ data: { valid: false, reason: 'not_resolved' } });
+
+        // fulfillment match
+        if (payload.restaurant_id && u.restaurant_id && payload.restaurant_id !== u.restaurant_id)
+          return json({ data: { valid: false, reason: 'restaurant_mismatch', authoritative_price: u.customer_price } });
+        if (payload.restaurant_item_id && u.restaurant_item_id && payload.restaurant_item_id !== u.restaurant_item_id)
+          return json({ data: { valid: false, reason: 'item_mismatch', authoritative_price: u.customer_price } });
+
+        // restaurant availability
+        const rest = u.restaurant_id ? await SR.entities.Restaurant.get(u.restaurant_id).catch(() => null) : null;
+        if (rest && (rest.current_status === 'temporarily_unavailable' || !rest.accepts_orders))
+          return json({ data: { valid: false, reason: 'restaurant_unavailable', authoritative_price: u.customer_price, card_state: 'EXPIRED' } });
+
+        // item availability
+        if (u.restaurant_item_id) {
+          const item = await SR.entities.RestaurantMealOffer.get(u.restaurant_item_id).catch(() => null);
+          if (item && (!item.active || !item.available || item.sold_out))
+            return json({ data: { valid: false, reason: 'item_unavailable', authoritative_price: u.customer_price, card_state: 'EXPIRED' } });
+        }
+
+        const valid = u.eligible && (u.card_state === 'ACTIVE' || u.card_state === 'UNLOCKED') && u.card_state !== 'EXPIRED' && u.card_state !== 'SOLD_OUT';
+        return json({
+          data: {
+            valid,
+            card_state: u.card_state,
+            authoritative_price: u.customer_price,
+            normal_price: u.normal_price,
+            quota_remaining: u.quota_remaining,
+            reason_if_unavailable: u.reason_if_unavailable || (!valid ? 'offer_inactive' : ''),
+            restaurant_fulfillment: await fulfillmentSnapshot(SR, u.restaurant_id),
+          },
+        });
+      }
+
+      // ---- Atomic quota consumption (Scenario F/9) ----
+      // CAS guard: only increment if quota_used hasn't changed since read AND
+      // we are still under the cap. Concurrent callers lose the race safely.
+      if (action === 'consumeQuota') {
+        const o = await SR.entities.CampaignOffer.get(payload.offer_id).catch(() => null);
+        if (!o) return json({ data: { consumed: false, reason: 'offer_not_found' } });
+        if (o.is_demo && !includeDemo) return json({ data: { consumed: false, reason: 'demo_not_included' } });
+        const st = offerStatus(o, evalNow);
+        if (st === 'expired') return json({ data: { consumed: false, reason: 'expired', message_ar: 'العرض انتهى' } });
+        if (st !== 'active') return json({ data: { consumed: false, reason: 'not_active', card_state: st === 'sold_out' ? 'SOLD_OUT' : 'UPCOMING' } });
+        const total = o.quota_total == null ? null : o.quota_total;
+        if (total == null) return json({ data: { consumed: true, unlimited: true, offer_id: o.id } });
+        const oldUsed = Number(o.quota_used || 0);
+        if (oldUsed >= total) return json({ data: { consumed: false, reason: 'sold_out', card_state: 'SOLD_OUT', message_ar: 'العرض خلص' } });
+        // CAS increment: filter matches only if quota_used still equals oldUsed
+        await SR.entities.CampaignOffer.updateMany({ id: o.id, quota_used: oldUsed }, { $inc: { quota_used: 1 } } as any).catch(() => {});
+        const after = await SR.entities.CampaignOffer.get(o.id).catch(() => o);
+        const newUsed = Number((after as any)?.quota_used || 0);
+        const consumed = newUsed === oldUsed + 1;
+        if (!consumed) return json({ data: { consumed: false, reason: 'sold_out', card_state: 'SOLD_OUT', message_ar: 'العرض خلص', quota_used: newUsed } });
+        return json({ data: { consumed: true, offer_id: o.id, quota_used: newUsed, quota_remaining: Math.max(0, total - newUsed) } });
       }
 
       const rid = payload.restaurant_id;
@@ -641,7 +809,7 @@ export default async function (req) {
         const segs = await computeSegments(SR, user, phone, rid);
         for (const o of (all || [])) {
           if (o.is_demo && !includeDemo) continue; // never show demo to production customers
-          const u = await campaignToUnified(SR, o, segs, phone, user);
+          const u = await campaignToUnified(SR, o, segs, phone, user, evalNow);
           if (!u.visible) continue;
           if (variant && u.mealset_variant_id && u.mealset_variant_id !== variant) continue;
           campU.push(u);
@@ -654,7 +822,7 @@ export default async function (req) {
         const gdRid = Number(rid);
         const deals = isFinite(gdRid) ? await SR.entities.GroupDeal.filter({ restaurant_id: gdRid }).catch(() => []) : [];
         for (const d of (deals || [])) {
-          const u = await groupDealToUnified(SR, d, phone);
+          const u = await groupDealToUnified(SR, d, phone, evalNow);
           if (!u.visible) continue;
           gdU.push(u);
         }
@@ -665,14 +833,17 @@ export default async function (req) {
 
       if (action === 'unifiedList') return json({ data: candidates });
 
-      // unifiedResolve — deterministic single pick + conflict log
+      // unifiedResolve — deterministic single pick + conflict explanation
       const selected = candidates[0] || null;
       const alternatives = candidates.slice(1);
-      const conflict = campU.length > 0 && gdU.length > 0 && candidates.filter((c) => c.eligible).length > 1;
+      const eligibleSet = candidates.filter((c) => c.eligible);
+      const conflict = eligibleSet.length > 1 && new Set(eligibleSet.map((c) => c.source_type)).size > 1;
+      const conflictingOfferIds = conflict ? eligibleSet.map((c) => c.id) : [];
+      const selectionReason = selected ? explainSelection(selected, candidates) : 'none';
       if (conflict) {
-        console.warn('[TAMAM-UNIFIED-CONFLICT]', { restaurant_id: rid, variant, items: candidates.map((c) => ({ source: c.source_type, id: c.id, price: c.customer_price, state: c.card_state })) });
+        console.warn('[TAMAM-UNIFIED-CONFLICT]', { restaurant_id: rid, variant, selected_offer_id: selected?.id, selected_source: selected?.source_type, conflicting_offer_ids: conflictingOfferIds, items: candidates.map((c) => ({ source: c.source_type, id: c.id, price: c.customer_price, state: c.card_state })) });
       }
-      return json({ data: { selected, alternatives, conflict_logged: !!conflict } });
+      return json({ data: { selected, alternatives, selected_offer_id: selected?.id || null, selected_source: selected?.source_type || null, conflicting_offer_ids: conflictingOfferIds, selection_reason: selectionReason, conflict_logged: !!conflict, server_time: iso(new Date(evalNow)), test_time_active: includeDemo && !!payload.test_time } });
     }
 
     return json({ error: 'unknown_action' }, 400);
