@@ -216,6 +216,29 @@ export const STRATEGY_COMPARISON = {
   cost_label: { low: 'منخفض', medium: 'متوسط', high: 'مرتفع' },
 } as const;
 
+// ---- Objective-aware scoring (Milestone 2) ----
+// Strategic objectives (loyalty / strengthen / AOV) create demand proactively
+// rather than reacting to a weak period, so the score weighs audience
+// engagement + commercial safety + capacity availability over demand gap.
+export const STRATEGIC_OBJECTIVES = new Set(['LOYALTY', 'PRODUCT_STRENGTHENING', 'AOV_GROWTH']);
+export const STRATEGIC_WEIGHTS = {
+  demand_need: 0.04,        // gap matters less for strategic demand
+  capacity_available: 0.15, // binary: is there room for at least one order?
+  audience_intent: 0.22,
+  commercial_safety: 0.22,
+  restaurant_priority: 0.12,
+  urgency: 0.05,
+  data_confidence: 0.20,
+} as const;
+
+// ---- Learning-mode exploration promotion (Milestone 2) ----
+// A new/low-data restaurant that declared a weak period + has positive safe
+// capacity should run a small EXPLORE experiment (PREPARE), not merely WATCH.
+export const LEARNING_MODE_PROMOTION = {
+  enabled: true,
+  min_score: 45, // only promote a genuine near-PREPARE WATCH, not a deep NO_ACTION
+} as const;
+
 // ---- Active-campaign safety reevaluation (recommendation only) ----
 export const CAMPAIGN_SAFETY = {
   // when active campaign + pressure -> PAUSE_RECOMMENDED

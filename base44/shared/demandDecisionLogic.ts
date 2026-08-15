@@ -23,6 +23,7 @@ import {
   SCORE_WEIGHTS, PENALTY_WEIGHTS, DECISION_THRESHOLDS, SAFETY,
   CANNIBALIZATION, LEARNING_MODE, CAPACITY, INTERVENTION_COST,
   EXPECTED_VALUE, STRATEGY_COMPARISON, OBJECTIVE_TO_CAMPAIGN,
+  STRATEGIC_OBJECTIVES, STRATEGIC_WEIGHTS, LEARNING_MODE_PROMOTION,
 } from './demandDecisionConfig.ts';
 
 export interface DecisionInputs {
@@ -144,13 +145,18 @@ export function hardBlockers(i: DecisionInputs): string[] {
   return b;
 }
 
-// ---- Opportunity score: explainable, component-based ----
-export function calcOpportunityScore(i: DecisionInputs): { score: number; components: any } {
+// ---- Opportunity score: explainable, component-based, objective-aware ----
+// Strategic objectives (loyalty / strengthen / AOV) create demand proactively,
+// so the score weighs engagement + commercial safety + capacity availability
+// over the demand gap. The objective must be chosen from business intent
+// BEFORE scoring; the engine passes the preliminary objective here.
+export function calcOpportunityScore(i: DecisionInputs, objective?: string): { score: number; components: any } {
   const target = i.surplus_qty != null ? i.surplus_qty : i.safe_operational_target;
   const safeAdditional = calcSafeAdditionalCapacity(i);
   const gap = calcDemandGap(i);
   const demandNeed = target > 0 ? clamp(gap / target) : 0;
   const capacityFit = target > 0 ? clamp(safeAdditional / target) : 0;
+  const capacityAvailable = safeAdditional >= 1 ? 1 : 0; // binary: room for >= 1 order
   const audienceIntent = clamp(i.audience_intent_score || 0);
   const commercialSafety = clamp(i.commercial_score || 0);
   const priorityScore = clamp(i.restaurant_priority_score || 0);
@@ -161,11 +167,14 @@ export function calcOpportunityScore(i: DecisionInputs): { score: number; compon
   const operationalRisk = clamp(i.operational_risk || 0);
   const saturation = clamp(i.campaign_saturation || 0);
 
-  const w = SCORE_WEIGHTS;
+  const strategic = !!(objective && STRATEGIC_OBJECTIVES.has(objective));
+  const w: any = strategic ? STRATEGIC_WEIGHTS : SCORE_WEIGHTS;
   const pw = PENALTY_WEIGHTS;
+  const capacityTerm = strategic ? capacityAvailable : capacityFit;
+  const capacityWeight = strategic ? w.capacity_available : w.capacity_fit;
   const positive =
     w.demand_need * demandNeed +
-    w.capacity_fit * capacityFit +
+    capacityWeight * capacityTerm +
     w.audience_intent * audienceIntent +
     w.commercial_safety * commercialSafety +
     w.restaurant_priority * priorityScore +
@@ -181,7 +190,7 @@ export function calcOpportunityScore(i: DecisionInputs): { score: number; compon
   return {
     score,
     components: {
-      demandNeed: round(demandNeed), capacityFit: round(capacityFit),
+      demandNeed: round(demandNeed), capacityFit: round(capacityFit), capacityAvailable,
       audienceIntent: round(audienceIntent), commercialSafety: round(commercialSafety),
       priorityScore: round(priorityScore), urgency: round(urgency),
       dataConfidence: round(dataConfidence),
@@ -190,16 +199,25 @@ export function calcOpportunityScore(i: DecisionInputs): { score: number; compon
       positive: round(positive), negative: round(negative),
       demand_gap: gap, safe_additional: safeAdditional,
       safe_operational_target: target,
+      strategic, objective: objective || '',
     },
   };
 }
 
-// ---- Decision: blockers first, then score bands, then state override ----
+// Preliminary objective chosen from business intent BEFORE scoring, so the
+// score can be objective-aware (strategic vs reactive). Passes 'PREPARE' so
+// recommendObjective does not short-circuit on a NO_ACTION decision.
+function preliminaryObjective(i: DecisionInputs): string {
+  return recommendObjective(i, 'PREPARE');
+}
+
+// ---- Decision: blockers first, then objective-aware score bands, then state override ----
 export function decideDemandAction(i: DecisionInputs, upcoming: boolean): {
-  decision: string; blockers: string[]; score: number; components: any; state: string;
+  decision: string; blockers: string[]; score: number; components: any; state: string; objective: string;
 } {
   const blockers = hardBlockers(i);
-  const { score, components } = calcOpportunityScore(i);
+  const objective = preliminaryObjective(i);
+  const { score, components } = calcOpportunityScore(i, objective);
   const state = calcDemandState(i);
   let decision = 'NO_ACTION';
 
@@ -220,9 +238,25 @@ export function decideDemandAction(i: DecisionInputs, upcoming: boolean): {
       decision = i.urgency_score >= t.ACT_NOW_URGENCY ? 'ACT_NOW' : 'SCHEDULE';
   }
 
+  // Learning-mode exploration promotion: a new/low-data restaurant that
+  // declared a weak period with positive safe capacity should run a small
+  // EXPLORE experiment (PREPARE) rather than merely WATCH, provided the score
+  // is a genuine near-PREPARE WATCH (not a deep NO_ACTION).
+  if (
+    LEARNING_MODE_PROMOTION.enabled &&
+    i.learning_mode &&
+    decision === 'WATCH' &&
+    blockers.length === 0 &&
+    calcDemandGap(i) > 0 &&
+    (i.audience_size || 0) > 0 &&
+    score >= LEARNING_MODE_PROMOTION.min_score
+  ) {
+    decision = 'PREPARE';
+  }
+
   // Future opportunity: a SCHEDULE/ACT_NOW that hasn't started yet is a PREPARE now.
   if (upcoming && (decision === 'SCHEDULE' || decision === 'ACT_NOW')) decision = 'PREPARE';
-  return { decision, blockers, score, components, state };
+  return { decision, blockers, score, components, state, objective };
 }
 
 // ============================================================================
