@@ -1,0 +1,140 @@
+{
+  "name": "CampaignLearning",
+  "type": "object",
+  "properties": {
+    "campaign_id": {
+      "type": "string",
+      "title": "Campaign id"
+    },
+    "demand_decision_id": {
+      "type": "string"
+    },
+    "campaign_plan_id": {
+      "type": "string"
+    },
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "product_context_json": {
+      "type": "string",
+      "title": "JSON: product / mealset / variant context"
+    },
+    "time_context_json": {
+      "type": "string",
+      "title": "JSON: window start/end, weekday"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "audience_segment": {
+      "type": "string"
+    },
+    "mechanism": {
+      "type": "string"
+    },
+    "explore_exploit": {
+      "type": "string",
+      "enum": [
+        "EXPLORE",
+        "EXPLOIT"
+      ]
+    },
+    "baseline_orders": {
+      "type": "number"
+    },
+    "expected_incremental_orders": {
+      "type": "number"
+    },
+    "actual_orders": {
+      "type": "number",
+      "title": "Observed total orders during the campaign window"
+    },
+    "estimated_incremental_orders": {
+      "type": "number",
+      "title": "HEURISTIC ESTIMATE: actual - baseline (not causal)"
+    },
+    "revenue": {
+      "type": "number"
+    },
+    "restaurant_settlement": {
+      "type": "number"
+    },
+    "tamam_contribution": {
+      "type": "number",
+      "title": "Actual TAMAM contribution spent"
+    },
+    "tamam_retained_revenue": {
+      "type": "number",
+      "title": "TAMAM commission retained"
+    },
+    "operational_incidents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Pressure / sold-out / closure incidents during the window"
+    },
+    "conversion": {
+      "type": "number",
+      "title": "purchases / impressions (0-1), null if no impressions"
+    },
+    "result_status": {
+      "type": "string",
+      "enum": [
+        "STRONG",
+        "MODERATE",
+        "WEAK",
+        "INSUFFICIENT_DATA",
+        "CONFOUNDED",
+        "INTERRUPTED"
+      ],
+      "title": "Learning reliability label"
+    },
+    "sample_size": {
+      "type": "number",
+      "title": "Number of observations used"
+    },
+    "confidence": {
+      "type": "number",
+      "title": "0-1 confidence in this learning record"
+    },
+    "learning_summary": {
+      "type": "string",
+      "title": "Human-readable Arabic summary"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "demo_batch_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "result_status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "name": "DemandExecutionPolicy",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "automation_mode": {
+      "type": "string",
+      "enum": [
+        "MANUAL",
+        "GUARDED_AUTOMATION",
+        "ADVANCED_AUTOMATION"
+      ],
+      "default": "MANUAL",
+      "title": "Automation mode"
+    },
+    "auto_schedule_allowed": {
+      "type": "boolean",
+      "default": false,
+      "title": "Allow automatic scheduling"
+    },
+    "auto_activate_allowed": {
+      "type": "boolean",
+      "default": false,
+      "title": "Allow automatic activation"
+    },
+    "max_campaign_duration_minutes": {
+      "type": "number",
+      "default": 240,
+      "title": "Max campaign duration (minutes)"
+    },
+    "max_campaign_orders": {
+      "type": "number",
+      "default": 20,
+      "title": "Max orders per campaign"
+    },
+    "max_simultaneous_campaigns": {
+      "type": "number",
+      "default": 2,
+      "title": "Max simultaneous active campaigns"
+    },
+    "max_tamam_contribution": {
+      "type": "number",
+      "default": 15,
+      "title": "Max TAMAM contribution per campaign (\u20aa)"
+    },
+    "max_restaurant_contribution": {
+      "type": "number",
+      "default": 15,
+      "title": "Max restaurant contribution per campaign (\u20aa)"
+    },
+    "direct_discount_allowed": {
+      "type": "boolean",
+      "default": false,
+      "title": "Allow direct price discount mechanism"
+    },
+    "value_add_allowed": {
+      "type": "boolean",
+      "default": true,
+      "title": "Allow value-add mechanism"
+    },
+    "points_offer_allowed": {
+      "type": "boolean",
+      "default": true,
+      "title": "Allow point-locked mechanism"
+    },
+    "limited_quantity_allowed": {
+      "type": "boolean",
+      "default": true,
+      "title": "Allow limited-quantity mechanism"
+    },
+    "personalized_offer_allowed": {
+      "type": "boolean",
+      "default": true,
+      "title": "Allow personalized (1:1) mechanism"
+    },
+    "allowed_start_times": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed start times (HH:MM); empty = any"
+    },
+    "blocked_times": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocked time windows"
+    },
+    "minimum_confidence": {
+      "type": "number",
+      "default": 0.5,
+      "title": "Minimum data confidence to auto-execute"
+    },
+    "minimum_opportunity_score": {
+      "type": "number",
+      "default": 60,
+      "title": "Minimum opportunity score to auto-execute"
+    },
+    "learning_mode_order_cap": {
+      "type": "number",
+      "default": 5,
+      "title": "Hard cap on EXPLORE campaign quota"
+    },
+    "require_approval_outside_limits": {
+      "type": "boolean",
+      "default": true,
+      "title": "Require human approval when outside limits"
+    },
+    "kill_switch_enabled": {
+      "type": "boolean",
+      "default": true,
+      "title": "Operational kill switch enabled for this restaurant"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "automation_mode"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

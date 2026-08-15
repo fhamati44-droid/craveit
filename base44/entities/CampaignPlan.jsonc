@@ -1,0 +1,200 @@
+{
+  "name": "CampaignPlan",
+  "type": "object",
+  "properties": {
+    "demand_decision_id": {
+      "type": "string",
+      "title": "DemandDecision id (source)"
+    },
+    "opportunity_id": {
+      "type": "string",
+      "title": "Opportunity id created from the decision"
+    },
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "objective": {
+      "type": "string",
+      "title": "Campaign.objective enum value (WHY)"
+    },
+    "mechanism": {
+      "type": "string",
+      "title": "Intervention mechanism (HOW) \u2014 FIRST_TRIAL / VALUE_ADD / POINT_LOCKED / TIME_AND_QUANTITY / PERSONALIZED_VALUE / ..."
+    },
+    "variant": {
+      "type": "string",
+      "title": "classic | mix | plus"
+    },
+    "audience_segment": {
+      "type": "string"
+    },
+    "audience_size": {
+      "type": "number"
+    },
+    "audience_definition_json": {
+      "type": "string",
+      "title": "JSON audience snapshot: segment, estimated size, eligibility rule, target user ids (when required)"
+    },
+    "target_user_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "start_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "end_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "planned_quota": {
+      "type": "number",
+      "title": "Quota from the decision"
+    },
+    "final_quota": {
+      "type": "number",
+      "title": "Quota after pre-activation revalidation (<= planned)"
+    },
+    "customer_price": {
+      "type": "number"
+    },
+    "normal_reference_price": {
+      "type": "number"
+    },
+    "value_add_description": {
+      "type": "string"
+    },
+    "tamam_contribution": {
+      "type": "number",
+      "title": "Planned TAMAM contribution (\u20aa)"
+    },
+    "restaurant_contribution": {
+      "type": "number",
+      "title": "Planned restaurant contribution (\u20aa)"
+    },
+    "expected_settlement": {
+      "type": "number",
+      "title": "Expected restaurant settlement"
+    },
+    "expected_incremental_orders": {
+      "type": "number"
+    },
+    "expected_tamam_contribution_cost": {
+      "type": "number"
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": [
+        "MANUAL",
+        "AUTO_WITHIN_GUARDRAILS"
+      ]
+    },
+    "automation_mode_snapshot": {
+      "type": "string",
+      "title": "Policy automation_mode captured at plan time"
+    },
+    "explore_exploit": {
+      "type": "string",
+      "enum": [
+        "EXPLORE",
+        "EXPLOIT"
+      ]
+    },
+    "learning_mode": {
+      "type": "boolean",
+      "default": false
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "VALIDATING",
+        "READY",
+        "APPROVAL_REQUIRED",
+        "REJECTED",
+        "SCHEDULED",
+        "EXECUTED",
+        "PAUSED",
+        "COMPLETED",
+        "CANCELLED"
+      ],
+      "default": "DRAFT"
+    },
+    "safety_gate_json": {
+      "type": "string",
+      "title": "JSON of all safety gate checks (pass/fail + reason)"
+    },
+    "monitor_state": {
+      "type": "string",
+      "enum": [
+        "HEALTHY",
+        "UNDERPERFORMING",
+        "CAPACITY_RISK",
+        "COMMERCIAL_RISK",
+        "SOLD_OUT",
+        "EXPIRED",
+        "PAUSED_OPERATIONAL",
+        "NEEDS_REVIEW",
+        "UNKNOWN"
+      ],
+      "default": "UNKNOWN"
+    },
+    "campaign_id": {
+      "type": "string",
+      "title": "Campaign created from this plan"
+    },
+    "campaign_offer_id": {
+      "type": "string",
+      "title": "CampaignOffer created on activation"
+    },
+    "plan_reason_ar": {
+      "type": "string",
+      "title": "Partner-facing Arabic plan summary"
+    },
+    "kill_reason": {
+      "type": "string",
+      "title": "Why the plan was blocked/paused/cancelled"
+    },
+    "test_time": {
+      "type": "string",
+      "title": "Demo test-time override (empty in production)"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "demo_batch_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "demand_decision_id",
+    "restaurant_id",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

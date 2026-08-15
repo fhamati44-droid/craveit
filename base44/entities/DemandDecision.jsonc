@@ -33,6 +33,11 @@
       "format": "date-time",
       "title": "Decision window end"
     },
+    "valid_until": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Decision expiration \u2014 execution after this time requires reevaluation"
+    },
     "demand_state": {
       "type": "string",
       "enum": [

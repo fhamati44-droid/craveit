@@ -1,0 +1,85 @@
+{
+  "name": "ExecutionAuditLog",
+  "type": "object",
+  "properties": {
+    "plan_id": {
+      "type": "string"
+    },
+    "campaign_id": {
+      "type": "string"
+    },
+    "demand_decision_id": {
+      "type": "string"
+    },
+    "restaurant_id": {
+      "type": "string"
+    },
+    "actor": {
+      "type": "string",
+      "title": "User id, 'system', or 'automation'"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "decision_accepted",
+        "opportunity_created",
+        "plan_generated",
+        "validation_pass",
+        "validation_fail",
+        "campaign_scheduled",
+        "campaign_activated",
+        "quota_adjusted",
+        "campaign_paused",
+        "campaign_resumed",
+        "campaign_completed",
+        "approval_requested",
+        "manual_override",
+        "kill_switch_triggered",
+        "plan_rejected",
+        "plan_cancelled"
+      ],
+      "title": "Audited action"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "old_state": {
+      "type": "string"
+    },
+    "new_state": {
+      "type": "string"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "demo_batch_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
