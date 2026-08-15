@@ -6,6 +6,7 @@ import { getMoodMealSets, pickNextMealSet, resolveDefaultTier, TIERS } from '@/l
 import { useCart } from '@/lib/CartContext';
 import { moodIconFor } from '@/lib/moodIcons';
 import { resolvePublicImage, handleImageError } from '@/lib/imageUtils';
+import { resolveUnifiedOffer, unlockUnifiedOffer, recordUnifiedOfferEvent, UNIFIED_CARD_STATE_LABEL, effectivePrice } from '@/lib/unifiedOfferApi';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 const TIER_LABEL = { classic: 'كلاسيك', mix: 'ميكس', plus: 'بلس' };
@@ -28,6 +29,8 @@ export default function TamamSuggestions() {
   const [currentSetId, setCurrentSetId] = useState(null);
   const [tier, setTier] = useState('mix');
   const [seenIds, setSeenIds] = useState([]);
+  const [unified, setUnified] = useState(null); // UnifiedOffer overlay for current variant (null = normal)
+  const [unifiedLoading, setUnifiedLoading] = useState(false);
 
   // Legacy model state (fallback)
   const [legacySets, setLegacySets] = useState({ classic: [], mix: [], plus: [] });
@@ -135,6 +138,41 @@ export default function TamamSuggestions() {
     if (alt) setCurrentSetId(alt.meal_set_id);
   }, [useMealSetMode, currentSetId, tier, currentVariant, tierAvailable, mealSets]);
 
+  // ---- Unified offer overlay (Phase 1.5) ----
+  // Resolve a UnifiedOffer for the current variant when a restaurant context is
+  // available. TAMAM-level MealSets have no restaurant, so in the normal Mood
+  // flow this returns null and the customer sees the normal variant behavior
+  // (no offer required). Per-restaurant/demo contexts pass ?restaurant=&demo=1.
+  const phone = (typeof localStorage !== 'undefined' && localStorage.getItem('user_phone')) || '';
+  const unifiedRestaurantId = searchParams.get('restaurant') || currentSet?.restaurant_id || null;
+  const includeDemo = searchParams.get('demo') === '1';
+  useEffect(() => {
+    if (!useMealSetMode || !currentVariant || !unifiedRestaurantId) { setUnified(null); return; }
+    let cancelled = false;
+    resolveUnifiedOffer({ restaurant_id: unifiedRestaurantId, variant: tier, phone, include_demo: includeDemo })
+      .then((res) => {
+        if (cancelled) return;
+        const sel = res?.selected || null;
+        setUnified(sel);
+        if (sel) recordUnifiedOfferEvent({ source_type: sel.source_type, id: sel.id, event_type: 'impression', channel: 'mood_game', phone, campaign_id: sel.campaign_id, restaurant_id: sel.restaurant_id }).catch(() => {});
+      })
+      .catch(() => { if (!cancelled) setUnified(null); });
+    return () => { cancelled = true; };
+  }, [useMealSetMode, currentSetId, tier, currentVariant, unifiedRestaurantId, includeDemo, phone]);
+
+  const unlockUnified = async () => {
+    if (!unified || !phone) { navigate('/profile'); return; }
+    setUnifiedLoading(true);
+    try {
+      const r = await unlockUnifiedOffer({ source_type: unified.source_type, id: unified.id, phone, channel: 'mood_game' });
+      if (r?.unlocked || r?.already_unlocked) {
+        recordUnifiedOfferEvent({ source_type: unified.source_type, id: unified.id, event_type: 'unlock', channel: 'mood_game', phone, campaign_id: unified.campaign_id, restaurant_id: unified.restaurant_id }).catch(() => {});
+        const res = await resolveUnifiedOffer({ restaurant_id: unifiedRestaurantId, variant: tier, phone, include_demo: includeDemo });
+        setUnified(res?.selected || null);
+      }
+    } finally { setUnifiedLoading(false); }
+  };
+
   // "اقتراح آخر" — changes the MealSet, preserves the tier
   const refresh = () => {
     if (useMealSetMode) {
@@ -159,12 +197,17 @@ export default function TamamSuggestions() {
 
   const choose = () => {
     if (useMealSetMode && currentVariant) {
+      const uSel = unified;
+      const useOffer = uSel && uSel.eligible && uSel.card_state !== 'LOCKED_POINTS';
       trackEvent({ action: 'package_selected', meal_set_id: currentSetId, meal_set_variant_id: currentVariant.id, package_level: tier });
       trackEvent({ action: 'order_started', meal_set_id: currentSetId, package_level: tier });
+      if (useOffer) {
+        recordUnifiedOfferEvent({ source_type: uSel.source_type, id: uSel.id, event_type: 'add_to_cart', channel: 'mood_game', phone, campaign_id: uSel.campaign_id, restaurant_id: uSel.restaurant_id }).catch(() => {});
+      }
       addItem({
         id: currentVariant.existing_product_id || null,
         name: currentVariant.title_ar || currentSet?.display_name_ar || 'وجبة TAMAM',
-        price: currentVariant.marketing_price || currentVariant.starting_price || 0,
+        price: useOffer ? (effectivePrice(uSel) || currentVariant.marketing_price || currentVariant.starting_price || 0) : (currentVariant.marketing_price || currentVariant.starting_price || 0),
         image_url: currentVariant.image || currentSet?.set_cover_image || null,
         quantity: 1,
         extras: [],
@@ -172,6 +215,9 @@ export default function TamamSuggestions() {
         meal_set_id: currentSetId,
         meal_set_variant_id: currentVariant.id,
         selected_tier: tier,
+        unified_offer_source: useOffer ? uSel.source_type : null,
+        unified_offer_id: useOffer ? uSel.id : null,
+        campaign_id: useOffer ? uSel.campaign_id : null,
       });
       navigate('/cart');
       return;
@@ -293,9 +339,26 @@ export default function TamamSuggestions() {
               <div className="absolute inset-0 bg-gradient-to-t from-surface-container-high via-transparent to-transparent" />
             </div>
             <div className="p-5">
+              {unified && (
+                <div className="mb-3 rounded-2xl border border-primary/30 bg-primary/10 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-primary font-bold text-sm">عرض TAMAM · {UNIFIED_CARD_STATE_LABEL[unified.card_state] || ''}</span>
+                    {unified.unlock_type === 'point_locked' && <span className="material-symbols-outlined text-tertiary text-[18px]">lock</span>}
+                  </div>
+                  {unified.value_add && <p className="text-xs text-on-surface-variant mt-1">{unified.value_add}</p>}
+                  {unified.unlock_type === 'point_locked' && <p className="text-xs text-tertiary mt-1">يفتح بـ {unified.unlock_points} نقطة · رصيدك {unified.points_balance ?? '—'} نقطة</p>}
+                </div>
+              )}
               <div className="flex justify-between items-start mb-2">
                 <h3 className="text-xl font-bold text-white">{card.title}</h3>
-                {card.price != null && <div className="text-primary font-bold text-xl">₪{Math.round(card.price)}</div>}
+                <div className="text-left">
+                  {unified && effectivePrice(unified) != null ? (
+                    <div className="flex items-baseline gap-1.5 justify-end">
+                      <div className="text-primary font-bold text-xl">₪{Math.round(effectivePrice(unified))}</div>
+                      {unified.normal_price && effectivePrice(unified) < unified.normal_price && <span className="text-sm text-on-surface-variant line-through">₪{Math.round(unified.normal_price)}</span>}
+                    </div>
+                  ) : (card.price != null && <div className="text-primary font-bold text-xl">₪{Math.round(card.price)}</div>)}
+                </div>
               </div>
               {card.description && <p className="text-sm text-on-surface-variant mb-4">{card.description}</p>}
               <div className="space-y-2 mb-6">
@@ -303,7 +366,14 @@ export default function TamamSuggestions() {
                 <div className="flex items-center gap-2 text-sm text-on-surface"><Icon name="group" className="text-primary text-lg" /><span>مناسب لـ {card.audience}</span></div>
               </div>
               <div className="flex flex-col gap-3">
-                <button onClick={choose} className="w-full bg-primary text-on-primary h-14 rounded-2xl flex items-center justify-center font-bold text-lg active:scale-[0.98] transition-transform">اختار هذا</button>
+                {unified && unified.card_state === 'LOCKED_POINTS' ? (
+                  <button onClick={unlockUnified} disabled={unifiedLoading} className="w-full bg-tertiary text-on-tertiary h-14 rounded-2xl flex items-center justify-center gap-2 font-bold text-lg active:scale-[0.98] transition-transform disabled:opacity-50">
+                    {unifiedLoading ? <Icon name="progress_activity" className="animate-spin" /> : <Icon name="lock_open" />}
+                    {unifiedLoading ? 'جاري الفتح…' : `افتح العرض بـ ${unified.unlock_points} نقطة`}
+                  </button>
+                ) : (
+                  <button onClick={choose} className="w-full bg-primary text-on-primary h-14 rounded-2xl flex items-center justify-center font-bold text-lg active:scale-[0.98] transition-transform">اختار هذا</button>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <button onClick={refresh} className="h-12 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-sm font-medium active:bg-white/5"><Icon name="refresh" className="text-sm" />اقتراح آخر</button>
                   <button onClick={() => setShowDetails(true)} className="h-12 border border-white/10 rounded-xl flex items-center justify-center gap-2 text-sm font-medium active:bg-white/5"><Icon name="info" className="text-sm" />شوف التفاصيل</button>

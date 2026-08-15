@@ -57,6 +57,7 @@ import MoodGame from '@/pages/MoodGame';
 import CommunityMoods from '@/pages/CommunityMoods';
 import CommunityMoodDetail from '@/pages/CommunityMoodDetail';
 import AccountCommunityMoods from '@/pages/AccountCommunityMoods';
+import OfferDetail from '@/pages/OfferDetail';
 import CommunityMoodsAdmin from '@/pages/admin/CommunityMoodsAdmin';
 import GameReferencesAdmin from '@/pages/admin/GameReferencesAdmin';
 import AdminRestaurants from '@/pages/admin/Restaurants';
@@ -135,6 +136,8 @@ function App() {
               <Route path="/community-moods/:proposalId" element={<CommunityMoodDetail />} />
               <Route path="/account/community-moods" element={<AccountCommunityMoods />} />
               <Route path="/account/community-moods/:proposalId" element={<AccountCommunityMoods />} />
+              <Route path="/offer/:source/:id" element={<OfferDetail />} />
+              <Route path="/offer/:id" element={<OfferDetail />} />
             </Route>
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/checkout/review" element={<CheckoutReview />} />

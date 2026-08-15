@@ -196,6 +196,119 @@ async function demoSeed(SR) {
 }
 
 // ============================================================================
+// UNIFIED OFFER BRIDGE helpers (Phase 1.5)
+// Adapters: CampaignOffer -> UnifiedOffer, GroupDeal -> UnifiedOffer.
+// One deterministic precedence so the customer never sees contradictory prices.
+// ============================================================================
+function gdStatus(d: any) {
+  if (!d) return 'draft';
+  if (d.finalized) return d.status;
+  if (['paused', 'cancelled', 'draft'].includes(d.status)) return d.status;
+  const t = now();
+  const s = d.start_at ? new Date(d.start_at).getTime() : 0;
+  const e = d.end_at ? new Date(d.end_at).getTime() : Infinity;
+  if (t < s) return 'scheduled';
+  if (t >= e) return 'ended';
+  return 'active';
+}
+async function gdCountParticipations(SR: any, dealId: string) {
+  const parts = await SR.entities.GroupDealParticipation.filter({ deal_id: dealId }).catch(() => []);
+  const active = (parts || []).filter((p: any) => p.participation_status !== 'cancelled');
+  const unique = new Set(active.map((p: any) => p.customer_id || p.phone || p.guest_session_id || p.id)).size;
+  const qty = active.reduce((s: number, p: any) => s + (p.quantity || 0), 0);
+  return { participants: unique, quantity: qty };
+}
+async function gdRule(SR: any, dealId: string) {
+  const rules = await SR.entities.OfferRule.filter({ deal_id: dealId, active: true }).catch(() => []);
+  return (rules || [])[0] || null;
+}
+async function gdUnlocked(SR: any, dealId: string, phone: string) {
+  if (!phone) return false;
+  const u = await SR.entities.OfferUnlock.filter({ deal_id: dealId, phone }).catch(() => []);
+  return !!(u && u.length);
+}
+
+async function campaignToUnified(SR: any, o: any, segs: string[], phone: string, user: any) {
+  const unlocked = await hasUnlockedOffer(SR, o.id, phone, user?.id);
+  const bal = phone ? ((await loyaltyAccount(SR, phone))?.balance || 0) : 0;
+  const isTarget = (o.audience_size === 1) && (user?.id ? (o.target_user_ids || []).includes(user.id) : false);
+  const res = evaluateOfferPure({ offer: o, nowMs: now(), segments: segs, isTargetedUser: isTarget, pointsBalance: bal, hasUnlocked: unlocked });
+  const remaining = o.quota_total == null ? null : Math.max(0, (o.quota_total || 0) - (o.quota_used || 0));
+  return {
+    id: o.id, source_type: 'CAMPAIGN', source_id: o.id,
+    restaurant_id: o.restaurant_id, tamam_product_id: o.tamam_product_id, restaurant_item_id: o.restaurant_item_id,
+    mealset_id: o.mealset_id, mealset_variant_id: o.mealset_variant_id,
+    title: o.offer_title, subtitle: o.value_add_description || '',
+    normal_price: o.normal_reference_price, customer_price: o.customer_price, value_add: o.value_add_description || '',
+    start_at: o.start_at, end_at: o.end_at,
+    quota_total: o.quota_total, quota_remaining: remaining,
+    unlock_type: o.unlock_type || 'none', unlock_points: o.unlock_points || 0,
+    card_state: res.card_state, eligible: res.eligible, visible: res.visible, locked: res.locked,
+    campaign_id: o.campaign_id, priority: o.priority || 0,
+    restaurant_fulfillment: null, offer_badges: [], customer_cta: res.eligible ? 'order' : 'view',
+    reason_if_unavailable: (res as any).reason || '',
+    points_balance: bal,
+  };
+}
+
+async function groupDealToUnified(SR: any, d: any, phone: string) {
+  const status = gdStatus(d);
+  const rule = await gdRule(SR, d.id);
+  const { participants, quantity } = await gdCountParticipations(SR, d.id);
+  const total = d.total_inventory || d.maximum_participants || null;
+  const used = d.counting_method === 'quantity' ? quantity : participants;
+  const remaining = total != null ? Math.max(0, total - used) : null;
+  const soldOut = total != null && remaining === 0;
+  const locked = !!(rule && rule.unlock_type === 'point_locked' && rule.points_unlock_cost > 0);
+  const unlocked = locked ? await gdUnlocked(SR, d.id, phone) : false;
+  let cardState = 'NORMAL';
+  if (soldOut) cardState = 'SOLD_OUT';
+  else if (status === 'ended') cardState = 'EXPIRED';
+  else if (status === 'scheduled') cardState = 'UPCOMING';
+  else if (locked && !unlocked) cardState = 'LOCKED_POINTS';
+  else if (locked && unlocked) cardState = 'UNLOCKED';
+  else if (status === 'active') cardState = 'ACTIVE';
+  const eligible = ['active', 'scheduled'].includes(status) && !soldOut;
+  return {
+    id: d.id, source_type: 'GROUP_DEAL', source_id: d.id,
+    restaurant_id: d.restaurant_id != null ? String(d.restaurant_id) : null,
+    tamam_product_id: null, restaurant_item_id: null,
+    mealset_id: null, mealset_variant_id: null,
+    title: d.title, subtitle: d.subtitle || '',
+    normal_price: d.reference_price, customer_price: d.reference_price, value_add: '',
+    start_at: d.start_at, end_at: d.end_at,
+    quota_total: total, quota_remaining: remaining,
+    unlock_type: locked ? 'point_locked' : 'none', unlock_points: rule?.points_unlock_cost || 0,
+    card_state: cardState, eligible, visible: true, locked: locked && !unlocked,
+    campaign_id: '', priority: 0,
+    restaurant_fulfillment: null, offer_badges: [], customer_cta: eligible ? 'order' : 'view',
+    reason_if_unavailable: soldOut ? 'sold_out' : (status === 'ended' ? 'expired' : ''),
+    points_balance: 0,
+  };
+}
+
+// Deterministic precedence: eligible > unlocked/active > campaign priority > lower price > campaign over group deal.
+function unifiedPrecedence(a: any, b: any) {
+  const score = (u: any) => {
+    let s = 0;
+    if (u.eligible) s += 100000;
+    if (u.card_state === 'UNLOCKED' || u.card_state === 'ACTIVE') s += 10000;
+    if (u.source_type === 'CAMPAIGN') s += (u.priority || 0) * 100;
+    s += (2000 - Math.round(u.customer_price || 0));
+    if (u.source_type === 'CAMPAIGN') s += 1; // prefer the new system on tie
+    return s;
+  };
+  return score(b) - score(a);
+}
+
+async function fulfillmentSnapshot(SR: any, rid: string) {
+  if (!rid) return null;
+  const r = await SR.entities.Restaurant.get(rid).catch(() => null);
+  if (!r) return null;
+  return { restaurant_id: r.id, name: r.name_ar || r.name, logo_url: r.logo_url, delivery_time_min: r.delivery_time_min, delivery_time_max: r.delivery_time_max, preparation_time_min: r.preparation_time_min, preparation_time_max: r.preparation_time_max, current_status: r.current_status };
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 export default async function (req) {
@@ -486,6 +599,80 @@ export default async function (req) {
       if (!await requireAdmin(base44)) return json({ error: 'forbidden' }, 403);
       const events = await SR.entities.CampaignEvent.filter({ campaign_id: payload.campaign_id }).catch(() => []);
       return json({ data: aggregatePerformance(events || []) });
+    }
+
+    // ---------- UNIFIED OFFER BRIDGE (Phase 1.5) ----------
+    // Single customer-facing contract over CampaignOffer + GroupDeal.
+    // Customer UI never sees source_type. This layer is the ONLY place that
+    // merges both systems, so no contradictory prices can reach the customer.
+    if (action === 'unifiedResolve' || action === 'unifiedList' || action === 'unifiedGet') {
+      const user = await currentUser(base44);
+      const phone = payload.phone || '';
+      const includeDemo = !!payload.include_demo;
+
+      if (action === 'unifiedGet') {
+        const st = payload.source_type;
+        if (st === 'CAMPAIGN') {
+          const o = await SR.entities.CampaignOffer.get(payload.id).catch(() => null);
+          if (!o) return json({ data: null });
+          if (o.is_demo && !includeDemo) return json({ data: null });
+          const segs = await computeSegments(SR, user, phone, o.restaurant_id);
+          const u = await campaignToUnified(SR, o, segs, phone, user);
+          if (u && u.restaurant_id) u.restaurant_fulfillment = await fulfillmentSnapshot(SR, u.restaurant_id);
+          return json({ data: u });
+        }
+        if (st === 'GROUP_DEAL') {
+          const d = await SR.entities.GroupDeal.get(payload.id).catch(() => null);
+          if (!d) return json({ data: null });
+          const u = await groupDealToUnified(SR, d, phone);
+          if (u && u.restaurant_id) u.restaurant_fulfillment = await fulfillmentSnapshot(SR, u.restaurant_id);
+          return json({ data: u });
+        }
+        return json({ data: null });
+      }
+
+      const rid = payload.restaurant_id;
+      const variant = payload.variant || null;
+
+      // ---- Campaign candidates ----
+      const campU: any[] = [];
+      if (rid) {
+        const all = await SR.entities.CampaignOffer.filter({ restaurant_id: rid }).catch(() => []);
+        const segs = await computeSegments(SR, user, phone, rid);
+        for (const o of (all || [])) {
+          if (o.is_demo && !includeDemo) continue; // never show demo to production customers
+          const u = await campaignToUnified(SR, o, segs, phone, user);
+          if (!u.visible) continue;
+          if (variant && u.mealset_variant_id && u.mealset_variant_id !== variant) continue;
+          campU.push(u);
+        }
+      }
+
+      // ---- GroupDeal candidates ----
+      const gdU: any[] = [];
+      if (rid) {
+        const gdRid = Number(rid);
+        const deals = isFinite(gdRid) ? await SR.entities.GroupDeal.filter({ restaurant_id: gdRid }).catch(() => []) : [];
+        for (const d of (deals || [])) {
+          const u = await groupDealToUnified(SR, d, phone);
+          if (!u.visible) continue;
+          gdU.push(u);
+        }
+      }
+
+      const candidates = [...campU, ...gdU].sort(unifiedPrecedence);
+      for (const u of candidates) if (u.restaurant_id) u.restaurant_fulfillment = await fulfillmentSnapshot(SR, u.restaurant_id);
+
+      if (action === 'unifiedList') return json({ data: candidates });
+
+      // unifiedResolve — deterministic single pick + conflict log
+      const selected = candidates[0] || null;
+      const alternatives = candidates.slice(1);
+      const conflict = campU.length > 0 && gdU.length > 0 && candidates.filter((c) => c.eligible).length > 1;
+      if (conflict) {
+        console.warn('[TAMAM-UNIFIED-CONFLICT]', { restaurant_id: rid, variant, items: candidates.map((c) => ({ source: c.source_type, id: c.id, price: c.customer_price, state: c.card_state })) });
+      }
+      return json({ data: { selected, alternatives, conflict_logged: !!conflict } });
     }
 
     return json({ error: 'unknown_action' }, 400);

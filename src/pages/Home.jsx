@@ -15,6 +15,7 @@ import InfoFooter from '@/components/tamam/customer/InfoFooter';
 import LazySection from '@/components/tamam/customer/LazySection';
 import CommunityMoodGameSection from '@/components/community/CommunityMoodGameSection';
 import KhabyaSection from '@/components/tamam/customer/KhabyaSection';
+import HomeUnifiedOffers from '@/components/tamam/customer/HomeUnifiedOffers';
 import HomeMoodGamePreview from '@/components/tamam/customer/HomeMoodGamePreview';
 import HomeTamamGamePreview from '@/components/tamam/customer/HomeTamamGamePreview';
 import TimeAwareTopSuggestions from '@/components/tamam/customer/TimeAwareTopSuggestions';
@@ -89,6 +90,9 @@ export default function Home() {
 
       {/* 5b. خبايا TAMAM (additive point-locked offers) */}
       <KhabyaSection />
+
+      {/* 5c. Unified offers (Campaign + GroupDeal, additive, only when offers exist) */}
+      <HomeUnifiedOffers />
 
       {/* 6. Curated restaurants */}
       <LazySection>
