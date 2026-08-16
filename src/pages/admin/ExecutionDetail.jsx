@@ -8,7 +8,6 @@ import { ApproveActions, PauseAction, ResumeAction, StopAction } from '@/compone
 
 export default function ExecutionDetail() {
   const { planId } = useParams();
-  const navigate = useNavigate();
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
