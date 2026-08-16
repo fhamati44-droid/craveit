@@ -20,7 +20,7 @@ export default function HomeActiveDealBanner({ deal, thresholds, participants, o
           : <div className="w-full h-full bg-surface-container-high flex items-center justify-center text-4xl">🎉</div>}
         <div className="absolute inset-0 bg-gradient-to-t from-surface-container via-surface-container/40 to-transparent" />
         <div className="absolute top-3 right-3 inline-flex items-center gap-1 bg-primary text-on-primary px-2 py-1 rounded-full text-[10px] font-bold">
-          <span className="w-2 h-2 rounded-full bg-on-primary animate-pulse" /> عرض شغّال هسا
+          <span className="w-2 h-2 rounded-full bg-on-primary animate-pulse" /> عرض شغّال اليوم
         </div>
         {cd && !cd.expired && (
           <div className="absolute bottom-3 left-3 bg-tertiary text-on-tertiary px-2 py-1 rounded-lg text-[10px] font-bold tabular-nums">{pad(cd.h)}:{pad(cd.m)}:{pad(cd.s)}</div>

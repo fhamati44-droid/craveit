@@ -34,11 +34,14 @@ export default function TimeAwareTopSuggestions({ timeData }) {
     navigate(item.route || '/tamam-suggestions');
   };
 
+  const periodName = timeData?.current_period?.name_ar;
+  const fitTag = periodName ? 'مناسب لوقتك' : 'موصى فيه';
+
   if (!suggestions || suggestions.length === 0) {
     return (
       <section className="px-4 py-4">
         <h2 className="text-headline-sm font-bold mb-1">اختيارات TAMAM إلك</h2>
-        <p className="text-body-sm text-on-surface-variant mb-3">حسب مودك والوقت إسا</p>
+        <p className="text-body-sm text-on-surface-variant mb-3">حسب مودك والوقت</p>
         <button
           onClick={() => navigate('/tamam-suggestions')}
           className="w-full h-14 bg-surface-container border border-outline-variant/30 rounded-2xl flex items-center justify-center gap-2 font-bold active:scale-[0.98] transition-transform"
@@ -56,7 +59,7 @@ export default function TimeAwareTopSuggestions({ timeData }) {
     <section className="py-4">
       <div className="px-4 mb-3">
         <h2 className="text-headline-sm font-bold">اختيارات TAMAM إلك</h2>
-        <p className="text-body-sm text-on-surface-variant">حسب مودك والوقت إسا</p>
+        <p className="text-body-sm text-on-surface-variant">حسب مودك والوقت</p>
       </div>
       <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
         {picks.map((item) => (
@@ -72,8 +75,11 @@ export default function TimeAwareTopSuggestions({ timeData }) {
                 alt={item.title || ''}
                 className="absolute inset-0 w-full h-full object-cover"
               />
+              <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-tamam-ink/75 backdrop-blur-sm text-tamam-green-bright text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <span className="material-symbols-outlined text-[12px]">recommend</span>{fitTag}
+              </span>
               {item.package && (
-                <span className="absolute top-2 right-2 bg-tamam-ink/70 backdrop-blur-sm text-tamam-green-bright text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <span className="absolute top-2 left-2 bg-tamam-gold/85 text-tamam-ink text-[10px] font-bold px-2 py-0.5 rounded-full">
                   {item.package}
                 </span>
               )}
@@ -99,9 +105,9 @@ export default function TimeAwareTopSuggestions({ timeData }) {
       <div className="px-4 mt-3">
         <button
           onClick={() => navigate('/tamam-suggestions')}
-          className="text-on-surface-variant text-xs font-semibold inline-flex items-center gap-1 active:scale-95 transition-transform min-h-[40px]"
+          className="w-full h-11 rounded-xl bg-surface-container border border-outline-variant/30 text-on-surface-variant text-xs font-bold inline-flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
         >
-          مش عاجبك؟ اقتراح ثاني <span className="material-symbols-outlined text-[14px]">refresh</span>
+          شوف كل الاقتراحات <span className="material-symbols-outlined text-[16px]">arrow_back</span>
         </button>
       </div>
     </section>

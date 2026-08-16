@@ -44,11 +44,14 @@ export default function KhabyaSection() {
   return (
     <section className="px-4 py-3">
       <div className="mb-3">
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="material-symbols-outlined text-tamam-gold text-[20px] mg-breathe" style={{ filter: 'drop-shadow(0 0 6px rgba(234,196,92,0.4))' }}>lock</span>
-          <h2 className="text-headline-sm font-bold text-tamam-text">خفايا تمام</h2>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-tamam-gold text-[20px] mg-breathe" style={{ filter: 'drop-shadow(0 0 6px rgba(234,196,92,0.4))' }}>lock</span>
+            <h2 className="text-headline-sm font-bold text-tamam-text">خفايا تمام</h2>
+          </div>
+          <span className="text-[10px] font-bold text-tamam-gold/80 bg-tamam-gold/10 px-2 py-0.5 rounded-full">حصري بالنقاط</span>
         </div>
-        <p className="text-body-sm text-tamam-text-muted leading-snug">عروض مخبّاية إسا بتفتحها بنقاطك — الصورة مش واضحة؟ افتح العرض وشوف شو مخبّى جوّا.</p>
+        <p className="text-body-sm text-tamam-text-muted leading-snug">في عروض مخبّاية — افتحها بنقاطك وشوف شو جوّا.</p>
       </div>
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
         {offers.map((o) => (

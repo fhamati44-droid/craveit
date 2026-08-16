@@ -79,7 +79,7 @@ export default function KhabyaCard({ offer, onTap }) {
       {/* Frosted teaser panel */}
       <div className="p-3 flex flex-col gap-2 flex-1 bg-tamam-surface">
         <p className="text-[12px] text-tamam-text leading-snug line-clamp-2 min-h-[34px]">
-          {unlocked ? '✅ فتحت العرض — شوف التفاصيل إسا' : (offer.teaser_text || 'في عرض مخبّى على وجبة 👀 شوفه بنقاطك')}
+          {unlocked ? '✅ فتحت العرض — شوف التفاصيل' : (offer.teaser_text || 'في عرض مخبّى على وجبة 👀 افتحه بنقاطك')}
         </p>
         <div className="flex items-center justify-between mt-auto">
           {unlocked ? (

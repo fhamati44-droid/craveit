@@ -20,6 +20,7 @@ import HomeMoodGamePreview from '@/components/tamam/customer/HomeMoodGamePreview
 import HomeTamamGamePreview from '@/components/tamam/customer/HomeTamamGamePreview';
 import TimeAwareTopSuggestions from '@/components/tamam/customer/TimeAwareTopSuggestions';
 import HomeTrustStrip from '@/components/tamam/customer/HomeTrustStrip';
+import HomeIntentHero from '@/components/tamam/customer/HomeIntentHero';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -70,26 +71,37 @@ export default function Home() {
 
   return (
     <div className="flex flex-col pb-6">
+      {/* 0. Intent hero — fast first decision (مود / اقتراحات / بحث) */}
+      <HomeIntentHero />
+
       {/* 1. Active order — conditional only */}
       <HomepageActiveOrderCard />
 
       {/* 2. Interactive Mood Game preview (build your own mood) */}
       <HomeMoodGamePreview timeData={timeData} />
 
-      {/* 2b. TAMAM mood-orbit game — playable from Home (شو مودك هسا؟) */}
+      {/* 2b. TAMAM mood-orbit game — playable from Home (شو مودك؟) */}
       <HomeTamamGamePreview />
 
       {/* 3. Quick Mood selector */}
       <HomeMoodBanners />
 
+      {/* 3b. Active offer strip — moved up so live offers are seen early */}
+      {dealView && (
+        <section className="px-4 py-3">
+          <HomeActiveDealBanner deal={dealView.deal} thresholds={dealView.thresholds} participants={dealView.participants}
+            onOpen={() => { track('home_active_deal_opened', { deal_id: dealView.deal.id }); navigate(`/deals/${dealView.deal.id}`); }} />
+        </section>
+      )}
+
       {/* 4. TAMAM Picks — food recommendations */}
       <TimeAwareTopSuggestions timeData={timeData} />
 
-      {/* 5. Community preview */}
-      <CommunityMoodGameSection />
-
-      {/* 5b. خبايا TAMAM (additive point-locked offers) */}
+      {/* 5. خبايا TAMAM (additive point-locked offers) */}
       <KhabyaSection />
+
+      {/* 5b. Community preview */}
+      <CommunityMoodGameSection />
 
       {/* 5c. Unified offers (Campaign + GroupDeal, additive, only when offers exist) */}
       <HomeUnifiedOffers />
@@ -104,13 +116,7 @@ export default function Home() {
         />
       </LazySection>
 
-      {/* 7. Contextual Deal / Loyalty (lower, contextual) */}
-      {dealView && (
-        <section className="px-4 py-4">
-          <HomeActiveDealBanner deal={dealView.deal} thresholds={dealView.thresholds} participants={dealView.participants}
-            onOpen={() => { track('home_active_deal_opened', { deal_id: dealView.deal.id }); navigate(`/deals/${dealView.deal.id}`); }} />
-        </section>
-      )}
+      {/* 7. Loyalty (contextual) */}
       <LazySection><LoyaltyBalanceCard /></LazySection>
 
       {/* 8. Consolidated Trust */}

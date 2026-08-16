@@ -184,13 +184,13 @@ export default function HomeMoodGamePreview({ timeData }) {
           </div>
         ) : status === 'error' ? (
           <div className="text-center py-6 px-4">
-            <p className="text-tamam-text-muted text-[11px] mb-3">ما قدرنا نحمّل الوجبات هسا.</p>
+            <p className="text-tamam-text-muted text-[11px] mb-3">ما قدرنا نحمّل الوجبات إسا.</p>
             <button onClick={loadMeals} className="h-10 px-4 rounded-xl bg-tamam-surface-high text-tamam-text font-bold text-xs active:scale-95 transition-transform">حاول مرة ثانية</button>
           </div>
         ) : status === 'empty' ? (
           <div className="text-center py-6 px-4">
             <p className="text-tamam-text font-bold text-sm mb-1">اللعبة بتجهزلك اختيارات</p>
-            <p className="text-tamam-text-muted text-[11px] mb-3 leading-snug">تصفّح الأكل المتوفر هسا، واختار وجبة نبلّش فيها.</p>
+            <p className="text-tamam-text-muted text-[11px] mb-3 leading-snug">تصفّح الأكل المتوفر إسا، واختار وجبة نبلّش فيها.</p>
             <button onClick={openFood} className="h-11 px-5 rounded-xl bg-tamam-green text-tamam-ink font-bold text-sm active:scale-95 transition-transform">شوف الأكل</button>
           </div>
         ) : (

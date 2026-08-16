@@ -103,7 +103,7 @@ export default function HomeTamamGamePreview() {
           <span className="inline-flex items-center gap-1 text-tamam-gold text-[10px] font-bold">
             <Icon name="auto_awesome" className="text-[13px]" />جيم تمام
           </span>
-          <h2 className="text-tamam-text font-bold text-[17px] leading-snug mt-1">شو مودك هسا؟</h2>
+          <h2 className="text-tamam-text font-bold text-[17px] leading-snug mt-1">شو مودك اليوم؟</h2>
           <p className="text-tamam-text-muted text-[11px] leading-snug mt-0.5">اختار مود من الهون، أو خلّينا نفاجئك.</p>
         </div>
 
@@ -115,12 +115,12 @@ export default function HomeTamamGamePreview() {
           </div>
         ) : status === 'error' ? (
           <div className="text-center py-6">
-            <p className="text-tamam-text-muted text-[11px] mb-3">ما قدرنا نحمّل المودات هسا.</p>
+            <p className="text-tamam-text-muted text-[11px] mb-3">ما قدرنا نحمّل المودات إسا.</p>
             <button onClick={load} className="h-10 px-4 rounded-xl bg-tamam-surface-high text-tamam-text font-bold text-xs active:scale-95 transition-transform">حاول مرة ثانية</button>
           </div>
         ) : status === 'empty' ? (
           <div className="text-center py-6">
-            <p className="text-tamam-text font-bold text-sm mb-1">ما في مودات جاهزة هسا</p>
+            <p className="text-tamam-text font-bold text-sm mb-1">ما في مودات جاهزة إسا</p>
             <p className="text-tamam-text-muted text-[11px] mb-3">تصفّح الاقتراحات أو المطاعم مباشرة.</p>
             <div className="flex items-center justify-center gap-2">
               <button onClick={() => navigate('/tamam-suggestions?package=all')} className="h-10 px-4 rounded-xl bg-tamam-green text-tamam-ink font-bold text-xs active:scale-95 transition-transform">كل الاقتراحات</button>

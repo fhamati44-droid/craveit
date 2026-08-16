@@ -28,18 +28,34 @@ export default function FeaturedRestaurants({ restaurants, loading, title = 'م�
           {restaurants.map((r) => {
             const img = resolvePublicMedia(r.image_url || r.cover_url, null);
             const name = r.name_ar || r.name;
+            const fast = r.delivery_time_min != null && r.delivery_time_min <= 25;
+            const rating = r.rating != null && r.rating > 0 ? Number(r.rating).toFixed(1) : null;
             return (
               <button
                 key={r.id}
                 onClick={() => navigate(`/restaurants/${r.id}`)}
                 className="flex-shrink-0 w-[180px] text-right bg-surface-container border border-outline-variant/30 rounded-2xl overflow-hidden active:scale-95 transition-transform"
               >
-                <div className="h-28 bg-surface-container-high">
+                <div className="relative h-28 bg-surface-container-high">
                   {img ? <PublicImage src={img} alt={name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl">🏪</div>}
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    {fast && (
+                      <span className="inline-flex items-center gap-0.5 bg-tamam-green/90 text-tamam-ink text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                        <span className="material-symbols-outlined text-[11px]">bolt</span>سريع
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="p-2.5">
                   <h3 className="font-bold text-sm truncate">{name}</h3>
-                  <p className="text-[11px] text-on-surface-variant truncate">{r.category || r.cuisine || ''}</p>
+                  <div className="flex items-center justify-between gap-1 mt-0.5">
+                    <p className="text-[11px] text-on-surface-variant truncate flex-1">{r.category || r.cuisine || ''}</p>
+                    {rating && (
+                      <span className="inline-flex items-center gap-0.5 text-tamam-gold text-[10px] font-bold shrink-0">
+                        <span className="material-symbols-outlined text-[12px]">star</span>{rating}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
             );
