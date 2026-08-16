@@ -67,7 +67,7 @@ export default function LoyaltyBalanceCard() {
               : (pending ? `${pending} نقطة قيد التأكيد` : `باقي ${remaining} نقطة وبتفتح عرض جديد`)}
           </span>
           <span className="text-tamam-green-bright text-xs font-bold inline-flex items-center gap-0.5">
-            شوف نقاطي
+            شوف مكافآتي
             <span className="material-symbols-outlined text-[14px]">arrow_back</span>
           </span>
         </div>

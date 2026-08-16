@@ -50,7 +50,7 @@ export default function HomeIntentHero({ topSuggestion }) {
   return (
     <section className="px-4 pt-3 pb-1" dir="rtl">
       {/* Food-first hero card — real food image reaches the eye first */}
-      <div className="relative rounded-2xl overflow-hidden h-44 mb-3 bg-tamam-surface-high">
+      <div className="relative rounded-2xl overflow-hidden h-52 mb-3 bg-tamam-surface-high">
         {heroImg ? (
           <PublicImage
             source={heroImg}
@@ -98,14 +98,14 @@ export default function HomeIntentHero({ topSuggestion }) {
         <span className="material-symbols-outlined text-[22px] text-tamam-ink/60" style={{ transform: 'scaleX(-1)' }}>arrow_forward</span>
       </button>
 
-      {/* Secondary row: اقتراحات TAMAM + فتّش */}
-      <div className="grid grid-cols-2 gap-2 mb-2.5">
+      {/* Secondary row: اقتراحات TAMAM (prominent) + فتّش (lighter utility) */}
+      <div className="flex gap-2 mb-2.5">
         <button
           type="button"
           onClick={() => go('/tamam-suggestions', 'suggestions')}
-          className="rounded-2xl bg-tamam-surface-high text-tamam-text p-3 flex items-center gap-2.5 active:scale-[0.98] transition-transform"
+          className="flex-[3] rounded-2xl bg-tamam-surface-high text-tamam-text p-3 flex items-center gap-2.5 active:scale-[0.98] transition-transform"
         >
-          <span className="w-9 h-9 rounded-lg bg-tamam-surface flex items-center justify-center shrink-0">
+          <span className="w-9 h-9 rounded-lg bg-tamam-green/15 flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[20px] text-tamam-green-bright">restaurant_menu</span>
           </span>
           <span className="flex flex-col items-start text-right text-tamam-text leading-tight min-w-0">
@@ -116,15 +116,10 @@ export default function HomeIntentHero({ topSuggestion }) {
         <button
           type="button"
           onClick={() => go('/search', 'search')}
-          className="rounded-2xl bg-tamam-surface text-tamam-text border border-tamam-outline/30 p-3 flex items-center gap-2.5 active:scale-[0.98] transition-transform"
+          className="flex-[2] rounded-2xl bg-transparent text-tamam-text border border-tamam-outline/40 p-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
         >
-          <span className="w-9 h-9 rounded-lg bg-tamam-surface-low flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-[20px] text-tamam-text-muted">search</span>
-          </span>
-          <span className="flex flex-col items-start text-right text-tamam-text leading-tight min-w-0">
-            <span className="text-[13px] font-bold">فتّش</span>
-            <span className="text-[10px] text-tamam-text-muted">وجبة أو مطعم</span>
-          </span>
+          <span className="material-symbols-outlined text-[20px] text-tamam-text-muted">search</span>
+          <span className="text-[13px] font-bold text-tamam-text-muted">فتّش</span>
         </button>
       </div>
 

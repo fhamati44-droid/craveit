@@ -103,8 +103,8 @@ export default function HomeTamamGamePreview() {
           <span className="inline-flex items-center gap-1 text-tamam-gold text-[10px] font-bold">
             <Icon name="auto_awesome" className="text-[13px]" />جيم تمام
           </span>
-          <h2 className="text-tamam-text font-bold text-[18px] leading-snug mt-1">شو مودك اليوم؟</h2>
-          <p className="text-tamam-text-muted text-[11px] leading-snug mt-0.5">اختَر مود، وإحنا منرتّبلك الخيارات.</p>
+          <h2 className="text-tamam-text font-bold text-[18px] leading-snug mt-1">مش عارف شو تختار؟</h2>
+          <p className="text-tamam-text-muted text-[11px] leading-snug mt-0.5">اختَر مود وإحنا منكمّل.</p>
         </div>
 
         {/* Body */}

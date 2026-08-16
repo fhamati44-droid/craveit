@@ -64,9 +64,9 @@ export default function TimeAwareTopSuggestions({ timeData }) {
           <button
             key={item.id || item.package}
             onClick={() => openItem(item)}
-            className="flex-shrink-0 w-[260px] bg-tamam-surface-lowest border border-tamam-outline/25 rounded-2xl overflow-hidden text-right active:scale-95 transition-transform flex flex-col"
+            className="flex-shrink-0 w-[300px] bg-tamam-surface-lowest border border-tamam-outline/25 rounded-2xl overflow-hidden text-right active:scale-95 transition-transform flex flex-col"
           >
-            <div className="relative h-[160px] bg-tamam-surface-high">
+            <div className="relative h-[176px] bg-tamam-surface-high">
               <PublicImage
                 source={item.image_url}
                 fallback={PLACEHOLDER_IMAGE}
