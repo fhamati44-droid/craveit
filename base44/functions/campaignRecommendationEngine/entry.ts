@@ -2,6 +2,7 @@ import { createClientFromRequest } from "npm:@base44/sdk@0.8.40";
 import {
   detectDaypart, resolveVertical, resolveDemandExpectation,
   matchDaypartStrategies, matchPlaybooks, buildRecommendation,
+  applySafetyPrecedence,
 } from "../../shared/verticalStrategy.ts";
 
 /**
@@ -104,12 +105,108 @@ export default async function (req) {
     };
     const previousResults = await svc.entities.CampaignLearning.filter({ restaurant_id }).catch(() => []);
 
-    // 7. Build recommendation
-    const rec = buildRecommendation({
+    // 6b. SAFETY CONTEXT for precedence enforcement (section 1)
+    const allOpSignals = opSignals || [];
+    // 6b-1 operational block: restaurant status + pressure/pause signals
+    let operationalBlock = { blocked: false, reason: "" };
+    if (!restaurant.accepts_orders || restaurant.current_status === "closed" || restaurant.current_status === "temporarily_unavailable") {
+      operationalBlock = { blocked: true, reason: "restaurant_closed" };
+    } else if (restaurant.current_status === "busy") {
+      operationalBlock = { blocked: true, reason: "busy" };
+    }
+    const pressureSig = allOpSignals.find((s) => s.type === "kitchen_pressure" || s.type === "temporary_pause");
+    if (pressureSig) operationalBlock = { blocked: true, reason: pressureSig.type === "temporary_pause" ? "restaurant_closed" : "high_pressure" };
+
+    // 6b-2 surplus current fact (qty + until)
+    const surplusSig = allOpSignals.find((s) => s.type === "surplus" && (s.status || "active") === "active");
+    const surplusFact = surplusSig ? { qty: surplusSig.quantity || 0, until: surplusSig.expires_at || null } : null;
+
+    // 6b-3 item availability
+    const soldOutIds = (offers || []).filter((o) => o.sold_out || o.available === false).map((o) => o.id);
+    const anyAvailable = usable.length > 0;
+    const naturalTargetIds = tierOffers.map((o) => o.id);
+    const tierTargetSoldOut = naturalTargetIds.length > 0 && naturalTargetIds.every((id) => soldOutIds.includes(id));
+
+    // 6b-4 commercial guardrail (floor + allowed offer types)
+    const commercialGuardrails = await svc.entities.CommercialGuardrail.filter({ restaurant_id, status: "active" }).catch(() => []);
+    const cg = commercialGuardrails?.[0] || null;
+    let commercial = { safe: true, floorViolated: false, valueAddAllowed: true, pointsAllowed: true };
+    if (cg) {
+      const minPrice = cg.minimum_customer_offer_price;
+      const minNet = cg.minimum_restaurant_net;
+      const proposedPrice = chosenOffers.length ? Math.min(...chosenOffers.map((o) => Number(o.price || 0))) : 0;
+      const floorViolated = (minPrice != null && proposedPrice > 0 && proposedPrice < minPrice)
+        || (minNet != null && proposedPrice > 0 && (proposedPrice - Number(cg.tamam_contribution || 0)) < minNet);
+      const allowedTypes = cg.allowed_offer_types || [];
+      const mechToOfferType = { FIRST_TRIAL: "FIRST_TRIAL", DIRECT_PRICE: "DIRECT_PRICE", VALUE_ADD: "VALUE_ADD", POINT_LOCKED: "POINT_LOCKED", TIME_AND_QUANTITY: "TIME_AND_QUANTITY", LIMITED_QUANTITY: "LIMITED_QUANTITY" };
+      commercial = {
+        safe: !floorViolated,
+        floorViolated: !!floorViolated,
+        valueAddAllowed: !allowedTypes.length || allowedTypes.includes("VALUE_ADD"),
+        pointsAllowed: !allowedTypes.length || allowedTypes.includes("POINT_LOCKED"),
+      };
+      void mechToOfferType;
+    }
+
+    // 6b-5 campaign load + existing same-item conflict
+    const allOffers = await svc.entities.CampaignOffer.filter({ restaurant_id }).catch(() => []);
+    const liveOffers = (allOffers || []).filter((o) => ["active", "scheduled"].includes(o.status));
+    const campaignLoad = { activeCount: liveOffers.length, max: guardrail?.max_simultaneous_campaigns || 0 };
+    const recStart = new Date(now.getTime());
+    const recEnd = new Date(now.getTime() + 3 * 3600 * 1000);
+    const overlap = (a, b) => {
+      if (!a || !b) return false;
+      const s1 = new Date(a).getTime(), e1 = new Date(b).getTime();
+      return s1 < recEnd.getTime() && e1 > recStart.getTime();
+    };
+    const conflicting = liveOffers.find((o) =>
+      restaurantItemIds.includes(o.restaurant_item_id) &&
+      overlap(o.start_at, o.end_at) &&
+      (o.audience_rule || []).some((seg) => (rec.recommended_audience || ["public"]).includes(seg) || (o.audience_rule || []).includes("public")));
+    const existingConflict = { conflict: !!conflicting, conflictingOfferId: conflicting?.id || null };
+
+    // 6b-6 restaurant strategy override (JSON)
+    let restaurantOverride = null;
+    if (restaurant.vertical_strategy_override_json) {
+      try {
+        const ov = JSON.parse(restaurant.vertical_strategy_override_json);
+        if (ov && (ov.objective || ov.mechanic || ov.tier)) restaurantOverride = { objective: ov.objective, mechanic: ov.mechanic, tier: ov.tier };
+      } catch {}
+    }
+
+    // 6b-7 partner-provided facts (signals) — offer availability windows + reliable demand
+    const partnerWindows = [];
+    (chosenOffers || []).forEach((o) => {
+      if (o.available_from_time && o.available_until_time) partnerWindows.push(`${o.available_from_time}-${o.available_until_time}`);
+    });
+    const partnerFacts = { recommendedWindows: [...new Set(partnerWindows)] };
+    const reliableBusy = (demandSchedule?.effective_demand_level === "busy") || (operationalSignals?.demand_level === "busy");
+    const historicalCtx = { level: historical?.demand_level || null, pressureInWindow: !!reliableBusy };
+
+    const safety = {
+      operationalBlock,
+      itemUnavailable: { anyAvailable, soldOutIds, tierTargetSoldOut },
+      commercial,
+      campaignLoad,
+      existingConflict,
+      surplus: surplusFact,
+      restaurantOverride,
+      partnerFacts,
+      historical: historicalCtx,
+    };
+
+    // 7. Build recommendation (draft from playbook/daypart/fallback)
+    const draft = buildRecommendation({
       restaurant, vertical, daypart, demand, daypartStrategy: verticalStrategy,
       playbook, masterProductIds, restaurantItemIds, guardrail: guardrailCtx,
       previousResults, missing, reasons, testTime: test_time,
     });
+    draft._playbookName = playbook?.name || null;
+
+    // 7b. Enforce authoritative precedence over the draft (operational → commercial
+    // → current facts → override → playbook → daypart → fallback). The vertical
+    // draft can NEVER override operational/commercial safety.
+    const rec = applySafetyPrecedence(draft, safety);
 
     // Attach context
     rec.vertical_id = verticalId || null;
@@ -120,9 +217,37 @@ export default async function (req) {
       historical: !!historical, demand_schedule: !!demandSchedule, operational_signal: !!operationalSignals,
       vertical_strategy: !!verticalStrategy, playbook: playbook?.name || null,
       offers_considered: (offers || []).length, offers_usable: usable.length,
+      safety: {
+        operational_block: safety.operationalBlock,
+        item_unavailable: { anyAvailable: safety.itemUnavailable.anyAvailable, tierTargetSoldOut: safety.itemUnavailable.tierTargetSoldOut },
+        commercial: { safe: safety.commercial.safe, floorViolated: safety.commercial.floorViolated },
+        campaign_load: safety.campaignLoad,
+        existing_conflict: safety.existingConflict,
+        surplus: safety.surplus,
+        restaurant_override: safety.restaurantOverride,
+        partner_windows: safety.partnerFacts.recommendedWindows,
+        reliable_busy: historicalCtx.pressureInWindow,
+      },
+      precedence_chain: rec._precedence_chain,
+      source_labels: rec._source_labels,
     });
 
-    // 8. Save as DRAFT (never auto-publish)
+    // 8. Idempotency: avoid duplicate drafts for unchanged inputs (section 14).
+    // Same restaurant + objective + mechanic + first item within the last 2h →
+    // return the existing draft instead of creating a duplicate.
+    const idemKey = `${restaurant_id}|${rec.recommended_objective}|${rec.recommended_mechanic}|${(rec.recommended_restaurant_items || [])[0] || ""}`;
+    const recentDrafts = await svc.entities.CampaignRecommendation.filter({ restaurant_id, status: "draft" }).catch(() => []);
+    const dup = (recentDrafts || []).find((d) => {
+      const key = `${d.restaurant_id}|${d.recommended_objective}|${d.recommended_mechanic}|${(d.recommended_restaurant_items || [])[0] || ""}`;
+      if (key !== idemKey) return false;
+      const ageH = (now.getTime() - new Date(d.generated_at || d.created_date).getTime()) / 3600000;
+      return ageH >= 0 && ageH < 2;
+    });
+    if (dup) {
+      return Response.json({ recommendation: { ...rec, id: dup.id, status: "draft", idempotent: true } });
+    }
+
+    // 9. Save as DRAFT (never auto-publish)
     const saved = await svc.entities.CampaignRecommendation.create({
       restaurant_id,
       vertical_id: verticalId || null,

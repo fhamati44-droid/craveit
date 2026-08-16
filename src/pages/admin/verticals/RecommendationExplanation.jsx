@@ -47,14 +47,42 @@ export default function RecommendationExplanation() {
           </div>
 
           <div className="p-4 rounded-xl border bg-card">
-            <h3 className="font-bold text-sm mb-2">سلسلة الأسبقية (precedence)</h3>
-            <div className="space-y-1 text-sm">
-              <Row label="historical (طلبات سابقة)" on={signals.historical} />
-              <Row label="demand_schedule (جدول يدوي)" on={signals.demand_schedule} />
-              <Row label="operational_signal" on={signals.operational_signal} />
-              <Row label="vertical_strategy (افتراضي)" on={signals.vertical_strategy} />
-              <p className="text-xs text-muted-foreground pt-1">المصدر الفائز: <span className="font-bold text-primary">{signals.demand_source}</span> → {signals.demand_level}</p>
+            <h3 className="font-bold text-sm mb-2">النتيجة النهائية + سلسلة الأسبقية</h3>
+            <div className="mb-3 p-2.5 rounded-lg bg-primary/8 border border-primary/20">
+              <p className="text-[11px] text-muted-foreground">FINAL</p>
+              <p className="font-bold text-sm text-primary">{rec.recommended_objective || "—"} {rec.recommended_mechanic ? `· ${rec.recommended_mechanic}` : ""}</p>
             </div>
+            <div className="space-y-1.5">
+              {[
+                ["1. الأمان التشغيلي", signals.precedence_chain?.operational_safety],
+                ["2. الأمان التجاري/التنفيذي", signals.precedence_chain?.commercial_execution_safety],
+                ["3. وقائع المطعم الحالية", signals.precedence_chain?.restaurant_current_facts],
+                ["4. تجاوز استراتيجي للمطعم", signals.precedence_chain?.restaurant_override],
+                ["5. playbook الفيرتكال", signals.precedence_chain?.vertical_playbook],
+                ["6. استراتيجية الفترة", signals.precedence_chain?.daypart_strategy],
+                ["7. احتياطي عام", signals.precedence_chain?.generic_fallback],
+              ].map(([label, layer]) => {
+                if (!layer) return null;
+                const applied = layer.applied;
+                const superseded = layer.superseded;
+                return (
+                  <div key={label} className="flex items-start gap-2">
+                    <span className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${applied ? "bg-primary border-primary" : "border-muted"}`}>
+                      {applied && <span className="w-1.5 h-1.5 bg-primary-foreground rounded-full" />}
+                    </span>
+                    <div className="min-w-0">
+                      <span className={`text-xs ${superseded ? "line-through text-muted-foreground" : "text-foreground"}`}>{label}</span>
+                      {layer.detail && <span className="text-[11px] text-muted-foreground mr-1">— {layer.detail}</span>}
+                      {superseded && <span className="text-[10px] text-amber-600 font-bold mr-1">[تم تجاوزه]</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground pt-2 mt-2 border-t">المصدر الفائز للطلب: <span className="font-bold text-primary">{signals.demand_source}</span> → {signals.demand_level}</p>
+            {signals.source_labels?.length > 0 && (
+              <p className="text-[11px] text-muted-foreground pt-1">مصادر التوصية: {signals.source_labels.join(" · ")}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

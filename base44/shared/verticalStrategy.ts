@@ -238,3 +238,225 @@ export function mechanicAr(m) {
 export function tierAr(t) {
   return { classic: "Classic", mix: "Mix", plus: "Plus" }[t] || t;
 }
+
+// ===========================================================================
+// applySafetyPrecedence — additive safety/precedence layer over a draft
+// recommendation produced by buildRecommendation. Pure, no I/O. Never changes
+// the existing playbook/daypart logic; only layers authoritative reality on
+// top so the vertical draft can NEVER override operational/commercial safety.
+//
+// Precedence (section 1):
+//   1. REAL-TIME OPERATIONAL SAFETY  (closed / paused / pressure / RED / sold-out)
+//   2. COMMERCIAL + EXECUTION SAFETY (floor / load limit / existing conflict)
+//   3. RESTAURANT-SPECIFIC CURRENT FACTS (temporary surplus)
+//   4. RESTAURANT STRATEGY OVERRIDE (admin-configured)
+//   5. MATCHED VERTICAL PLAYBOOK
+//   6. DAYPART STRATEGY
+//   7. GENERIC FALLBACK
+// Partner-provided facts are SIGNALS only (section 2): they may rank/confidence
+// but never override real operational/commercial state or strong evidence.
+// ===========================================================================
+
+export function applySafetyPrecedence(rec: any, safety: any = {}) {
+  const reasons: string[] = [...(rec.reason_codes || [])];
+  const chain: any = {
+    operational_safety: { applied: false, detail: "" },
+    commercial_execution_safety: { applied: false, detail: "" },
+    restaurant_current_facts: { applied: false, detail: "" },
+    restaurant_override: { applied: false, detail: "" },
+    vertical_playbook: { applied: reasons.includes("matched_playbook"), detail: rec._playbookName || "", superseded: false },
+    daypart_strategy: { applied: reasons.includes("matched_daypart_strategy"), detail: "", superseded: false },
+    generic_fallback: { applied: reasons.includes("vertical_default_only"), detail: "" },
+  };
+  const sourceLabels: string[] = [];
+
+  // 1. OPERATIONAL SAFETY — highest, overrides everything below
+  const op = safety.operationalBlock;
+  if (op?.blocked) {
+    chain.operational_safety.applied = true;
+    chain.operational_safety.detail = op.reason;
+    chain.vertical_playbook.superseded = chain.vertical_playbook.applied;
+    chain.daypart_strategy.superseded = chain.daypart_strategy.applied;
+    return finalize(rec, {
+      recommended_objective: "NO_ACTION",
+      recommended_mechanic: null,
+      recommended_quota: 0,
+      recommended_restaurant_items: [],
+      recommended_master_products: [],
+      reason_codes: op.reason === "restaurant_closed"
+        ? ["RESTAURANT_CLOSED", "OPERATIONAL_PRESSURE", "no_new_demand"]
+        : ["OPERATIONAL_PRESSURE", "no_new_demand"],
+      explanation_ar: safetyExplanation("NO_ACTION",
+        op.reason === "restaurant_closed" ? "المطعم مقفل أو متوقف هلا" : "في ضغط تشغيلي عالي (أحمر) هلا",
+        ["restaurant_override", "vertical_playbook", "daypart_strategy"]),
+      confidence_score: 0.9,
+      missing_data: [],
+    }, chain, ["ACTUAL"]);
+  }
+
+  // 1b. ITEM AVAILABILITY (operational) — sold-out target (Test B)
+  const iu = safety.itemUnavailable;
+  if (iu && !iu.anyAvailable) {
+    chain.operational_safety.applied = true;
+    chain.operational_safety.detail = "no_available_items";
+    chain.vertical_playbook.superseded = chain.vertical_playbook.applied;
+    return finalize(rec, {
+      recommended_objective: "NO_ACTION",
+      recommended_mechanic: null,
+      recommended_quota: 0,
+      recommended_restaurant_items: [],
+      reason_codes: ["ITEM_UNAVAILABLE", "no_available_items"],
+      explanation_ar: safetyExplanation("NO_ACTION", "الصنف المستهدف غير متوفر/نفد", ["vertical_playbook"]),
+      confidence_score: 0.85,
+    }, chain, ["ACTUAL"]);
+  }
+  if (iu?.tierTargetSoldOut && iu.anyAvailable) {
+    reasons.push("item_unavailable_target_skipped", "alternative_item_chosen");
+    sourceLabels.push("ACTUAL");
+  }
+
+  // 2. COMMERCIAL + EXECUTION SAFETY
+  // 2a. existing same-item / time / audience campaign conflict (Test F)
+  if (safety.existingConflict?.conflict) {
+    chain.commercial_execution_safety.applied = true;
+    chain.commercial_execution_safety.detail = "EXISTING_CAMPAIGN_CONFLICT";
+    chain.vertical_playbook.superseded = chain.vertical_playbook.applied;
+    return finalize(rec, {
+      recommended_objective: "NO_ACTION",
+      recommended_mechanic: null,
+      recommended_quota: 0,
+      reason_codes: ["EXISTING_CAMPAIGN_CONFLICT", "no_duplicate_campaign"],
+      explanation_ar: safetyExplanation("NO_ACTION", "في حملة شغالة على نفس الصنف والوقت والجمهور", ["vertical_playbook"]),
+      confidence_score: 0.85,
+    }, chain, ["ACTUAL"]);
+  }
+  // 2b. campaign load limit (Test E)
+  const cl = safety.campaignLoad;
+  if (cl && cl.max > 0 && cl.activeCount >= cl.max) {
+    chain.commercial_execution_safety.applied = true;
+    chain.commercial_execution_safety.detail = `CAMPAIGN_LOAD_LIMIT (${cl.activeCount}/${cl.max})`;
+    chain.vertical_playbook.superseded = chain.vertical_playbook.applied;
+    return finalize(rec, {
+      recommended_objective: "WATCH",
+      recommended_mechanic: null,
+      recommended_quota: 0,
+      reason_codes: ["CAMPAIGN_LOAD_LIMIT", "watch_until_capacity"],
+      explanation_ar: safetyExplanation("WATCH", `المطعم وصل للحد الأقصى من الحملات المتزامنة (${cl.activeCount}/${cl.max})`, ["vertical_playbook"]),
+      confidence_score: 0.8,
+    }, chain, ["ACTUAL"]);
+  }
+  // 2c. commercial floor (Test C)
+  const cm = safety.commercial;
+  if (cm && !cm.safe) {
+    chain.commercial_execution_safety.applied = true;
+    chain.commercial_execution_safety.detail = "COMMERCIAL_FLOOR_VIOLATION";
+    const priceLed = ["FIRST_TRIAL", "DIRECT_PRICE", "LIMITED_QUANTITY"].includes(rec.recommended_mechanic);
+    let mech = rec.recommended_mechanic;
+    let obj = rec.recommended_objective;
+    if (priceLed) {
+      if (cm.valueAddAllowed) { mech = "VALUE_ADD"; reasons.push("commercial_safety_switch_to_value_add"); }
+      else if (cm.pointsAllowed) { mech = "POINT_LOCKED"; reasons.push("commercial_safety_switch_to_points"); }
+      else { mech = null; obj = "NEEDS_RESTAURANT_APPROVAL"; reasons.push("needs_restaurant_approval"); }
+    }
+    reasons.push("COMMERCIAL_FLOOR_VIOLATION");
+    return finalize(rec, {
+      recommended_objective: obj,
+      recommended_mechanic: mech,
+      recommended_quota: obj === "NEEDS_RESTAURANT_APPROVAL" ? 0 : rec.recommended_quota,
+      reason_codes: reasons,
+      explanation_ar: safetyExplanation(
+        obj === "NEEDS_RESTAURANT_APPROVAL" ? "NEEDS_RESTAURANT_APPROVAL" : "RECOMMEND",
+        "السعر المقترح تحت الحد التجاري الآمن",
+        [], mech),
+      confidence_score: Math.max(0.3, (rec.confidence_score || 0.5) - 0.1),
+    }, chain, ["ACTUAL", "PLAYBOOK"]);
+  }
+
+  // 3. RESTAURANT-SPECIFIC CURRENT FACTS — surplus beats generic playbook (Test G)
+  const sp = safety.surplus;
+  if (sp && sp.qty > 0 && !safety.operationalBlock?.blocked) {
+    chain.restaurant_current_facts.applied = true;
+    chain.restaurant_current_facts.detail = `surplus qty=${sp.qty} until=${sp.until || "—"}`;
+    chain.vertical_playbook.superseded = chain.vertical_playbook.applied;
+    chain.daypart_strategy.superseded = chain.daypart_strategy.applied;
+    reasons.push("surplus_restaurant_fact", "surplus_overrides_playbook");
+    return finalize(rec, {
+      recommended_objective: "SURPLUS",
+      recommended_mechanic: "TIME_AND_QUANTITY",
+      recommended_quota: Math.min(rec.recommended_quota || 5, Math.max(1, Math.floor(sp.qty))),
+      reason_codes: reasons,
+      explanation_ar: safetyExplanation("RECOMMEND", `في كمية فائضة (${sp.qty}) لحد ${sp.until || "—"}`, ["vertical_playbook"], "TIME_AND_QUANTITY"),
+      confidence_score: Math.min(0.95, (rec.confidence_score || 0.5) + 0.1),
+    }, chain, ["ACTUAL", "PARTNER_PROVIDED"]);
+  }
+
+  // 4. RESTAURANT STRATEGY OVERRIDE — supersedes playbook, never modifies it (Test D)
+  const ov = safety.restaurantOverride;
+  if (ov && (ov.objective || ov.mechanic || ov.tier) && !safety.operationalBlock?.blocked) {
+    chain.restaurant_override.applied = true;
+    chain.restaurant_override.detail = `override obj=${ov.objective || "—"} mech=${ov.mechanic || "—"} tier=${ov.tier || "—"}`;
+    chain.vertical_playbook.superseded = chain.vertical_playbook.applied;
+    if (ov.objective) rec.recommended_objective = ov.objective;
+    if (ov.mechanic) rec.recommended_mechanic = ov.mechanic;
+    if (ov.tier) rec.recommended_tier = ov.tier;
+    reasons.push("restaurant_override_supersedes_playbook");
+    return finalize(rec, {
+      reason_codes: reasons,
+      explanation_ar: safetyExplanation("RECOMMEND", "تجاوز استراتيجي مفعّل لهاد المطعم", ["vertical_playbook"], ov.mechanic),
+      confidence_score: Math.min(0.95, (rec.confidence_score || 0.5) + 0.05),
+    }, chain, ["PARTNER_PROVIDED", "PLAYBOOK"]);
+  }
+
+  // 5/6/7 — playbook / daypart / fallback already applied by buildRecommendation
+
+  // 8. PARTNER FACTS AS SIGNALS — historical/actual contradiction (Test H)
+  const pf = safety.partnerFacts;
+  const hist = safety.historical;
+  if (pf?.recommendedWindows?.length && hist?.pressureInWindow) {
+    reasons.push("PARTNER_SIGNAL_CONFLICT");
+    return finalize(rec, {
+      recommended_objective: "WATCH",
+      recommended_mechanic: null,
+      recommended_quota: 0,
+      reason_codes: reasons,
+      explanation_ar: safetyExplanation("WATCH", "البيانات الفعلية بتعبّر عن ضغط بالفترة اللي اقترحها الشريك — ما بنتبع إشارة الشريك هلا", ["partner_window"]),
+      confidence_score: Math.max(0.2, (rec.confidence_score || 0.5) - 0.25),
+    }, chain, ["PARTNER_PROVIDED", "ACTUAL"]);
+  }
+
+  // default — keep draft, attach source labels
+  if (hist) sourceLabels.push("ACTUAL");
+  if (chain.vertical_playbook.applied) sourceLabels.push("PLAYBOOK");
+  if (chain.daypart_strategy.applied) sourceLabels.push("DAYPART");
+  if (pf?.recommendedWindows?.length) sourceLabels.push("PARTNER_PROVIDED");
+  return finalize(rec, {}, chain, sourceLabels);
+}
+
+function finalize(rec: any, overrides: any, chain: any, sourceLabels: string[]) {
+  return {
+    ...rec,
+    ...overrides,
+    _precedence_chain: chain,
+    _source_labels: [...new Set(sourceLabels)],
+  };
+}
+
+function safetyExplanation(final: string, top: string, superseded: string[] = [], switchedTo?: string | null) {
+  const head = final === "NO_ACTION" ? "ما بنوصي بحملة هلا"
+    : final === "WATCH" ? "بنراقب الوضع"
+    : final === "NEEDS_RESTAURANT_APPROVAL" ? "المقترح محتاج موافقة المطعم"
+    : "بنوصي بحملة";
+  const why = `السبب: ${top}.`;
+  const sup = superseded.length ? ` تجاوز: ${superseded.map(arLayer).join("، ")}.` : "";
+  const sw = switchedTo ? ` البديل الآمن: ${switchedTo}.` : "";
+  return `${head}. ${why}${sup}${sw}`;
+}
+
+function arLayer(k: string) {
+  return {
+    restaurant_override: "تجاوز المطعم",
+    vertical_playbook: "playbook الفيرتكال",
+    daypart_strategy: "استراتيجية الفترة",
+    partner_window: "إشارة الشريك",
+  }[k] || k;
+}
