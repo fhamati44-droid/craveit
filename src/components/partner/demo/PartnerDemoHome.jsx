@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePartner } from '@/lib/partnerContext';
-import { getPartnerDemo, createSignal, resolveSignal, resetPartnerDemo } from '@/lib/partnerApi';
+import { getPartnerDemo, createSignal, resolveSignal, resetPartnerDemo, applyDemoPressure, clearDemoPressure } from '@/lib/partnerApi';
 import { EmptyState } from '@/components/tamam/customer/States';
 import QuickActionFlow from '@/components/partner/QuickActionFlow';
 import { listMenuItems } from '@/lib/partnerApi';

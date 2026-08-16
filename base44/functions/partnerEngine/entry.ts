@@ -1969,6 +1969,59 @@ async function resetPartnerDemo(base44, { restaurant_id }) {
   return await seedPartnerDemo(base44, { restaurant_id });
 }
 
+// ---- Demo pressure/clear: real engine state changes for the sales demo ----
+async function applyDemoPressure(base44, { restaurant_id }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'manage_operational_status');
+  const SR = base44.asServiceRole;
+  const restaurant = await SR.entities.Restaurant.get(restaurant_id).catch(() => null);
+  if (!restaurant || !restaurant.is_demo) throw authError(400, 'not_demo_restaurant');
+  const nowMs = Date.now();
+  // 1. Create pressure signal
+  const sig = await SR.entities.RestaurantOperationalSignal.create({
+    restaurant_id, type: 'pressure', reason: 'ضغط بالمطبخ', status: 'active',
+    starts_at: new Date().toISOString(), created_by: user.id, is_demo: true,
+  }).catch(() => null);
+  // 2. Set restaurant busy
+  await SR.entities.Restaurant.update(restaurant_id, { current_status: 'busy' }).catch(() => {});
+  // 3. Pause all active demo offers
+  const offers = await SR.entities.CampaignOffer.filter({ restaurant_id, is_demo: true, status: 'active' }).catch(() => []);
+  let paused = 0;
+  for (const o of (offers || [])) {
+    if (o.end_at && new Date(o.end_at).getTime() > nowMs) {
+      await SR.entities.CampaignOffer.update(o.id, { status: 'paused' }).catch(() => {});
+      paused++;
+    }
+  }
+  return { ok: true, signal_id: sig?.id || null, paused_offers: paused };
+}
+
+async function clearDemoPressure(base44, { restaurant_id }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'manage_operational_status');
+  const SR = base44.asServiceRole;
+  const restaurant = await SR.entities.Restaurant.get(restaurant_id).catch(() => null);
+  if (!restaurant || !restaurant.is_demo) throw authError(400, 'not_demo_restaurant');
+  const nowMs = Date.now();
+  // 1. Resolve pressure signals
+  const signals = await SR.entities.RestaurantOperationalSignal
+    .filter({ restaurant_id, status: 'active', type: 'pressure' }).catch(() => []);
+  for (const s of (signals || [])) {
+    await SR.entities.RestaurantOperationalSignal.update(s.id, { status: 'resolved', resolved_at: new Date().toISOString() }).catch(() => {});
+  }
+  // 2. Set restaurant open
+  await SR.entities.Restaurant.update(restaurant_id, { current_status: 'open', accepts_orders: true }).catch(() => {});
+  // 3. Resume paused offers that are still within their time window
+  const offers = await SR.entities.CampaignOffer.filter({ restaurant_id, is_demo: true, status: 'paused' }).catch(() => []);
+  let resumed = 0;
+  for (const o of (offers || [])) {
+    const end = o.end_at ? new Date(o.end_at).getTime() : Infinity;
+    if (end > nowMs) {
+      await SR.entities.CampaignOffer.update(o.id, { status: 'active' }).catch(() => {});
+      resumed++;
+    }
+  }
+  return { ok: true, resumed_offers: resumed };
+}
+
 function safeJSON(s) { try { return typeof s === 'string' ? JSON.parse(s) : (s || null); } catch { return null; } }
 
 const ROUTES = {
@@ -2032,4 +2085,6 @@ const ROUTES = {
   getPartnerDataStatus,
   seedPartnerDemo,
   resetPartnerDemo,
+  applyDemoPressure,
+  clearDemoPressure,
 };

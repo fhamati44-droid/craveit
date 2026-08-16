@@ -107,3 +107,5 @@ export const getPartnerCapacity = (restaurant_id) => invoke('getPartnerCapacity'
 export const getPartnerDataStatus = (restaurant_id) => invoke('getPartnerDataStatus', { restaurant_id });
 export const seedPartnerDemo = (restaurant_id) => invoke('seedPartnerDemo', { restaurant_id });
 export const resetPartnerDemo = (restaurant_id) => invoke('resetPartnerDemo', { restaurant_id });
+export const applyDemoPressure = (restaurant_id) => invoke('applyDemoPressure', { restaurant_id });
+export const clearDemoPressure = (restaurant_id) => invoke('clearDemoPressure', { restaurant_id });

@@ -46,7 +46,6 @@ export default function PartnerHome() {
   const { activeRestaurant } = usePartner();
   const rid = activeRestaurant?.id;
   const isDemo = !!activeRestaurant?.is_demo;
-  if (isDemo) return <PartnerDemoHome />;
 
   const [home, setHome] = useState(null);
   const [ops, setOps] = useState(null);
@@ -72,6 +71,7 @@ export default function PartnerHome() {
   };
   useEffect(load, [rid]);
 
+  if (isDemo) return <PartnerDemoHome />;
   if (loading) return <SkeletonBlock />;
   if (error) return <EmptyState icon="⚠️" title="ما قدرنا نحمّل البيانات" actionLabel="إعادة" onAction={load} />;
 

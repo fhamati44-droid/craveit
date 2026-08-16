@@ -25,7 +25,6 @@ export default function PartnerOffers() {
   const { activeRestaurant } = usePartner();
   const rid = activeRestaurant?.id;
   const isDemo = !!activeRestaurant?.is_demo;
-  if (isDemo) return <PartnerDemoOffers />;
 
   const [tab, setTab] = useState('active');
   const [offers, setOffers] = useState([]);
@@ -40,6 +39,7 @@ export default function PartnerOffers() {
   };
   useEffect(load, [rid]);
 
+  if (isDemo) return <PartnerDemoOffers />;
   const filtered = (offers || []).filter((o) => STATUS_TAB[o.status] === tab);
   const open = async (o) => { try { const d = await getPartnerOffer(rid, o.id); setDetail(d); } catch { setDetail({ offer: o }); } };
 
