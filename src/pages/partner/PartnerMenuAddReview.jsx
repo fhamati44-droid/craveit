@@ -12,7 +12,15 @@ export default function PartnerMenuAddReview() {
   const [forms, setForms] = useState(() => {
     const map = {};
     (selected || []).forEach((p, i) => {
-      map[p.id] = { name: p.name_ar || p.name || '', price: '', description: p.description || '', image: p.image_url || '', available: true, prep_time: '', category: p.category_name || '', campaign_permission: true, max_daily_quantity: '' };
+      map[p.id] = {
+        name: p.name_ar || p.name || '', price: '', description: p.description || '', image: p.image_url || '', available: true, prep_time: '', category: p.category_name || '', campaign_permission: true, max_daily_quantity: '',
+        // Optional partner-provided operational facts (section 13) — additive, no existing field touched
+        vertical_code: '', weak_item: false, late_night_fit: false, quiet_hours: '', quiet_days: '', surplus_risk: false,
+        available_quantity: '', max_campaign_quantity: '',
+        supports_classic: true, supports_mix: true, supports_plus: false,
+        compatible_side_skus: '', compatible_drink_skus: '', compatible_addon_skus: '',
+        mood_slugs: '', recommended_time_windows: '', recommended_days: '',
+      };
     });
     return map;
   });
@@ -46,6 +54,15 @@ export default function PartnerMenuAddReview() {
           prep_time: f.prep_time ? Number(f.prep_time) : null, category: f.category, campaign_permission: f.campaign_permission,
           max_daily_quantity: f.max_daily_quantity ? Number(f.max_daily_quantity) : null,
           rights_status: 'approved', image_source_type: 'tamam_owned',
+          // Optional partner-provided operational facts (section 13)
+          vertical_code: f.vertical_code || null,
+          operational_facts_json: JSON.stringify({
+            weak_item: f.weak_item, late_night_fit: f.late_night_fit, quiet_hours: f.quiet_hours, quiet_days: f.quiet_days, surplus_risk: f.surplus_risk,
+            available_quantity: f.available_quantity ? Number(f.available_quantity) : null, max_campaign_quantity: f.max_campaign_quantity ? Number(f.max_campaign_quantity) : null,
+            supports_classic: f.supports_classic, supports_mix: f.supports_mix, supports_plus: f.supports_plus,
+            compatible_side_skus: splitList(f.compatible_side_skus), compatible_drink_skus: splitList(f.compatible_drink_skus), compatible_addon_skus: splitList(f.compatible_addon_skus),
+            mood_slugs: splitList(f.mood_slugs), recommended_time_windows: splitList(f.recommended_time_windows), recommended_days: splitList(f.recommended_days),
+          }),
         };
       });
       await saveMenuCandidates(rid, null, { session_id, source_type: source_type || 'tamam_master_catalog', items });
@@ -99,6 +116,8 @@ export default function PartnerMenuAddReview() {
                     <input type="checkbox" checked={f.campaign_permission} onChange={(e) => set(p.id, 'campaign_permission', e.target.checked)} className="w-5 h-5 accent-tamam-green" />
                   </label>
                   {!f.image && <p className="text-[10px] text-tamam-error flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">warning</span>الصورة محتاجة تأكيد قبل النشر — ارفع صورة مطعمك أو استخدم صورة الكتالوج.</p>}
+
+                  <OperationalFields form={f} set={(k, v) => set(p.id, k, v)} />
                 </div>
               )}
             </div>
@@ -125,6 +144,57 @@ function Field({ label, children }) {
     <div>
       <span className="block text-[11px] text-tamam-text-muted mb-1">{label}</span>
       {children}
+    </div>
+  );
+}
+
+function splitList(v) {
+  if (!v) return [];
+  return String(v).split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
+}
+
+function Check({ label, checked, onChange }) {
+  return (
+    <label className="flex items-center justify-between gap-2 bg-tamam-surface rounded-xl px-3 py-2">
+      <span className="text-[11px] text-tamam-text">{label}</span>
+      <input type="checkbox" checked={checked} onChange={onChange} className="w-5 h-5 accent-tamam-green" />
+    </label>
+  );
+}
+
+function OperationalFields({ form, set }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-2 rounded-xl bg-tamam-surface-low/60 border border-tamam-outline/20 overflow-hidden">
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-3 py-2 text-right">
+        <span className="text-[11px] font-bold text-tamam-text-muted">بيانات تشغيلية اختيارية</span>
+        <span className="material-symbols-outlined text-tamam-text-muted text-[18px]">{open ? 'expand_less' : 'expand_more'}</span>
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-2.5 border-t border-tamam-outline/20 pt-2.5">
+          <Field label="نوع العمل (vertical code)"><input value={form.vertical_code} onChange={(e) => set('vertical_code', e.target.value)} placeholder="SHAWARMA, BURGER..." className="ipt" /></Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Check label="صنف ضعيف الطلب" checked={form.weak_item} onChange={(e) => set('weak_item', e.target.checked)} />
+            <Check label="يناسب الليل" checked={form.late_night_fit} onChange={(e) => set('late_night_fit', e.target.checked)} />
+            <Check label="خطر فائض" checked={form.surplus_risk} onChange={(e) => set('surplus_risk', e.target.checked)} />
+            <Check label="Classic" checked={form.supports_classic} onChange={(e) => set('supports_classic', e.target.checked)} />
+            <Check label="Mix" checked={form.supports_mix} onChange={(e) => set('supports_mix', e.target.checked)} />
+            <Check label="Plus" checked={form.supports_plus} onChange={(e) => set('supports_plus', e.target.checked)} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="الكمية المتوفرة"><input value={form.available_quantity} onChange={(e) => set('available_quantity', e.target.value)} inputMode="numeric" className="ipt" /></Field>
+            <Field label="أقصى كمية للحملة"><input value={form.max_campaign_quantity} onChange={(e) => set('max_campaign_quantity', e.target.value)} inputMode="numeric" className="ipt" /></Field>
+          </div>
+          <Field label="ساعات هدوء (مفصولة بفواصل)"><input value={form.quiet_hours} onChange={(e) => set('quiet_hours', e.target.value)} placeholder="14:00-17:00" className="ipt" dir="ltr" /></Field>
+          <Field label="أيام هدوء (أرقام 0-6)"><input value={form.quiet_days} onChange={(e) => set('quiet_days', e.target.value)} placeholder="1,2,3" className="ipt" dir="ltr" /></Field>
+          <Field label="أطباق جانبية متوافقة (SKU)"><input value={form.compatible_side_skus} onChange={(e) => set('compatible_side_skus', e.target.value)} className="ipt" dir="ltr" /></Field>
+          <Field label="مشروبات متوافقة (SKU)"><input value={form.compatible_drink_skus} onChange={(e) => set('compatible_drink_skus', e.target.value)} className="ipt" dir="ltr" /></Field>
+          <Field label="إضافات متوافقة (SKU)"><input value={form.compatible_addon_skus} onChange={(e) => set('compatible_addon_skus', e.target.value)} className="ipt" dir="ltr" /></Field>
+          <Field label="Moods (مفصولة بفواصل)"><input value={form.mood_slugs} onChange={(e) => set('mood_slugs', e.target.value)} placeholder="comfort,energetic" className="ipt" dir="ltr" /></Field>
+          <Field label="أوقات موصى بها"><input value={form.recommended_time_windows} onChange={(e) => set('recommended_time_windows', e.target.value)} placeholder="lunch,dinner" className="ipt" dir="ltr" /></Field>
+          <Field label="أيام موصى بها"><input value={form.recommended_days} onChange={(e) => set('recommended_days', e.target.value)} placeholder="0,5,6" className="ipt" dir="ltr" /></Field>
+        </div>
+      )}
     </div>
   );
 }
