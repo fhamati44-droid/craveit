@@ -8,6 +8,7 @@ import UrgentActions from '@/components/partner/UrgentActions';
 import Toggle from '@/components/partner/Toggle';
 import HomeDemandSummary from '@/components/partner/demand/HomeDemandSummary';
 import HomeMenuOnboarding from '@/components/partner/menu/HomeMenuOnboarding';
+import PartnerDemoHome from '@/components/partner/demo/PartnerDemoHome';
 
 const QUICK_ACTIONS = [
   { flow: 'pressure', icon: 'warning', label: 'عندي ضغط', desc: 'ارفع وقت التحضير أو أوقف', circle: 'bg-tamam-error/20 text-tamam-error' },

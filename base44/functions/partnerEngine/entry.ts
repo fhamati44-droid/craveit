@@ -1486,6 +1486,209 @@ async function getMenuTemplate(base44, { template_id }) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Partner Demo View — read-only visibility over existing demand intelligence
+// (Campaign / CampaignOffer / DemandDecision / Opportunity / DemandDayProfile).
+// Surfaces the demo restaurant's real engine data in owner-friendly Arabic.
+// ---------------------------------------------------------------------------
+import {
+  offerToPartner, liveOfferStatus, readLiveSignals, deriveLiveStatus,
+  readActiveCampaigns, readLatestOpportunity, readApprovalsNeeded, readTodayPlan,
+  readWeeklyTimeMap, readCapacity, readDataStatus, readDemoPerformance, buildWhyChain,
+  OBJECTIVE_AR, MECHANISM_AR, OFFER_TYPE_AR,
+} from '../../shared/partnerDemoView.ts';
+import { commercialBreakdown } from '../../shared/campaignCommerce.ts';
+
+async function getPartnerDemo(base44, { restaurant_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_dashboard');
+  const SR = base44.asServiceRole;
+  const restaurant = await SR.entities.Restaurant.get(restaurant_id).catch(() => null);
+  if (!restaurant) throw authError(404, 'restaurant_not_found');
+  const nowMs = Date.now();
+
+  const [signals, campaigns, opportunity, approvals, todayPlan, perf] = await Promise.all([
+    readLiveSignals(SR, restaurant_id),
+    readActiveCampaigns(SR, restaurant_id, nowMs),
+    readLatestOpportunity(SR, restaurant_id),
+    readApprovalsNeeded(SR, restaurant_id),
+    readTodayPlan(SR, restaurant_id, nowMs),
+    readDemoPerformance(SR, restaurant_id),
+  ]);
+
+  const liveStatus = deriveLiveStatus(restaurant, signals);
+  const capacity = readCapacity(restaurant);
+
+  return {
+    is_demo: !!restaurant.is_demo,
+    restaurant: {
+      id: restaurant.id, name_ar: restaurant.name_ar || restaurant.name,
+      current_status: restaurant.current_status, accepts_orders: restaurant.accepts_orders,
+    },
+    live_status: liveStatus,
+    signals: signals,
+    active_campaign: (campaigns.active || [])[0] || null,
+    paused_campaign: (campaigns.paused || [])[0] || null,
+    opportunity,
+    approvals_needed: approvals,
+    today_plan: todayPlan,
+    capacity,
+    performance: perf,
+    now: new Date(nowMs).toISOString(),
+  };
+}
+
+async function listPartnerCampaigns(base44, { restaurant_id, tab }) {
+  await resolveMembership(base44, restaurant_id, 'view_offers');
+  const SR = base44.asServiceRole;
+  const nowMs = Date.now();
+  const offers = await SR.entities.CampaignOffer
+    .filter({ restaurant_id }, '-created_date', 200).catch(() => []);
+  const campIds = [...new Set((offers || []).map((o) => o.campaign_id).filter(Boolean))];
+  const camps = campIds.length ? await SR.entities.Campaign.filter({ id: { $in: campIds } }).catch(() => []) : [];
+  const campMap = {};
+  for (const c of (camps || [])) campMap[c.id] = c;
+  const mapped = (offers || []).map((o) => offerToPartner(o, campMap[o.campaign_id] || null, nowMs));
+  // tab: active | scheduled | ready | completed
+  let filtered = mapped;
+  if (tab === 'active') filtered = mapped.filter((o) => o.status === 'active');
+  else if (tab === 'scheduled') filtered = mapped.filter((o) => o.status === 'scheduled');
+  else if (tab === 'ready') filtered = mapped.filter((o) => o.status === 'scheduled' && o.quota_total != null);
+  else if (tab === 'completed') filtered = mapped.filter((o) => ['ended', 'sold_out', 'completed', 'paused'].includes(o.status));
+  return filtered;
+}
+
+async function getPartnerCampaignDetail(base44, { restaurant_id, offer_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_offers');
+  const SR = base44.asServiceRole;
+  const o = await SR.entities.CampaignOffer.get(offer_id).catch(() => null);
+  if (!o || o.restaurant_id !== restaurant_id) throw authError(404, 'not_found');
+  const campaign = o.campaign_id ? await SR.entities.Campaign.get(o.campaign_id).catch(() => null) : null;
+  const nowMs = Date.now();
+  const item = o.restaurant_item_id ? await SR.entities.RestaurantMealOffer.get(o.restaurant_item_id).catch(() => null) : null;
+  const why = campaign?.why_tamam_json ? safeJSON(campaign.why_tamam_json) : null;
+  const bd = commercialBreakdown({
+    normal_price: o.normal_reference_price, customer_price: o.customer_price,
+    restaurant_contribution: o.restaurant_contribution, tamam_contribution: o.tamam_contribution,
+  });
+  return {
+    offer: offerToPartner(o, campaign, nowMs),
+    item: item ? { name: item.restaurant_product_name || item.name_ar, price: item.price, image: item.primary_image } : null,
+    commercial: {
+      normal: bd.normal, customer: bd.customer,
+      discount: bd.discount,
+      tamam_contribution: Math.round(bd.tamam_contribution * 100) / 100,
+      restaurant_contribution: Math.round(bd.restaurant_contribution * 100) / 100,
+      restaurant_settlement: Math.round(bd.restaurant_settlement * 100) / 100,
+    },
+    why,
+    campaign: campaign ? { id: campaign.id, name: campaign.campaign_name, objective: campaign.objective, status: campaign.status } : null,
+  };
+}
+
+async function getWhyTamam(base44, { restaurant_id, decision_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_dashboard');
+  const SR = base44.asServiceRole;
+  const d = await SR.entities.DemandDecision.get(decision_id).catch(() => null);
+  if (!d || d.restaurant_id !== restaurant_id) throw authError(404, 'not_found');
+  return {
+    why: buildWhyChain(d),
+    explanation: d.explanation_partner || '',
+    objective_label: OBJECTIVE_AR[d.recommended_objective] || '',
+    strategy_label: MECHANISM_AR[d.recommended_strategy] || '',
+    quota: d.recommended_quota || 0,
+    window_start: d.window_start, window_end: d.window_end,
+  };
+}
+
+async function getPartnerTimeMap(base44, { restaurant_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_dashboard');
+  const SR = base44.asServiceRole;
+  return await readWeeklyTimeMap(SR, restaurant_id);
+}
+
+async function getPartnerCapacity(base44, { restaurant_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_dashboard');
+  const SR = base44.asServiceRole;
+  const restaurant = await SR.entities.Restaurant.get(restaurant_id).catch(() => null);
+  if (!restaurant) throw authError(404, 'restaurant_not_found');
+  return readCapacity(restaurant);
+}
+
+async function getPartnerDataStatus(base44, { restaurant_id }) {
+  await resolveMembership(base44, restaurant_id, 'view_dashboard');
+  const SR = base44.asServiceRole;
+  return await readDataStatus(SR, restaurant_id);
+}
+
+// Seed / reset the partner demo — shifts one clean offer to "active now" so
+// the home shows a live campaign, and ensures the demo restaurant has a
+// realistic weekly demand pattern. Reuses existing campaignEngine demo data;
+// does NOT duplicate or rebuild engines.
+async function seedPartnerDemo(base44, { restaurant_id }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'view_dashboard');
+  if (user.role !== 'admin') throw authError(403, 'admin_only');
+  const SR = base44.asServiceRole;
+  const restaurant = await SR.entities.Restaurant.get(restaurant_id).catch(() => null);
+  if (!restaurant || !restaurant.is_demo) throw authError(400, 'not_demo_restaurant');
+  const nowMs = Date.now();
+
+  // Pick a clean FIRST_TRIAL offer and shift it to active now (2h window, quota 8, used 3)
+  const offers = await SR.entities.CampaignOffer
+    .filter({ restaurant_id, is_demo: true }, '-created_date', 200).catch(() => []);
+  const trial = (offers || []).find((o) => o.offer_type === 'FIRST_TRIAL' && o.mealset_variant_id === 'mix');
+  if (trial) {
+    const start = new Date(nowMs - 2 * 3600000).toISOString();
+    const end = new Date(nowMs + 2 * 3600000).toISOString();
+    await SR.entities.CampaignOffer.update(trial.id, {
+      start_at: start, end_at: end, status: 'active', quota_total: 8, quota_used: 3,
+    }).catch(() => {});
+  }
+
+  // Ensure 7 DemandDayProfiles exist with a realistic weekly pattern
+  const existing = await SR.entities.DemandDayProfile.filter({ restaurant_id }).catch(() => []);
+  const profile = (await SR.entities.WeeklyDemandProfile.filter({ restaurant_id }).catch(() => []))[0];
+  const profileId = profile?.id || 'demo-profile';
+  const pattern = ['quiet', 'quiet', 'medium', 'medium', 'busy', 'busy', 'medium']; // Sun..Sat
+  for (let d = 0; d < 7; d++) {
+    const dp = (existing || []).find((x) => x.day_of_week === d);
+    const level = pattern[d];
+    if (dp) await SR.entities.DemandDayProfile.update(dp.id, { effective_demand_level: level, manual_demand_level: level }).catch(() => {});
+    else await SR.entities.DemandDayProfile.create({
+      weekly_demand_profile_id: profileId, restaurant_id, day_of_week: d,
+      manual_demand_level: level, suggested_demand_level: level, effective_demand_level: level,
+      source: 'merchant', explanation: '',
+    }).catch(() => {});
+  }
+
+  // Set a realistic capacity if not configured
+  if (!restaurant.capacity_normal_additional_per_hour) {
+    await SR.entities.Restaurant.update(restaurant_id, {
+      capacity_normal_additional_per_hour: 10, capacity_source: 'restaurant_default',
+    }).catch(() => {});
+  }
+
+  return { ok: true, activated_offer: trial?.id || null };
+}
+
+async function resetPartnerDemo(base44, { restaurant_id }) {
+  const { user } = await resolveMembership(base44, restaurant_id, 'view_dashboard');
+  if (user.role !== 'admin') throw authError(403, 'admin_only');
+  const SR = base44.asServiceRole;
+  const restaurant = await SR.entities.Restaurant.get(restaurant_id).catch(() => null);
+  if (!restaurant || !restaurant.is_demo) throw authError(400, 'not_demo_restaurant');
+  // Resolve all active signals + reset restaurant status
+  const signals = await SR.entities.RestaurantOperationalSignal
+    .filter({ restaurant_id, status: 'active' }).catch(() => []);
+  for (const s of (signals || [])) {
+    await SR.entities.RestaurantOperationalSignal.update(s.id, { status: 'resolved', resolved_at: new Date().toISOString() }).catch(() => {});
+  }
+  await SR.entities.Restaurant.update(restaurant_id, { current_status: 'open', accepts_orders: true }).catch(() => {});
+  // Re-seed to restore the active offer
+  return await seedPartnerDemo(base44, { restaurant_id });
+}
+
+function safeJSON(s) { try { return typeof s === 'string' ? JSON.parse(s) : (s || null); } catch { return null; } }
+
 const ROUTES = {
   getMyContext,
   submitPartnerApplication,
@@ -1538,4 +1741,13 @@ const ROUTES = {
   publishMenuCandidates,
   listMenuTemplates,
   getMenuTemplate,
+  getPartnerDemo,
+  listPartnerCampaigns,
+  getPartnerCampaignDetail,
+  getWhyTamam,
+  getPartnerTimeMap,
+  getPartnerCapacity,
+  getPartnerDataStatus,
+  seedPartnerDemo,
+  resetPartnerDemo,
 };

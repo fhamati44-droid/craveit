@@ -96,3 +96,14 @@ export const resolveDuplicate = (restaurant_id, candidate_id, decision) => invok
 export const publishMenuCandidates = (restaurant_id, candidate_ids) => invoke('publishMenuCandidates', { restaurant_id, candidate_ids });
 export const listMenuTemplates = () => invoke('listMenuTemplates', {});
 export const getMenuTemplate = (template_id) => invoke('getMenuTemplate', { template_id });
+
+// ---- Partner Demo View (visibility over existing demand intelligence) ----
+export const getPartnerDemo = (restaurant_id) => invoke('getPartnerDemo', { restaurant_id });
+export const listPartnerCampaigns = (restaurant_id, tab) => invoke('listPartnerCampaigns', { restaurant_id, tab });
+export const getPartnerCampaignDetail = (restaurant_id, offer_id) => invoke('getPartnerCampaignDetail', { restaurant_id, offer_id });
+export const getWhyTamam = (restaurant_id, decision_id) => invoke('getWhyTamam', { restaurant_id, decision_id });
+export const getPartnerTimeMap = (restaurant_id) => invoke('getPartnerTimeMap', { restaurant_id });
+export const getPartnerCapacity = (restaurant_id) => invoke('getPartnerCapacity', { restaurant_id });
+export const getPartnerDataStatus = (restaurant_id) => invoke('getPartnerDataStatus', { restaurant_id });
+export const seedPartnerDemo = (restaurant_id) => invoke('seedPartnerDemo', { restaurant_id });
+export const resetPartnerDemo = (restaurant_id) => invoke('resetPartnerDemo', { restaurant_id });

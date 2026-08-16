@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Plus, Pencil, UtensilsCrossed, Trash2, Power, BadgePercent, Store } from 'lucide-react';
+import { Plus, Pencil, UtensilsCrossed, Trash2, Power, BadgePercent, Store, Sparkles } from 'lucide-react';
+import { seedPartnerDemo, resetPartnerDemo } from '@/lib/partnerApi';
 
 const Icon = ({ name, className = '' }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 
@@ -29,6 +30,17 @@ export default function Restaurants() {
   useEffect(() => { load(); }, []);
 
   const offerCountFor = (rid) => offers.filter((o) => o.restaurant_id === rid).length;
+  const viewAsPartner = (r) => {
+    localStorage.setItem('partner_active_rid', r.id);
+    navigate('/partner/home');
+  };
+  const [seeding, setSeeding] = useState(null);
+  const prepDemo = async (r) => {
+    setSeeding(r.id);
+    try { await seedPartnerDemo(r.id); } catch {}
+    setSeeding(null);
+    setTimeout(() => viewAsPartner(r), 300);
+  };
   const toggleActive = async (r) => { await base44.entities.Restaurant.update(r.id, { active: !r.active }); load(); };
   const remove = async (r) => {
     const used = offers.filter((o) => o.restaurant_id === r.id).length;
@@ -89,6 +101,8 @@ export default function Restaurants() {
               <div className="flex flex-wrap gap-1.5 mt-3">
                 <button onClick={() => navigate(`/admin/restaurants/${r.id}/edit`)} className="text-xs bg-surface-container-high text-on-surface font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><Pencil size={12} /> تعديل</button>
                 <button onClick={() => navigate(`/admin/restaurants/${r.id}/menu`)} className="text-xs bg-primary text-on-primary font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><UtensilsCrossed size={12} /> مينيو المطعم</button>
+                {r.is_demo && <button onClick={() => viewAsPartner(r)} className="text-xs bg-tertiary text-on-tertiary font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><Store size={12} /> عرض كصاحب المطعم</button>}
+                {r.is_demo && <button onClick={() => prepDemo(r)} disabled={seeding === r.id} className="text-xs bg-green/15 text-green-dark font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><Sparkles size={12} /> {seeding === r.id ? '...' : 'جهّز تجربة العرض'}</button>}
                 <button onClick={() => navigate(`/admin/restaurants/${r.id}/edit`)} className="text-xs bg-surface-container-high text-on-surface font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><Pencil size={12} /> بيانات المطعم</button>
                 <button onClick={() => toggleActive(r)} className="text-xs bg-surface-container-high text-on-surface font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"><Power size={12} /> {r.active ? 'تعطيل' : 'تفعيل'}</button>
                 {confirmId === r.id ? (
