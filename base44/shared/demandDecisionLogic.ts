@@ -544,6 +544,7 @@ export function applyVerticalAdvisory(
       boostMech(out, overrideMech, 100);
       note = "restaurant_override_preferred";
       noteAr = "تجاوز استراتيجي مفعّل ومتوافق — تم تفضيله.";
+      // fall through: learning + candidate alignment still applied below
     } else {
       note = "restaurant_override_considered_but_not_fit";
       noteAr = "التجاوز الاستراتيجي ما بيناسب الهدف هلا — تم رفضه.";
@@ -553,14 +554,14 @@ export function applyVerticalAdvisory(
   // Restaurant-specific reliable learning > generic playbook (never absolute). [§14]
   const learning = vctx.restaurant_specific_learning;
   if (learning && learning.objective === rec.objective && learning.mechanism) {
-    boostMech(out, learning.mechanism, 15);
+    boostMech(out, learning.mechanism, 20);
     note = "restaurant_specific_learning_favored";
     noteAr = "تعلم سابق موثوق لهاد المطعم بفضّل آلية معينة.";
   }
 
   // Vertical candidate alignment: candidates matching the chosen objective get a fit bonus. [§7]
   for (const c of vctx.candidates) {
-    if (c.objective === rec.objective && c.mechanism) boostMech(out, c.mechanism, 8);
+    if (c.objective === rec.objective && c.mechanism) boostMech(out, c.mechanism, 6);
   }
 
   out.sort((a, b) => (b.score - a.score) || (a.cost - b.cost));
