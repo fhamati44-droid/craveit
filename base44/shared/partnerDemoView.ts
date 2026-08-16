@@ -347,21 +347,89 @@ export async function readDataStatus(SR: any, rid: string) {
   ];
 }
 
-// Simple performance from CampaignEvent (demo-isolated)
+// Demo hero cards — the "شو بدك تقوّي اليوم؟" story for the demo restaurant.
+// Returns 4 populated cards (not "لسه بنجمع بيانات") with demo-isolated data.
+export function demoHeroCards(): any[] {
+  return [
+    { key: 'weak_hour', available: true, hour: 15, count: 4,
+      insight: 'الإثنين 15:00–17:00', detail: 'أهدأ فترة بالأسبوع' },
+    { key: 'low_item', available: true, name: 'شاورما', count: 3,
+      insight: 'شاورما', detail: 'مبيعاتها أقل من متوسط المنيو' },
+    { key: 'new_customers', available: true,
+      insight: 'في جمهور مناسب للتجربة الأولى', detail: 'زبائن قريبون ما جربوا المطعم' },
+    { key: 'weak_day', available: true, day: 1, day_name: 'الإثنين', count: 12,
+      insight: 'الإثنين', detail: 'أهدأ أيام الأسبوع' },
+  ];
+}
+
+// Enhanced demo performance — reads from CampaignEvent + Campaign + CampaignOffer
+// to produce a non-zero, realistic demo story (بيانات تجريبية).
 export async function readDemoPerformance(SR: any, rid: string) {
-  const events = await SR.entities.CampaignEvent
-    .filter({ restaurant_id: rid, is_demo: true }, '-created_date', 500).catch(() => []);
+  const [events, offers, camps] = await Promise.all([
+    SR.entities.CampaignEvent.filter({ restaurant_id: rid, is_demo: true }, '-created_date', 500).catch(() => []),
+    SR.entities.CampaignOffer.filter({ restaurant_id: rid, is_demo: true }, '-created_date', 200).catch(() => []),
+    SR.entities.Campaign.filter({ restaurant_id: rid, is_demo: true }, '-created_date', 200).catch(() => []),
+  ]);
   const purchases = (events || []).filter((e: any) => e.event_type === 'purchase');
   const unlocks = (events || []).filter((e: any) => e.event_type === 'unlock');
   const impressions = (events || []).filter((e: any) => e.event_type === 'impression');
+  const campaignRevenue = purchases.reduce((s: number, e: any) => s + (e.amount || 0), 0);
+
+  // New customers = unique user_ids in campaign purchase events
+  const userIds = new Set(purchases.map((e: any) => e.user_id).filter(Boolean));
+  const newCustomers = userIds.size;
+
+  // Completed campaigns (status COMPLETED)
+  const completedCampaigns = (camps || []).filter((c: any) => c.status === 'COMPLETED').length;
+
+  // Stopped by limit: offers where quota used >= total and status is completed/sold_out
+  const stoppedByLimit = (offers || []).filter((o: any) =>
+    o.quota_total != null && (o.quota_used || 0) >= o.quota_total
+    && ['completed', 'sold_out'].includes(o.status)
+  ).length;
+
+  // Best offer = offer with most purchases
+  const offerCounts: any = {};
+  purchases.forEach((e: any) => { if (e.offer_id) offerCounts[e.offer_id] = (offerCounts[e.offer_id] || 0) + 1; });
+  let bestOfferId: string | null = null, bestCount = 0;
+  for (const [id, cnt] of Object.entries(offerCounts)) { if ((cnt as number) > bestCount) { bestCount = cnt as number; bestOfferId = id; } }
+  const bestOffer = bestOfferId ? (offers || []).find((o: any) => o.id === bestOfferId) : null;
+  const bestOfferLabel = bestOffer ? cleanOfferTitle(bestOffer) : '';
+
   return {
     has_data: purchases.length > 0,
     campaign_orders: purchases.length,
-    new_customers: 0, // derived in backend if needed
+    campaign_revenue: round2(campaignRevenue),
+    new_customers: newCustomers,
+    completed_campaigns: completedCampaigns,
+    stopped_by_limit: stoppedByLimit,
+    best_offer: bestOfferLabel,
     unlocks: unlocks.length,
     impressions: impressions.length,
     tamam_contribution: round2(purchases.reduce((s: number, e: any) => s + (e.tamam_revenue || 0), 0)),
+    story: {
+      window: 'الإثنين 15:00–17:00',
+      situation: 'كان وقت هادي',
+      action: 'TAMAM شغلت خطة زباين جدد',
+      result: `${purchases.length} طلبات`,
+      new_customers: `${newCustomers} زباين جدد`,
+    },
   };
+}
+
+// Demo orders with fresh relative timestamps (read-only for partner display)
+export async function readDemoOrders(SR: any, rid: string) {
+  const orders = await SR.entities.RestaurantSubOrder
+    .filter({ restaurant_id: rid, is_demo: true }, '-created_date', 50).catch(() => []);
+  return (orders || []).map((o: any) => {
+    let itemsCount = 0;
+    try { const v = JSON.parse(o.items_json || '[]'); itemsCount = Array.isArray(v) ? v.length : (v?.items?.length || 0); } catch {}
+    return {
+      id: o.id, number: o.parent_order_number, status: o.status,
+      total: o.total, created_date: o.created_date,
+      items_count: itemsCount, customer_name: o.customer_name,
+    };
+  });
 }
 
 // Build the 4-step "why TAMAM" chain from a DemandDecision

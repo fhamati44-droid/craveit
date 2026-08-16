@@ -7,7 +7,7 @@ import QuickActionFlow from '@/components/partner/QuickActionFlow';
 import { listMenuItems } from '@/lib/partnerApi';
 import {
   LiveStatusCard, QuickActionsCard, ActiveCampaignCard, OpportunityCard,
-  ApprovalsCard, TodayPlanCard, QuickLinksCard,
+  ApprovalsCard, TodayPlanCard, QuickLinksCard, HeroCardsSection, PerformanceStoryCard,
 } from '@/components/partner/demo/DemoHomeSections';
 
 export default function PartnerDemoHome() {
@@ -89,7 +89,12 @@ export default function PartnerDemoHome() {
       )}
 
       {/* C. TAMAM شغالة إسا */}
-      {demo?.active_campaign && <ActiveCampaignCard campaign={demo.active_campaign} />}
+      {demo?.active_campaign && (
+        <ActiveCampaignCard
+          campaign={demo.active_campaign}
+          onWhy={demo?.opportunity ? () => navigate(`/partner/why-tamam/${demo.opportunity.id}`) : undefined}
+        />
+      )}
       {demo?.paused_campaign && (
         <section className="bg-tamam-error/10 border border-tamam-error/30 rounded-2xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-tamam-error text-xs font-bold">
@@ -101,7 +106,15 @@ export default function PartnerDemoHome() {
         </section>
       )}
 
-      {/* D. TAMAM لقت فرصة */}
+      {/* D. شو بدك تقوّي اليوم؟ — demo hero cards */}
+      {demo?.hero_cards && (
+        <HeroCardsSection
+          cards={demo.hero_cards}
+          onSeeOpportunity={demo?.opportunity ? () => navigate(`/partner/why-tamam/${demo.opportunity.id}`) : undefined}
+        />
+      )}
+
+      {/* E. TAMAM لقت فرصة */}
       {demo?.opportunity && <OpportunityCard opportunity={demo.opportunity} />}
 
       {/* E. محتاجين منك شغلة */}
@@ -113,27 +126,10 @@ export default function PartnerDemoHome() {
       {/* Quick links */}
       <QuickLinksCard capacity={demo?.capacity} navigate={navigate} />
 
-      {/* Performance summary */}
-      {demo?.performance?.has_data && (
-        <section className="bg-tamam-surface rounded-2xl p-4 space-y-2 border border-tamam-outline/30">
-          <h3 className="font-bold text-sm text-tamam-text px-1">شو TAMAM عملتلي؟</h3>
-          <div className="grid grid-cols-2 gap-2">
-            <MiniStat label="طلبات الحملات" value={demo.performance.campaign_orders} />
-            <MiniStat label="فتح عروض" value={demo.performance.unlocks} />
-          </div>
-        </section>
-      )}
+      {/* Performance summary — non-zero demo story */}
+      <PerformanceStoryCard perf={demo?.performance} />
 
       <QuickActionFlow open={!!flow} flow={flow} restaurantId={rid} menuItems={menuItems} prepTime={15} onClose={() => setFlow(null)} onDone={load} />
-    </div>
-  );
-}
-
-function MiniStat({ label, value }) {
-  return (
-    <div className="bg-tamam-surface-low rounded-xl p-3 text-center">
-      <p className="text-tamam-green-bright font-bold text-lg">{value}</p>
-      <p className="text-tamam-text-muted text-[10px]">{label}</p>
     </div>
   );
 }

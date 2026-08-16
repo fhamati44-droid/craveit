@@ -46,7 +46,7 @@ export function QuickActionsCard({ onFlow }) {
 }
 
 // C. TAMAM شغالة إسا — active campaign
-export function ActiveCampaignCard({ campaign }) {
+export function ActiveCampaignCard({ campaign, onWhy }) {
   const navigate = useNavigate();
   if (!campaign) return null;
   return (
@@ -57,14 +57,8 @@ export function ActiveCampaignCard({ campaign }) {
           <span className="font-bold text-tamam-text text-sm">{campaign.title}</span>
           <span className="bg-tamam-green text-tamam-ink text-[10px] font-bold px-2 py-0.5 rounded-full">شغّالة</span>
         </div>
-        {campaign.start_at && (
-          <div className="flex items-center gap-2 text-tamam-text-muted text-xs">
-            <span className="material-symbols-outlined text-[16px]">schedule</span>
-            <span>{fmtRange(campaign.start_at, campaign.end_at)}</span>
-          </div>
-        )}
+        {campaign.value_add && <p className="text-tamam-text-muted text-xs leading-snug">{campaign.value_add}</p>}
         {campaign.objective_label && <Row label="الهدف" value={campaign.objective_label} />}
-        {campaign.audience?.length > 0 && <Row label="الجمهور" value={campaign.audience.join('، ')} />}
         {campaign.normal_price != null && (
           <Row label="السعر" value={
             campaign.normal_price > campaign.customer_price
@@ -82,8 +76,104 @@ export function ActiveCampaignCard({ campaign }) {
         <button onClick={() => navigate(`/partner/campaigns/${campaign.id}`)} className="w-full bg-tamam-green-bright text-tamam-ink py-2.5 rounded-xl font-bold text-sm active:scale-95 flex items-center justify-center gap-1">
           <span className="material-symbols-outlined text-[18px]">visibility</span>شوف التفاصيل
         </button>
+        {onWhy && (
+          <button onClick={onWhy} className="w-full bg-tamam-surface-high text-tamam-green-bright py-2.5 rounded-xl font-bold text-sm active:scale-95 flex items-center justify-center gap-1">
+            <span className="material-symbols-outlined text-[18px]">psychology</span>ليش TAMAM اختارت هالفكرة؟
+          </button>
+        )}
       </div>
     </section>
+  );
+}
+
+// شو بدك تقوّي اليوم؟ — demo hero cards (4 populated opportunity cards)
+export function HeroCardsSection({ cards, onSeeOpportunity }) {
+  if (!cards || !cards.length) return null;
+  const META = {
+    weak_hour: { icon: 'schedule', label: 'الساعات الهادئة', tint: 'bg-tamam-green/15 text-tamam-green-bright' },
+    weak_day: { icon: 'event_busy', label: 'الأيام الضعيفة', tint: 'bg-tamam-gold/15 text-tamam-gold' },
+    low_item: { icon: 'trending_down', label: 'وجبة ضعيفة', tint: 'bg-tamam-error/15 text-tamam-error' },
+    new_customers: { icon: 'person_add', label: 'زباين جدد', tint: 'bg-tamam-surface-high text-tamam-green-bright' },
+  };
+  return (
+    <section className="space-y-2">
+      <div>
+        <h3 className="font-bold text-sm text-tamam-text px-1">شو بدك تقوّي اليوم؟</h3>
+        <p className="text-tamam-text-muted text-[11px] px-1">أهم فرص نمو لمطعمك من بياناتك.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {cards.map((c, i) => {
+          const meta = META[c.key] || META.new_customers;
+          return (
+            <div key={c.key || i} className="bg-tamam-surface rounded-2xl p-3 flex flex-col gap-2 border border-tamam-outline/20">
+              <div className="flex items-center gap-2">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${meta.tint}`}>
+                  <span className="material-symbols-outlined text-[20px]">{meta.icon}</span>
+                </div>
+                <span className="text-xs font-bold text-tamam-text">{meta.label}</span>
+              </div>
+              <p className="text-[11px] leading-snug text-tamam-text font-semibold">{c.insight}</p>
+              <p className="text-[10px] text-tamam-text-muted leading-tight">{c.detail}</p>
+            </div>
+          );
+        })}
+      </div>
+      {onSeeOpportunity && (
+        <button onClick={onSeeOpportunity} className="w-full bg-tamam-surface-high text-tamam-green-bright py-2.5 rounded-xl font-bold text-sm active:scale-95 flex items-center justify-center gap-1">
+          <span className="material-symbols-outlined text-[18px]">lightbulb</span>شوف خطة TAMAM
+        </button>
+      )}
+    </section>
+  );
+}
+
+// Performance story + non-zero demo values (بيانات تجريبية)
+export function PerformanceStoryCard({ perf }) {
+  if (!perf || !perf.has_data) {
+    return (
+      <section className="bg-tamam-surface rounded-2xl p-5 text-center space-y-2 border border-tamam-outline/30">
+        <span className="material-symbols-outlined text-[34px] text-tamam-text-muted opacity-50">bar_chart</span>
+        <p className="text-tamam-text text-sm font-semibold">لسه ما في نتائج حملات لعرضها.</p>
+        <p className="text-tamam-text-muted text-[11px]">رح تظهر هون أول ما تشتغل حملة.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between px-1">
+        <h3 className="font-bold text-sm text-tamam-text">شو TAMAM عملتلك؟</h3>
+        <span className="text-[10px] text-tamam-gold font-bold bg-tamam-gold/15 px-2 py-0.5 rounded-full">بيانات تجريبية</span>
+      </div>
+      <div className="bg-tamam-surface rounded-2xl p-4 space-y-3 border border-tamam-outline/30">
+        <div className="grid grid-cols-2 gap-2">
+          <MiniStat label="طلبات عبر الحملات" value={perf.campaign_orders} />
+          <MiniStat label="مبيعات الحملات" value={`${perf.campaign_revenue} ₪`} />
+          <MiniStat label="زبائن جدد" value={perf.new_customers} />
+          <MiniStat label="حملات اكتملت" value={perf.completed_campaigns} />
+          <MiniStat label="توقفت عند الحد" value={perf.stopped_by_limit} />
+          <MiniStat label="أفضل عرض" value={perf.best_offer || '—'} small />
+        </div>
+        {perf.story && (
+          <div className="bg-tamam-surface-low rounded-xl p-3 space-y-1.5">
+            <p className="text-[10px] font-bold text-tamam-green-bright">قصة الأداء</p>
+            <p className="text-tamam-text-muted text-xs leading-snug">
+              <b className="text-tamam-text">{perf.story.window}</b> {perf.story.situation}،
+              <b className="text-tamam-green-bright"> {perf.story.action}</b>.
+              النتيجة: <b className="text-tamam-text">{perf.story.result}</b>، منهم <b className="text-tamam-text">{perf.story.new_customers}</b>.
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MiniStat({ label, value, small }) {
+  return (
+    <div className="bg-tamam-surface-low rounded-xl p-3 text-center">
+      <p className={`font-bold text-tamam-green-bright ${small ? 'text-xs' : 'text-lg'}`}>{value}</p>
+      <p className="text-tamam-text-muted text-[10px] mt-0.5">{label}</p>
+    </div>
   );
 }
 

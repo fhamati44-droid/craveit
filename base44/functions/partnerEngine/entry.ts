@@ -1495,6 +1495,7 @@ import {
   offerToPartner, liveOfferStatus, readLiveSignals, deriveLiveStatus,
   readActiveCampaigns, readLatestOpportunity, readApprovalsNeeded, readTodayPlan,
   readWeeklyTimeMap, readCapacity, readDataStatus, readDemoPerformance, buildWhyChain,
+  demoHeroCards, readDemoOrders,
   OBJECTIVE_AR, MECHANISM_AR, OFFER_TYPE_AR,
 } from '../../shared/partnerDemoView.ts';
 import { commercialBreakdown } from '../../shared/campaignCommerce.ts';
@@ -1504,15 +1505,44 @@ async function getPartnerDemo(base44, { restaurant_id }) {
   const SR = base44.asServiceRole;
   const restaurant = await SR.entities.Restaurant.get(restaurant_id).catch(() => null);
   if (!restaurant) throw authError(404, 'restaurant_not_found');
-  const nowMs = Date.now();
+  let nowMs = Date.now();
 
-  const [signals, campaigns, opportunity, approvals, todayPlan, perf] = await Promise.all([
+  let campaigns = await readActiveCampaigns(SR, restaurant_id, nowMs);
+
+  // Auto-seed if demo restaurant has no live active campaign (admin only).
+  // This makes the demo self-healing on first load and after the campaign
+  // time window expires, without requiring a manual reset.
+  if (restaurant.is_demo && !(campaigns.active || []).length) {
+    try {
+      const me = await base44.auth.me().catch(() => null);
+      if (me?.role === 'admin') {
+        await seedPartnerDemo(base44, { restaurant_id });
+        nowMs = Date.now();
+        campaigns = await readActiveCampaigns(SR, restaurant_id, nowMs);
+      }
+    } catch {}
+  }
+
+  // Refresh stale demo orders (older than 1 hour) so timestamps stay realistic.
+  if (restaurant.is_demo) {
+    try {
+      const demoOrders = await SR.entities.RestaurantSubOrder
+        .filter({ restaurant_id, is_demo: true }, '-created_date', 10).catch(() => []);
+      const stale = (demoOrders || []).some((o) => nowMs - new Date(o.created_date).getTime() > 3600000);
+      if (stale) {
+        const me = await base44.auth.me().catch(() => null);
+        if (me?.role === 'admin') await refreshDemoOrders(base44, restaurant_id);
+      }
+    } catch {}
+  }
+
+  const [signals, opportunity, approvals, todayPlan, perf, orders] = await Promise.all([
     readLiveSignals(SR, restaurant_id),
-    readActiveCampaigns(SR, restaurant_id, nowMs),
     readLatestOpportunity(SR, restaurant_id),
     readApprovalsNeeded(SR, restaurant_id),
     readTodayPlan(SR, restaurant_id, nowMs),
     readDemoPerformance(SR, restaurant_id),
+    readDemoOrders(SR, restaurant_id),
   ]);
 
   const liveStatus = deriveLiveStatus(restaurant, signals);
@@ -1529,10 +1559,12 @@ async function getPartnerDemo(base44, { restaurant_id }) {
     active_campaign: (campaigns.active || [])[0] || null,
     paused_campaign: (campaigns.paused || [])[0] || null,
     opportunity,
+    hero_cards: demoHeroCards(),
     approvals_needed: approvals,
     today_plan: todayPlan,
     capacity,
     performance: perf,
+    orders,
     now: new Date(nowMs).toISOString(),
   };
 }
@@ -1686,9 +1718,9 @@ async function seedPartnerDemo(base44, { restaurant_id }) {
   }
 
   // ---- 3. Time windows for the story ----
-  // Active campaign: spans NOW (so it's live immediately) — use 2h ago to 2h from now
-  const activeStart = new Date(nowMs - 2 * 3600000);
-  const activeEnd = new Date(nowMs + 2 * 3600000);
+  // Active campaign: spans NOW (live immediately) — 1h ago to 5h from now (6h live window)
+  const activeStart = new Date(nowMs - 1 * 3600000);
+  const activeEnd = new Date(nowMs + 5 * 3600000);
   // Today 15:00-17:00 (the GREEN weak period — decision window reference)
   const today15 = new Date(now); today15.setHours(15, 0, 0, 0);
   const today17 = new Date(now); today17.setHours(17, 0, 0, 0);
@@ -1912,9 +1944,16 @@ async function seedPartnerDemo(base44, { restaurant_id }) {
   });
 
   // ---- 6. CampaignEvents for performance (demo-only) ----
+  // 6 purchases: 4 unique new customers (with user_id) + 2 walk-ins (no user_id)
+  // → campaign_orders=6, campaign_revenue=306₪, new_customers=4
   const ev = SR.entities.CampaignEvent;
-  // Active campaign: 3 purchases, some impressions/unlocks
-  for (let i = 0; i < 3; i++) {
+  const newCustomerIds = ['demo-cust-1', 'demo-cust-2', 'demo-cust-3', 'demo-cust-4'];
+  for (const uid of newCustomerIds) {
+    await ev.create({ campaign_id: campActive.id, offer_id: offerActive.id, restaurant_id,
+      channel: 'home', event_type: 'purchase', amount: 51, restaurant_settlement: 48,
+      tamam_revenue: 3, user_id: uid, is_demo: true, demo_batch_id: BATCH });
+  }
+  for (let i = 0; i < 2; i++) {
     await ev.create({ campaign_id: campActive.id, offer_id: offerActive.id, restaurant_id,
       channel: 'home', event_type: 'purchase', amount: 51, restaurant_settlement: 48,
       tamam_revenue: 3, is_demo: true, demo_batch_id: BATCH });
@@ -1926,6 +1965,12 @@ async function seedPartnerDemo(base44, { restaurant_id }) {
   for (let i = 0; i < 45; i++) {
     await ev.create({ campaign_id: campActive.id, offer_id: offerActive.id, restaurant_id,
       channel: 'home', event_type: 'impression', is_demo: true, demo_batch_id: BATCH });
+  }
+  // Surplus campaign: 15 purchases (sold out → stopped_by_limit)
+  for (let i = 0; i < 15; i++) {
+    await ev.create({ campaign_id: campSurplus.id, offer_id: offerSurplus.id, restaurant_id,
+      channel: 'home', event_type: 'purchase', amount: 38, restaurant_settlement: 38,
+      tamam_revenue: 0, is_demo: true, demo_batch_id: BATCH });
   }
 
   // ---- 7. Ensure day profiles + capacity ----
@@ -1949,7 +1994,38 @@ async function seedPartnerDemo(base44, { restaurant_id }) {
     capacity_source: 'restaurant_default', current_status: 'open', accepts_orders: true,
   }).catch(() => {});
 
-  return { ok: true, batch: BATCH, campaigns: 8, decisions: 3, events: 50 };
+  // ---- 8. Refresh demo orders with fresh timestamps ----
+  await refreshDemoOrders(base44, restaurant_id);
+
+  return { ok: true, batch: BATCH, campaigns: 8, decisions: 3, events: 68 };
+}
+
+// Refresh demo-only orders so their created_date stays recent (no stale "قبل 1790 دقيقة").
+// Deletes old demo orders and recreates them with fresh timestamps relative to now.
+async function refreshDemoOrders(base44, restaurant_id) {
+  const SR = base44.asServiceRole;
+  const old = await SR.entities.RestaurantSubOrder
+    .filter({ restaurant_id, is_demo: true }, '-created_date', 50).catch(() => []);
+  for (const o of (old || [])) await SR.entities.RestaurantSubOrder.delete(o.id).catch(() => {});
+  const now = Date.now();
+  const item = (name, qty, price) => ({ name, quantity: qty, price, modifiers: [] });
+  const defs = [
+    { minsAgo: 2, status: 'pending', items: [item('شاورما', 1, 45), item('تشيبس', 1, 8), item('كولا', 1, 6)], total: 59, number: 'DEMO-1001' },
+    { minsAgo: 7, status: 'preparing', items: [item('شاورما', 2, 45)], total: 90, number: 'DEMO-1002' },
+    { minsAgo: 18, status: 'ready', items: [item('برجر لحم كلاسيك', 1, 45), item('بطاطا مقلية', 1, 15)], total: 60, number: 'DEMO-1003' },
+    { minsAgo: 35, status: 'delivered', items: [item('وجبة برجر دجاج', 1, 42)], total: 42, number: 'DEMO-1004' },
+  ];
+  for (const d of defs) {
+    await SR.entities.RestaurantSubOrder.create({
+      parent_order_id: `demo-${d.number}`, parent_order_number: d.number, restaurant_id,
+      restaurant_name_snapshot: 'مطعم البركة التجريبي', items_json: JSON.stringify(d.items),
+      products_subtotal: d.total, total: d.total, status: d.status,
+      customer_name: 'زبون تجريبي', customer_phone: '', customer_notes: '',
+      is_demo: true, demo_batch_id: 'tamam-partner-demo-v2',
+      created_date: new Date(now - d.minsAgo * 60000).toISOString(),
+    }).catch(() => {});
+  }
+  return { created: defs.length };
 }
 
 async function resetPartnerDemo(base44, { restaurant_id }) {
