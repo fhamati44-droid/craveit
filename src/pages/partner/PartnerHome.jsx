@@ -45,6 +45,9 @@ export default function PartnerHome() {
   const navigate = useNavigate();
   const { activeRestaurant } = usePartner();
   const rid = activeRestaurant?.id;
+  const isDemo = !!activeRestaurant?.is_demo;
+  if (isDemo) return <PartnerDemoHome />;
+
   const [home, setHome] = useState(null);
   const [ops, setOps] = useState(null);
   const [results, setResults] = useState(null);

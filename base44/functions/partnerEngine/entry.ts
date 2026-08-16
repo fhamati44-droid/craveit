@@ -1630,44 +1630,326 @@ async function seedPartnerDemo(base44, { restaurant_id }) {
   const SR = base44.asServiceRole;
   const restaurant = await SR.entities.Restaurant.get(restaurant_id).catch(() => null);
   if (!restaurant || !restaurant.is_demo) throw authError(400, 'not_demo_restaurant');
-  const nowMs = Date.now();
 
-  // Pick a clean FIRST_TRIAL offer and shift it to active now (2h window, quota 8, used 3)
-  const offers = await SR.entities.CampaignOffer
-    .filter({ restaurant_id, is_demo: true }, '-created_date', 200).catch(() => []);
-  const trial = (offers || []).find((o) => o.offer_type === 'FIRST_TRIAL' && o.mealset_variant_id === 'mix');
-  if (trial) {
-    const start = new Date(nowMs - 2 * 3600000).toISOString();
-    const end = new Date(nowMs + 2 * 3600000).toISOString();
-    await SR.entities.CampaignOffer.update(trial.id, {
-      start_at: start, end_at: end, status: 'active', quota_total: 8, quota_used: 3,
-    }).catch(() => {});
+  const BATCH = 'tamam-partner-demo-v2';
+  const now = new Date();
+  const nowMs = now.getTime();
+
+  // ---- 1. Clean old demo execution-layer data (campaigns/offers/events/decisions) ----
+  const [oldCamps, oldOffers, oldEvents, oldDecisions] = await Promise.all([
+    SR.entities.Campaign.filter({ restaurant_id, is_demo: true }, '-created_date', 200).catch(() => []),
+    SR.entities.CampaignOffer.filter({ restaurant_id, is_demo: true }, '-created_date', 200).catch(() => []),
+    SR.entities.CampaignEvent.filter({ restaurant_id, is_demo: true }, '-created_date', 500).catch(() => []),
+    SR.entities.DemandDecision.filter({ restaurant_id, is_demo: true }, '-created_date', 200).catch(() => []),
+  ]);
+  // Delete old offers first (they reference campaigns), then campaigns, events, decisions
+  for (const o of (oldOffers || [])) await SR.entities.CampaignOffer.delete(o.id).catch(() => {});
+  for (const c of (oldCamps || [])) await SR.entities.Campaign.delete(c.id).catch(() => {});
+  for (const e of (oldEvents || [])) await SR.entities.CampaignEvent.delete(e.id).catch(() => {});
+  for (const d of (oldDecisions || [])) await SR.entities.DemandDecision.delete(d.id).catch(() => {});
+
+  // ---- 2. Ensure demo menu items (شاورما 45, تشيبس 8, كولا 6) ----
+  const menuItems = await SR.entities.RestaurantMealOffer.filter({ restaurant_id }, 'display_order', 100).catch(() => []);
+  let shawarma = (menuItems || []).find((m) => (m.restaurant_category_name || '').includes('شاورما'));
+  if (shawarma) {
+    await SR.entities.RestaurantMealOffer.update(shawarma.id, { price: 45, available: true }).catch(() => {});
+  } else {
+    shawarma = await SR.entities.RestaurantMealOffer.create({
+      restaurant_id, name: 'شاورما', name_ar: 'شاورما', price: 45,
+      restaurant_category_name: 'شاورما', available: true, display_order: 1,
+      short_description_ar: 'شاورما طازجة محضّرة بعجينتنا الخاصة', is_demo: true, demo_batch_id: BATCH,
+    });
+  }
+  let chips = (menuItems || []).find((m) => (m.name || '').includes('تشيبس') || (m.name_ar || '').includes('تشيبس'));
+  if (!chips) {
+    chips = await SR.entities.RestaurantMealOffer.create({
+      restaurant_id, name: 'تشيبس', name_ar: 'تشيبس', price: 8,
+      restaurant_category_name: 'مقبلات', available: true, display_order: 10,
+      short_description_ar: 'بطاطا مقرمشة', is_demo: true, demo_batch_id: BATCH,
+    });
+  }
+  let cola = (menuItems || []).find((m) => (m.name || '').includes('كولا') || (m.name_ar || '').includes('كولا') || (m.name || '').includes('مشروبات'));
+  if (!cola) {
+    cola = await SR.entities.RestaurantMealOffer.create({
+      restaurant_id, name: 'كولا', name_ar: 'كولا', price: 6,
+      restaurant_category_name: 'مشروبات', available: true, display_order: 20,
+      short_description_ar: 'مشروب غازي بارد', is_demo: true, demo_batch_id: BATCH,
+    });
+  }
+  const shawarmaId = shawarma.id, chipsId = chips.id, colaId = cola.id;
+
+  // ---- 2b. Resolve old active signals so the demo starts clean ----
+  const oldSignals = await SR.entities.RestaurantOperationalSignal
+    .filter({ restaurant_id, status: 'active' }).catch(() => []);
+  for (const s of (oldSignals || [])) {
+    await SR.entities.RestaurantOperationalSignal.update(s.id, { status: 'resolved', resolved_at: now.toISOString() }).catch(() => {});
   }
 
-  // Ensure 7 DemandDayProfiles exist with a realistic weekly pattern
+  // ---- 3. Time windows for the story ----
+  // Active campaign: spans NOW (so it's live immediately) — use 2h ago to 2h from now
+  const activeStart = new Date(nowMs - 2 * 3600000);
+  const activeEnd = new Date(nowMs + 2 * 3600000);
+  // Today 15:00-17:00 (the GREEN weak period — decision window reference)
+  const today15 = new Date(now); today15.setHours(15, 0, 0, 0);
+  const today17 = new Date(now); today17.setHours(17, 0, 0, 0);
+  // Today 18:00-21:00 (the RED pressure block — NO_ACTION)
+  const today18 = new Date(now); today18.setHours(18, 0, 0, 0);
+  const today21 = new Date(now); today21.setHours(21, 0, 0, 0);
+  // Next suitable GREEN period (tomorrow 15:00-17:00) for READY offer
+  const tmrw15 = new Date(now); tmrw15.setDate(tmrw15.getDate() + 1); tmrw15.setHours(15, 0, 0, 0);
+  const tmrw17 = new Date(now); tmrw17.setDate(tmrw17.getDate() + 1); tmrw17.setHours(17, 0, 0, 0);
+
+  // ---- 4. Create clean DEMO campaigns + offers ----
+  const whyJson = JSON.stringify({
+    input: 'الإثنين 15:00–17:00 فترة هادية',
+    goal: 'تجيب زباين جدد',
+    limits: 'ما بدك نحرق سعر الشاورما',
+    action: 'شاورما + تشيبس + كولا بـ 51 ₪ لأول 8 طلبات',
+  });
+
+  // (A) ACTIVE — تجربة أولى — شاورما (NEW_CUSTOMERS, FIRST_TRIAL, mix, 51₪, quota 8, used 3)
+  const campActive = await SR.entities.Campaign.create({
+    restaurant_id, campaign_name: 'تجربة أولى — شاورما', objective: 'NEW_CUSTOMERS',
+    status: 'ACTIVE', start_at: activeStart.toISOString(), end_at: activeEnd.toISOString(),
+    primary_audience: ['new_to_restaurant'], source_opportunity_id: '',
+    why_tamam_json: whyJson, channels: ['home', 'mood_game', 'offers'],
+    is_demo: true, demo_batch_id: BATCH,
+  });
+  const offerActive = await SR.entities.CampaignOffer.create({
+    campaign_id: campActive.id, restaurant_id, offer_title: 'تجربة أولى — شاورما',
+    offer_type: 'FIRST_TRIAL', restaurant_item_id: shawarmaId, mealset_variant_id: 'mix',
+    customer_price: 51, normal_reference_price: 59, value_add_description: 'تشيبس + كولا مع شاورما بسعر الميكس',
+    start_at: activeStart.toISOString(), end_at: activeEnd.toISOString(),
+    quota_total: 8, quota_used: 3, unlock_type: 'none', audience_rule: ['new_to_restaurant'],
+    audience_size: 0, status: 'active', priority: 100, channels: ['home', 'mood_game', 'offers'],
+    restaurant_contribution: 5, tamam_contribution: 3, is_demo: true, demo_batch_id: BATCH,
+  });
+  await SR.entities.Campaign.update(campActive.id, { linked_offer_ids: [offerActive.id] });
+
+  // (B) READY — عرض جاهز — شاورما Mix (next GREEN period)
+  const campReady = await SR.entities.Campaign.create({
+    restaurant_id, campaign_name: 'عرض جاهز — شاورما Mix', objective: 'NEW_CUSTOMERS',
+    status: 'READY', start_at: tmrw15.toISOString(), end_at: tmrw17.toISOString(),
+    primary_audience: ['new_to_restaurant'], why_tamam_json: whyJson, channels: ['home', 'offers'],
+    is_demo: true, demo_batch_id: BATCH,
+  });
+  const offerReady = await SR.entities.CampaignOffer.create({
+    campaign_id: campReady.id, restaurant_id, offer_title: 'عرض جاهز — شاورما Mix',
+    offer_type: 'FIRST_TRIAL', restaurant_item_id: shawarmaId, mealset_variant_id: 'mix',
+    customer_price: 51, normal_reference_price: 59,
+    start_at: tmrw15.toISOString(), end_at: tmrw17.toISOString(),
+    quota_total: 10, quota_used: 0, unlock_type: 'none', audience_rule: ['new_to_restaurant'],
+    audience_size: 0, status: 'ready', priority: 50, channels: ['home', 'offers'],
+    restaurant_contribution: 5, tamam_contribution: 3, is_demo: true, demo_batch_id: BATCH,
+  });
+
+  // (C) VALUE_ADD — شاورما + تشيبس هدية (REACTIVATION, no price reduction)
+  const campVA = await SR.entities.Campaign.create({
+    restaurant_id, campaign_name: 'قيمة مضافة — شاورما + تشيبس هدية', objective: 'REACTIVATION',
+    status: 'READY', start_at: tmrw15.toISOString(), end_at: tmrw17.toISOString(),
+    primary_audience: ['returning_customer'], channels: ['home', 'offers'],
+    is_demo: true, demo_batch_id: BATCH,
+  });
+  const offerVA = await SR.entities.CampaignOffer.create({
+    campaign_id: campVA.id, restaurant_id, offer_title: 'شاورما + تشيبس هدية',
+    offer_type: 'VALUE_ADD', restaurant_item_id: shawarmaId, mealset_variant_id: 'classic',
+    customer_price: 45, normal_reference_price: 45, value_add_description: 'تشيبس هدية مع شاورما — بدون تنزيل السعر',
+    start_at: tmrw15.toISOString(), end_at: tmrw17.toISOString(),
+    quota_total: 20, quota_used: 0, unlock_type: 'none', audience_rule: ['returning_customer'],
+    audience_size: 0, status: 'ready', priority: 40, channels: ['home', 'offers'],
+    restaurant_contribution: 0, tamam_contribution: 8, is_demo: true, demo_batch_id: BATCH,
+  });
+
+  // (D) 30-MINUTE — عرض نص ساعة 🔥 (IMMEDIATE_DEMAND, شاورما+كولا, 46₪, 30 min, quota 10)
+  const start30 = new Date(nowMs + 3600000); const end30 = new Date(nowMs + 3600000 + 1800000);
+  const camp30 = await SR.entities.Campaign.create({
+    restaurant_id, campaign_name: 'عرض نص ساعة 🔥', objective: 'IMMEDIATE_DEMAND',
+    status: 'SCHEDULED', start_at: start30.toISOString(), end_at: end30.toISOString(),
+    primary_audience: ['public'], channels: ['home', 'push'],
+    is_demo: true, demo_batch_id: BATCH,
+  });
+  const offer30 = await SR.entities.CampaignOffer.create({
+    campaign_id: camp30.id, restaurant_id, offer_title: 'عرض نص ساعة 🔥',
+    offer_type: 'LIMITED_TIME', restaurant_item_id: shawarmaId, mealset_variant_id: 'classic',
+    customer_price: 46, normal_reference_price: 51, value_add_description: 'شاورما + كولا لمدة 30 دقيقة فقط',
+    start_at: start30.toISOString(), end_at: end30.toISOString(),
+    quota_total: 10, quota_used: 0, unlock_type: 'none', audience_rule: ['public'],
+    audience_size: 0, status: 'scheduled', priority: 90, channels: ['home', 'push'],
+    restaurant_contribution: 3, tamam_contribution: 2, is_demo: true, demo_batch_id: BATCH,
+  });
+
+  // (E) POINTS-LOCKED — خبايا TAMAM (LOYALTY, POINT_LOCKED, 40 points, 51₪, quota 30)
+  const campPts = await SR.entities.Campaign.create({
+    restaurant_id, campaign_name: 'خبايا TAMAM', objective: 'LOYALTY_ENGAGEMENT',
+    status: 'SCHEDULED', start_at: tmrw15.toISOString(), end_at: tmrw17.toISOString(),
+    primary_audience: ['mood_eligible'], channels: ['home', 'khabya'],
+    is_demo: true, demo_batch_id: BATCH,
+  });
+  const offerPts = await SR.entities.CampaignOffer.create({
+    campaign_id: campPts.id, restaurant_id, offer_title: 'خبايا TAMAM — عرض حصري بالنقاط',
+    offer_type: 'POINT_LOCKED', restaurant_item_id: shawarmaId, mealset_variant_id: 'mix',
+    customer_price: 51, normal_reference_price: 59, value_add_description: 'شاورما + تشيبس + كولا — فتح بـ 40 نقطة TAMAM',
+    start_at: tmrw15.toISOString(), end_at: tmrw17.toISOString(),
+    quota_total: 30, quota_used: 0, unlock_type: 'point_locked', unlock_points: 40,
+    audience_rule: ['mood_eligible'], audience_size: 0, status: 'scheduled', priority: 60,
+    channels: ['home', 'khabya'], restaurant_contribution: 5, tamam_contribution: 3,
+    is_demo: true, demo_batch_id: BATCH,
+  });
+
+  // (F) LIMITED TIME + QUANTITY — عرض وقت وكمية (51₪, quota 20, 15:00-17:00)
+  const campLQ = await SR.entities.Campaign.create({
+    restaurant_id, campaign_name: 'عرض وقت وكمية', objective: 'IMMEDIATE_DEMAND',
+    status: 'SCHEDULED', start_at: tmrw15.toISOString(), end_at: tmrw17.toISOString(),
+    primary_audience: ['public'], channels: ['home', 'offers'],
+    is_demo: true, demo_batch_id: BATCH,
+  });
+  const offerLQ = await SR.entities.CampaignOffer.create({
+    campaign_id: campLQ.id, restaurant_id, offer_title: 'عرض وقت وكمية — شاورما Mix',
+    offer_type: 'TIME_AND_QUANTITY', restaurant_item_id: shawarmaId, mealset_variant_id: 'mix',
+    customer_price: 51, normal_reference_price: 59,
+    start_at: tmrw15.toISOString(), end_at: tmrw17.toISOString(),
+    quota_total: 20, quota_used: 7, unlock_type: 'none', audience_rule: ['public'],
+    audience_size: 0, status: 'scheduled', priority: 70, channels: ['home', 'offers'],
+    restaurant_contribution: 5, tamam_contribution: 3, is_demo: true, demo_batch_id: BATCH,
+  });
+
+  // (G) ONE-USER — عرض شخصي — زبون واحد (REACTIVATION, PERSONALIZED_VALUE, audience_size=1)
+  const camp1 = await SR.entities.Campaign.create({
+    restaurant_id, campaign_name: 'عرض شخصي — زبون واحد', objective: 'REACTIVATION',
+    status: 'SCHEDULED', start_at: tmrw15.toISOString(), end_at: tmrw17.toISOString(),
+    primary_audience: ['targeted'], channels: ['push', 'whatsapp'],
+    is_demo: true, demo_batch_id: BATCH,
+  });
+  const offer1 = await SR.entities.CampaignOffer.create({
+    campaign_id: camp1.id, restaurant_id, offer_title: 'عرض شخصي — زبون مهتم بالشاورما',
+    offer_type: 'REACTIVATION', restaurant_item_id: shawarmaId, mealset_variant_id: 'classic',
+    customer_price: 45, normal_reference_price: 45, value_add_description: 'عرض مخصص لزبون واحد مناسب — بدون بيانات شخصية',
+    start_at: tmrw15.toISOString(), end_at: tmrw17.toISOString(),
+    quota_total: 1, quota_used: 0, unlock_type: 'none', audience_rule: ['targeted'],
+    audience_size: 1, status: 'scheduled', priority: 30, channels: ['push', 'whatsapp'],
+    restaurant_contribution: 0, tamam_contribution: 5, is_demo: true, demo_batch_id: BATCH,
+  });
+
+  // (H) SURPLUS — فائض الكمية (already completed for story — shows in "خلصت")
+  const campSurplus = await SR.entities.Campaign.create({
+    restaurant_id, campaign_name: 'فائض الكمية — شاورما', objective: 'SURPLUS',
+    status: 'COMPLETED', start_at: new Date(nowMs - 86400000).toISOString(), end_at: new Date(nowMs - 7200000).toISOString(),
+    primary_audience: ['public'], channels: ['home'],
+    is_demo: true, demo_batch_id: BATCH,
+  });
+  const offerSurplus = await SR.entities.CampaignOffer.create({
+    campaign_id: campSurplus.id, restaurant_id, offer_title: 'فائض الكمية — شاورما بـ 38 ₪',
+    offer_type: 'SURPLUS', restaurant_item_id: shawarmaId, mealset_variant_id: 'classic',
+    customer_price: 38, normal_reference_price: 45,
+    start_at: new Date(nowMs - 86400000).toISOString(), end_at: new Date(nowMs - 7200000).toISOString(),
+    quota_total: 15, quota_used: 15, unlock_type: 'none', audience_rule: ['public'],
+    audience_size: 0, status: 'completed', priority: 20, channels: ['home'],
+    restaurant_contribution: 7, tamam_contribution: 0, is_demo: true, demo_batch_id: BATCH,
+  });
+
+  // ---- 5. DemandDecisions (the intelligence story) ----
+  // (A) The main NEW_CUSTOMERS decision (PREPARE → accepted → active campaign)
+  await SR.entities.DemandDecision.create({
+    restaurant_id, window_start: today15.toISOString(), window_end: today17.toISOString(),
+    valid_until: today17.toISOString(), demand_state: 'NEEDS_DEMAND',
+    baseline_orders: 4, projected_natural_orders: 4, safe_operational_target: 14,
+    safe_additional_capacity: 10, existing_campaign_commitment: 0,
+    demand_gap: 10, audience_segment: 'new_to_restaurant', audience_size: 120, audience_intent_score: 0.72,
+    commercial_safety_score: 0.85, commercial_safe: true, cannibalization_risk: 'LOW', cannibalization_risk_score: 0.15,
+    campaign_fatigue_score: 0.1, restaurant_priority_score: 70, data_confidence_score: 0.65, urgency_score: 60,
+    capacity_source: 'restaurant_default', opportunity_score: 78,
+    score_components: '{}', hard_blockers: [], decision: 'PREPARE',
+    recommended_objective: 'NEW_CUSTOMERS', recommended_strategy: 'FIRST_TRIAL', recommended_variant: 'mix',
+    recommended_quota: 8, explore_exploit: 'EXPLOIT', learning_mode: false, automation_mode: 'MANUAL',
+    intervention_cost_score: 0.3, expected_incremental_orders: 6, expected_incremental_revenue: 306,
+    expected_tamam_contribution_cost: 24, expected_restaurant_settlement: 264,
+    strategy_alternatives: '[]', data_sources: '{}', campaign_safety_recommendation: '',
+    explanation_internal: 'Monday 15-17 is weak; high shawarma intent audience available; mix strategy avoids price burn',
+    explanation_partner: 'الإثنين 15:00–17:00 فترة هادية عندك، وفي جمهور مهتم بالشاورما لسه ما جرب المطعم. TAMAM بتقترح ميكس شاورما + تشيبس + كولا بـ 51 ₪ لأول 8 طلبات — بدون ما نحرق سعر الشاورما.',
+    source_signal_ids: [], scenario_key: 'F_high_intent_new_customer', is_demo: true, demo_batch_id: BATCH,
+  });
+
+  // (B) NO_ACTION — the RED pressure block (18:00-21:00)
+  await SR.entities.DemandDecision.create({
+    restaurant_id, window_start: today18.toISOString(), window_end: today21.toISOString(),
+    valid_until: today21.toISOString(), demand_state: 'OVERLOADED',
+    baseline_orders: 22, projected_natural_orders: 22, safe_operational_target: 22,
+    safe_additional_capacity: 0, existing_campaign_commitment: 0,
+    demand_gap: 0, audience_segment: '', audience_size: 0, audience_intent_score: 0,
+    commercial_safety_score: 0, commercial_safe: false, cannibalization_risk: 'HIGH', cannibalization_risk_score: 0.8,
+    campaign_fatigue_score: 0.3, restaurant_priority_score: 50, data_confidence_score: 0.8, urgency_score: 20,
+    capacity_source: 'restaurant_default', opportunity_score: 15,
+    score_components: '{}', hard_blockers: ['kitchen_pressure'], decision: 'NO_ACTION',
+    recommended_objective: '', recommended_strategy: '', recommended_quota: 0,
+    explore_exploit: 'EXPLOIT', learning_mode: false, automation_mode: 'MANUAL',
+    intervention_cost_score: 0.9, expected_incremental_orders: 0, expected_incremental_revenue: 0,
+    expected_tamam_contribution_cost: 0, expected_restaurant_settlement: 0,
+    strategy_alternatives: '[]', data_sources: '{}', campaign_safety_recommendation: '',
+    explanation_internal: '18-21 is historically a pressure period; no additional demand should be created',
+    explanation_partner: 'هي عادة فترة ضغط عندك. ما بدنا نجيب طلبات زيادة تأثر على الشغل. TAMAM ما رح تشغّل عروض هسّا.',
+    source_signal_ids: [], scenario_key: 'B_pressure_no_action', is_demo: true, demo_batch_id: BATCH,
+  });
+
+  // (C) NEEDS_RESTAURANT_APPROVAL — commercial unsafe
+  await SR.entities.DemandDecision.create({
+    restaurant_id, window_start: tmrw15.toISOString(), window_end: tmrw17.toISOString(),
+    valid_until: tmrw17.toISOString(), demand_state: 'NEEDS_DEMAND',
+    baseline_orders: 3, projected_natural_orders: 3, safe_operational_target: 13,
+    safe_additional_capacity: 10, existing_campaign_commitment: 0,
+    demand_gap: 10, audience_segment: 'public', audience_size: 200, audience_intent_score: 0.5,
+    commercial_safety_score: 0.3, commercial_safe: false, cannibalization_risk: 'MEDIUM', cannibalization_risk_score: 0.4,
+    campaign_fatigue_score: 0.2, restaurant_priority_score: 60, data_confidence_score: 0.5, urgency_score: 50,
+    capacity_source: 'restaurant_default', opportunity_score: 55,
+    score_components: '{}', hard_blockers: ['commercial_unsafe'], decision: 'NEEDS_RESTAURANT_APPROVAL',
+    recommended_objective: 'IMMEDIATE_DEMAND', recommended_strategy: 'DIRECT_PRICE', recommended_variant: 'classic',
+    recommended_quota: 15, explore_exploit: 'EXPLOIT', learning_mode: false, automation_mode: 'MANUAL',
+    intervention_cost_score: 0.6, expected_incremental_orders: 8, expected_incremental_revenue: 280,
+    expected_tamam_contribution_cost: 40, expected_restaurant_settlement: 240,
+    strategy_alternatives: '[]', data_sources: '{}', campaign_safety_recommendation: '',
+    explanation_internal: 'Proposed discount exceeds restaurant contribution cap; needs approval',
+    explanation_partner: 'السعر المقترح خارج الحد المتفق عليه. بدك توافق على تعديل الحد ولا نشتغل بطريقة تانية؟',
+    source_signal_ids: [], scenario_key: 'I_commercial_unsafe', is_demo: true, demo_batch_id: BATCH,
+  });
+
+  // ---- 6. CampaignEvents for performance (demo-only) ----
+  const ev = SR.entities.CampaignEvent;
+  // Active campaign: 3 purchases, some impressions/unlocks
+  for (let i = 0; i < 3; i++) {
+    await ev.create({ campaign_id: campActive.id, offer_id: offerActive.id, restaurant_id,
+      channel: 'home', event_type: 'purchase', amount: 51, restaurant_settlement: 48,
+      tamam_revenue: 3, is_demo: true, demo_batch_id: BATCH });
+  }
+  for (let i = 0; i < 2; i++) {
+    await ev.create({ campaign_id: campActive.id, offer_id: offerActive.id, restaurant_id,
+      channel: 'home', event_type: 'unlock', is_demo: true, demo_batch_id: BATCH });
+  }
+  for (let i = 0; i < 45; i++) {
+    await ev.create({ campaign_id: campActive.id, offer_id: offerActive.id, restaurant_id,
+      channel: 'home', event_type: 'impression', is_demo: true, demo_batch_id: BATCH });
+  }
+
+  // ---- 7. Ensure day profiles + capacity ----
   const existing = await SR.entities.DemandDayProfile.filter({ restaurant_id }).catch(() => []);
   const profile = (await SR.entities.WeeklyDemandProfile.filter({ restaurant_id }).catch(() => []))[0];
   const profileId = profile?.id || 'demo-profile';
-  const pattern = ['quiet', 'quiet', 'medium', 'medium', 'busy', 'busy', 'medium']; // Sun..Sat
+  // Mon=quiet(GREEN), Tue=quiet(GREEN), Wed=medium(YELLOW), Thu=medium(YELLOW), Fri=busy(RED), Sat=busy(RED), Sun=medium
+  const pattern = ['medium', 'quiet', 'quiet', 'medium', 'medium', 'busy', 'busy']; // Sun..Sat
   for (let d = 0; d < 7; d++) {
     const dp = (existing || []).find((x) => x.day_of_week === d);
     const level = pattern[d];
-    if (dp) await SR.entities.DemandDayProfile.update(dp.id, { effective_demand_level: level, manual_demand_level: level }).catch(() => {});
+    if (dp) await SR.entities.DemandDayProfile.update(dp.id, { effective_demand_level: level, manual_demand_level: level, is_demo: true, demo_batch_id: BATCH }).catch(() => {});
     else await SR.entities.DemandDayProfile.create({
       weekly_demand_profile_id: profileId, restaurant_id, day_of_week: d,
       manual_demand_level: level, suggested_demand_level: level, effective_demand_level: level,
-      source: 'merchant', explanation: '',
+      source: 'merchant', explanation: '', is_demo: true, demo_batch_id: BATCH,
     }).catch(() => {});
   }
+  await SR.entities.Restaurant.update(restaurant_id, {
+    capacity_normal_additional_per_hour: 10, capacity_max_additional_per_hour: 15,
+    capacity_source: 'restaurant_default', current_status: 'open', accepts_orders: true,
+  }).catch(() => {});
 
-  // Set a realistic capacity if not configured
-  if (!restaurant.capacity_normal_additional_per_hour) {
-    await SR.entities.Restaurant.update(restaurant_id, {
-      capacity_normal_additional_per_hour: 10, capacity_source: 'restaurant_default',
-    }).catch(() => {});
-  }
-
-  return { ok: true, activated_offer: trial?.id || null };
+  return { ok: true, batch: BATCH, campaigns: 8, decisions: 3, events: 50 };
 }
 
 async function resetPartnerDemo(base44, { restaurant_id }) {

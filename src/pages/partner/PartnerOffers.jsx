@@ -4,6 +4,7 @@ import { usePartner } from '@/lib/partnerContext';
 import { listPartnerOffers, getPartnerOffer } from '@/lib/partnerApi';
 import { EmptyState } from '@/components/tamam/customer/States';
 import OfferDetailSheet from '@/components/partner/OfferDetailSheet';
+import PartnerDemoOffers from '@/pages/partner/PartnerDemoOffers';
 
 const TABS = [
   { key: 'active', label: 'شغالة' },
@@ -23,6 +24,9 @@ export default function PartnerOffers() {
   const navigate = useNavigate();
   const { activeRestaurant } = usePartner();
   const rid = activeRestaurant?.id;
+  const isDemo = !!activeRestaurant?.is_demo;
+  if (isDemo) return <PartnerDemoOffers />;
+
   const [tab, setTab] = useState('active');
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);

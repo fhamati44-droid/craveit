@@ -104,6 +104,10 @@ import PartnerOrderDetail from '@/pages/partner/PartnerOrderDetail';
 import PartnerDemandSchedule from '@/pages/partner/PartnerDemandSchedule';
 import PartnerOpportunitySignal from '@/pages/partner/PartnerOpportunitySignal';
 import PartnerCampaigns from '@/pages/partner/PartnerCampaigns';
+import PartnerCampaignDetail from '@/pages/partner/PartnerCampaignDetail';
+import PartnerWhyTamam from '@/pages/partner/PartnerWhyTamam';
+import PartnerTimeMap from '@/pages/partner/PartnerTimeMap';
+import PartnerStory from '@/pages/partner/PartnerStory';
 
 function App() {
   return (
@@ -213,6 +217,10 @@ function App() {
               <Route path="demand-schedule" element={<PartnerDemandSchedule />} />
               <Route path="opportunity-signal" element={<PartnerOpportunitySignal />} />
               <Route path="campaigns" element={<PartnerCampaigns />} />
+              <Route path="campaigns/:campaignId" element={<PartnerCampaignDetail />} />
+              <Route path="why-tamam/:decisionId" element={<PartnerWhyTamam />} />
+              <Route path="time-map" element={<PartnerTimeMap />} />
+              <Route path="story" element={<PartnerStory />} />
               <Route path="more" element={<PartnerMore />} />
               <Route path="performance" element={<PartnerPerformance />} />
               <Route path="guardrails" element={<PartnerGuardrails />} />
