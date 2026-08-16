@@ -21,29 +21,32 @@ export default function TamamBottomNav() {
       className="sticky bottom-0 z-30 bg-tamam-ink/95 backdrop-blur border-t border-tamam-outline/40 pb-safe"
       style={{ paddingBottom: 'max(6px, env(safe-area-inset-bottom))' }}
     >
-      <div className="flex items-stretch justify-around px-1 pt-1.5">
+      <div className="flex items-stretch justify-around px-1.5 pt-2">
         {ITEMS.map(({ to, label, icon: Icon, highlight }) => {
           const active = isActive(to);
           return (
             <Link
               key={to}
               to={to}
-              className={`flex flex-col items-center justify-center gap-0.5 px-2 min-w-[56px] min-h-[48px] ${
+              className={`relative flex flex-col items-center justify-center gap-1 px-2 min-w-[56px] min-h-[50px] ${
                 active ? 'text-tamam-green-bright' : 'text-tamam-text-muted'
               }`}
             >
+              {active && (
+                <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-tamam-green-bright" />
+              )}
               {highlight ? (
                 <span
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
                     active ? 'bg-tamam-green text-tamam-ink' : 'bg-tamam-surface text-tamam-green'
                   }`}
                 >
                   <Icon size={17} />
                 </span>
               ) : (
-                <Icon size={20} />
+                <Icon size={21} className={active ? 'fill-current' : ''} />
               )}
-              <span className="text-[10px] font-medium leading-tight">{label}</span>
+              <span className="text-[10px] font-bold leading-tight">{label}</span>
             </Link>
           );
         })}

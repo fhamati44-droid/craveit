@@ -7,7 +7,7 @@ const Icon = ({ name, className = '' }) => <span className={`material-symbols-ou
 const ITEMS_AR = [
   { icon: 'lock', key: 'secure_payment', label: 'دفع آمن', route: '/how-tamam-works/secure-payment' },
   { icon: 'restaurant', key: 'curated_restaurants', label: 'مطاعم مختارة', route: '/restaurants' },
-  { icon: 'support_agent', key: 'support', label: 'دعم سريع', route: '/how-tamam-works/support' },
+  { icon: 'delivery_dining', key: 'fast_delivery', label: 'توصيل سريع', route: '/how-tamam-works/live-tracking' },
 ];
 const ITEMS_HE = [
   { icon: 'lock', key: 'secure_payment', label: 'תשלום מאובטח', route: '/how-tamam-works/secure-payment' },
@@ -24,17 +24,17 @@ export default function HomeTrustStrip() {
   const { locale } = useLanguage();
   const items = locale === 'he' ? ITEMS_HE : ITEMS_AR;
   return (
-    <section className="px-4 py-5">
+    <section className="px-4 py-4">
       <div className="grid grid-cols-3 gap-2">
         {items.map((it) => (
           <Link
             key={it.key}
             to={it.route}
             onClick={() => track('trust_card_clicked', { card_key: it.key })}
-            className="flex flex-col items-center justify-center gap-1.5 bg-surface-container border border-outline-variant/30 rounded-2xl py-3.5 min-h-[72px] active:scale-95 transition-transform"
+            className="flex flex-col items-center justify-center gap-1.5 bg-tamam-surface-low border border-tamam-outline/20 rounded-2xl py-3 min-h-[64px] active:scale-95 transition-transform"
           >
-            <Icon name={it.icon} className="text-primary text-[22px]" />
-            <span className="text-[11px] font-bold text-center leading-tight">{it.label}</span>
+            <Icon name={it.icon} className="text-tamam-green-bright text-[20px]" />
+            <span className="text-[11px] font-bold text-tamam-text-muted text-center leading-tight">{it.label}</span>
           </Link>
         ))}
       </div>

@@ -58,7 +58,7 @@ export default function LoyaltyBalanceCard() {
         <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden mb-2"><div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} /></div>
         <div className="flex justify-between items-center">
           <span className="text-[11px] text-on-surface-variant">{pending ? `${pending} نقطة قيد التأكيد` : 'باقي ' + remaining + ' نقطة وبتفتح مكافأة جديدة'}</span>
-          <span className="text-primary text-xs font-bold">شوف نقاطي وكوبوناتي</span>
+          <span className="text-primary text-xs font-bold">شوف نقاطي</span>
         </div>
       </button>
     </section>

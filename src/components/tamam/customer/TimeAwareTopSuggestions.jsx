@@ -68,21 +68,17 @@ export default function TimeAwareTopSuggestions({ timeData }) {
             onClick={() => openItem(item)}
             className="flex-shrink-0 w-[260px] bg-surface-container border border-outline-variant/30 rounded-2xl overflow-hidden text-right active:scale-95 transition-transform flex flex-col"
           >
-            <div className="relative h-[150px] bg-surface-container-high">
+            <div className="relative h-[160px] bg-surface-container-high">
               <PublicImage
                 source={item.image_url}
                 fallback={PLACEHOLDER_IMAGE}
                 alt={item.title || ''}
                 className="absolute inset-0 w-full h-full object-cover"
               />
-              <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-tamam-ink/75 backdrop-blur-sm text-tamam-green-bright text-[10px] font-bold px-2 py-0.5 rounded-full">
+              {/* Single reason tag only */}
+              <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-tamam-ink/80 backdrop-blur-sm text-tamam-green-bright text-[10px] font-bold px-2 py-0.5 rounded-full">
                 <span className="material-symbols-outlined text-[12px]">recommend</span>{fitTag}
               </span>
-              {item.package && (
-                <span className="absolute top-2 left-2 bg-tamam-gold/85 text-tamam-ink text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  {item.package}
-                </span>
-              )}
             </div>
             <div className="p-3 flex flex-col flex-1">
               <h3 className="font-bold text-sm leading-tight line-clamp-2 mb-1">{item.title || ''}</h3>

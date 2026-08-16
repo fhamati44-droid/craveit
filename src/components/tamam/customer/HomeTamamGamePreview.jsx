@@ -38,7 +38,7 @@ export default function HomeTamamGamePreview() {
   useEffect(() => {
     const calc = () => {
       const w = containerRef.current?.clientWidth || window.innerWidth;
-      setOrbitSize(Math.min(220, Math.max(180, Math.min(w - 32, 210))));
+      setOrbitSize(Math.min(240, Math.max(200, Math.min(w - 32, 232))));
     };
     calc();
     window.addEventListener('resize', calc);
@@ -78,10 +78,10 @@ export default function HomeTamamGamePreview() {
 
   const displayMoods = moods.slice(0, 6);
   const n = displayMoods.length;
-  const radius = orbitSize / 2 - 34;
+  const radius = orbitSize / 2 - 38;
   const center = orbitSize / 2;
-  const circleSize = 52;
-  const centerBtn = 72;
+  const circleSize = 56;
+  const centerBtn = 78;
 
   const positionForIndex = (index, total) => {
     const angle = (index / total) * Math.PI * 2 - Math.PI / 2;
@@ -103,8 +103,8 @@ export default function HomeTamamGamePreview() {
           <span className="inline-flex items-center gap-1 text-tamam-gold text-[10px] font-bold">
             <Icon name="auto_awesome" className="text-[13px]" />جيم تمام
           </span>
-          <h2 className="text-tamam-text font-bold text-[17px] leading-snug mt-1">شو مودك اليوم؟</h2>
-          <p className="text-tamam-text-muted text-[11px] leading-snug mt-0.5">اختار مود من الهون، أو خلّينا نفاجئك.</p>
+          <h2 className="text-tamam-text font-bold text-[18px] leading-snug mt-1">شو مودك اليوم؟</h2>
+          <p className="text-tamam-text-muted text-[11px] leading-snug mt-0.5">اختَر مود، وإحنا منرتّبلك الخيارات.</p>
         </div>
 
         {/* Body */}
@@ -141,7 +141,7 @@ export default function HomeTamamGamePreview() {
                   onClick={() => go(m, 'tap')}
                   disabled={selecting}
                   style={{ position: 'absolute', ...positionForIndex(i, n), zIndex: 5 }}
-                  className="bg-tamam-surface-high border-2 border-tamam-outline/40 rounded-full flex flex-col items-center justify-center p-1 text-center active:scale-90 transition-transform disabled:opacity-60"
+                  className="bg-tamam-surface-high border-2 border-tamam-outline/40 rounded-full flex flex-col items-center justify-center p-1 text-center active:scale-90 active:border-tamam-green-bright transition-transform disabled:opacity-60"
                   aria-label={m.name_ar || 'مود'}
                 >
                   {m.image_url ? (
@@ -161,15 +161,16 @@ export default function HomeTamamGamePreview() {
 
               {/* Center "انطلق" */}
               <button
-                onClick={startRandom}
-                disabled={selecting}
-                type="button"
-                className="absolute rounded-full bg-tamam-green flex flex-col items-center justify-center text-tamam-ink active:scale-95 transition-all disabled:opacity-80"
-                style={{ left: `${center - centerBtn / 2}px`, top: `${center - centerBtn / 2}px`, width: `${centerBtn}px`, height: `${centerBtn}px`, zIndex: 10, boxShadow: '0 0 26px rgba(137,219,120,0.3)' }}
-              >
-                <span className="text-[15px] font-bold leading-none">{selecting ? 'لحظة' : 'انطلق'}</span>
-                <span className="text-[9px] opacity-80 mt-0.5">{selecting ? 'بنختار' : 'فاجئني'}</span>
-              </button>
+                 onClick={startRandom}
+                 disabled={selecting}
+                 type="button"
+                 className="absolute rounded-full bg-tamam-green flex flex-col items-center justify-center text-tamam-ink active:scale-90 transition-all disabled:opacity-80"
+                 style={{ left: `${center - centerBtn / 2}px`, top: `${center - centerBtn / 2}px`, width: `${centerBtn}px`, height: `${centerBtn}px`, zIndex: 10, boxShadow: '0 0 32px rgba(137,219,120,0.45), inset 0 0 12px rgba(255,255,255,0.15)' }}
+               >
+                 <span className="material-symbols-outlined text-[22px] mb-0.5">{selecting ? 'hourglass_top' : 'auto_awesome'}</span>
+                 <span className="text-[13px] font-bold leading-none">{selecting ? 'لحظة' : 'انطلق'}</span>
+                 <span className="text-[9px] opacity-80 mt-0.5">{selecting ? 'بنختار' : 'فاجئني'}</span>
+               </button>
             </div>
 
             {/* Selecting progress */}

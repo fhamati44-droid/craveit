@@ -12,12 +12,12 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 // the game is still reachable via the "اعمل مودك" action below.
 const TEXT = {
   ar: {
-    headerTitle: 'شوف الناس شو رتّبت عالطاولة',
-    headerSubtitle: 'مودات حقيقية عملها الناس. ادعم اللي عجبك بلايك أو تعليق.',
+    headerTitle: 'شو الناس طالبة اليوم؟',
+    headerSubtitle: 'مودات حقيقية عملها الناس — شوف وشجّع اللي عجبك.',
     makeMood: 'اعمل مودك',
-    viewAllMoods: 'شوف كل المودات',
-    listHeading: 'مودات مولّعة 🔥',
-    listSubtitle: 'ادعم المود اللي عجبك بلايك أو تعليق.',
+    viewAllMoods: 'شوف مودات الناس',
+    listHeading: '',
+    listSubtitle: '',
     empty: 'أول مود للناس لسه بالطريق 👀',
     emptyCta: 'ابدأ اللعبة',
     errorRetry: 'إعادة المحاولة',
@@ -102,18 +102,14 @@ export default function CommunityMoodGameSection() {
         </div>
       ) : proposals.length > 0 ? (
         <div>
-          <div className="mb-2 flex items-center justify-between">
-            <h4 className="text-tamam-text font-bold text-xs">{t.listHeading}</h4>
-            <button onClick={viewAll} className="text-tamam-green-bright text-[11px] font-bold flex items-center gap-0.5">
-              {t.viewAllMoods} <ChevronLeft size={12} />
-            </button>
-          </div>
-          {t.listSubtitle && <p className="text-tamam-text-muted text-[10px] mb-2">{t.listSubtitle}</p>}
           <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-            {proposals.slice(0, 3).map((p) => (
+            {proposals.slice(0, 2).map((p) => (
               <CommunityMoodCard key={p.id} proposal={p} onShare={setShareProposal} />
             ))}
           </div>
+          <button onClick={viewAll} className="mt-3 w-full h-10 rounded-xl bg-tamam-surface-high text-tamam-text font-bold text-xs active:scale-95 transition-transform flex items-center justify-center gap-1.5">
+            {t.viewAllMoods} <ChevronLeft size={14} />
+          </button>
         </div>
       ) : (
         <div className="text-center py-6">

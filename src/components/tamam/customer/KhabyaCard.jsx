@@ -79,23 +79,24 @@ export default function KhabyaCard({ offer, onTap }) {
       {/* Frosted teaser panel */}
       <div className="p-3 flex flex-col gap-2 flex-1 bg-tamam-surface">
         <p className="text-[12px] text-tamam-text leading-snug line-clamp-2 min-h-[34px]">
-          {unlocked ? '✅ فتحت العرض — شوف التفاصيل' : (offer.teaser_text || 'في عرض مخبّى على وجبة 👀 افتحه بنقاطك')}
+          {unlocked ? '✅ فتحت العرض — شوف التفاصيل' : (offer.teaser_text || 'في عرض مخبّى على وجبة 👀')}
         </p>
-        <div className="flex items-center justify-between mt-auto">
+        {!unlocked && (
+          <div className="inline-flex items-center gap-1 bg-tamam-gold/12 text-tamam-gold text-[10px] font-bold px-2 py-0.5 rounded-full self-start">
+            <span className="material-symbols-outlined text-[12px]">stars</span>
+            افتحه بـ {offer.unlock_cost} نقطة
+          </div>
+        )}
+        <div className="mt-auto">
           {unlocked ? (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-tamam-green-bright">
-              <span className="material-symbols-outlined text-[14px]">arrow_outward</span>شوف العرض
+            <span className="w-full h-10 rounded-xl bg-tamam-green text-tamam-ink font-bold text-[12px] flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+              <span className="material-symbols-outlined text-[16px]">lock_open</span>شوف العرض
             </span>
           ) : (
-            <span
-              className="inline-flex items-center gap-1 bg-tamam-gold/15 text-tamam-gold text-[11px] font-bold px-2.5 py-1 rounded-full"
-              style={{ boxShadow: '0 0 10px rgba(234,196,92,0.18)' }}
-            >
-              <span className="material-symbols-outlined text-[13px]">stars</span>
-              {offer.unlock_cost} نقطة
+            <span className="w-full h-10 rounded-xl bg-tamam-gold text-tamam-ink font-bold text-[12px] flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
+              <span className="material-symbols-outlined text-[16px]">key</span>افتح العرض
             </span>
           )}
-          <span className="material-symbols-outlined text-[18px] text-tamam-text-muted" style={{ transform: 'scaleX(-1)' }}>arrow_forward</span>
         </div>
       </div>
     </button>
