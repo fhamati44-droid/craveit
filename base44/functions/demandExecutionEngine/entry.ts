@@ -658,7 +658,11 @@ export default async function (req: any) {
       // PAUSED + pressure cleared -> RESUME / COMPLETE / KEEP_PAUSED
       if (plan.status === 'PAUSED') {
         const timeRemains = evMs < winEnd;
-        const remaining = offer && offer.quota_total != null ? Math.max(0, offer.quota_total - (offer.quota_used || 0)) : null;
+        // Use plan.final_quota (authoritative) — NOT offer.quota_total, which the
+        // pressure-pause intentionally capped to quota_used to trigger SOLD_OUT.
+        // Reading the capped value here would make `remaining` 0 and block the
+        // resume branch that restores it (KEEP_PAUSED with value still left).
+        const remaining = plan.final_quota != null ? Math.max(0, plan.final_quota - (offer?.quota_used || 0)) : (offer && offer.quota_total != null ? Math.max(0, offer.quota_total - (offer.quota_used || 0)) : null);
         const valuePositive = (remaining == null || remaining > 0) && timeRemains && (offer?.customer_price || 0) > 0;
         if (!timeRemains) {
           await SR.entities.CampaignPlan.update(plan.id, { status: 'COMPLETED', monitor_state: 'EXPIRED' });
