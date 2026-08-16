@@ -79,6 +79,17 @@
     },
     "audience_size_max": {
       "type": "number"
+    },
+    "primary_vertical_id": {
+      "type": "string",
+      "title": "Primary MenuVertical id (canonical link)"
+    },
+    "secondary_vertical_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Secondary MenuVertical ids"
     }
   },
   "required": [

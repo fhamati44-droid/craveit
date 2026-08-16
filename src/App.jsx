@@ -58,6 +58,15 @@ import DemandDecisionLab from '@/pages/admin/DemandDecisionLab';
 import DemandDecisions from '@/pages/admin/DemandDecisions';
 import ExecutionCenter from '@/pages/admin/ExecutionCenter';
 import ExecutionDetail from '@/pages/admin/ExecutionDetail';
+import VerticalHub from '@/pages/admin/verticals/VerticalHub';
+import MenuVerticals from '@/pages/admin/verticals/MenuVerticals';
+import VerticalDaypartStrategies from '@/pages/admin/verticals/VerticalDaypartStrategies';
+import VerticalPlaybooks from '@/pages/admin/verticals/VerticalPlaybooks';
+import RestaurantVerticalAssignment from '@/pages/admin/verticals/RestaurantVerticalAssignment';
+import StrategyOverrides from '@/pages/admin/verticals/StrategyOverrides';
+import CampaignRecommendations from '@/pages/admin/verticals/CampaignRecommendations';
+import RecommendationExplanation from '@/pages/admin/verticals/RecommendationExplanation';
+import VerticalPerformanceComparison from '@/pages/admin/verticals/VerticalPerformanceComparison';
 import HomepageTimeAdmin from '@/pages/admin/HomepageTimeAdmin';
 import MoodGame from '@/pages/MoodGame';
 import CommunityMoods from '@/pages/CommunityMoods';
@@ -194,6 +203,15 @@ function App() {
               <Route path="/admin/demand-decisions" element={<DemandDecisions />} />
               <Route path="/admin/demand-execution" element={<ExecutionCenter />} />
               <Route path="/admin/demand-execution/:planId" element={<ExecutionDetail />} />
+              <Route path="/admin/verticals" element={<VerticalHub />} />
+              <Route path="/admin/verticals/list" element={<MenuVerticals />} />
+              <Route path="/admin/verticals/dayparts" element={<VerticalDaypartStrategies />} />
+              <Route path="/admin/verticals/playbooks" element={<VerticalPlaybooks />} />
+              <Route path="/admin/verticals/assignment" element={<RestaurantVerticalAssignment />} />
+              <Route path="/admin/verticals/overrides" element={<StrategyOverrides />} />
+              <Route path="/admin/verticals/recommendations" element={<CampaignRecommendations />} />
+              <Route path="/admin/verticals/recommendations/:id" element={<RecommendationExplanation />} />
+              <Route path="/admin/verticals/performance" element={<VerticalPerformanceComparison />} />
             </Route>
             <Route path="/partner" element={<PartnerRoute />}>
               <Route index element={<Navigate to="/partner/home" replace />} />

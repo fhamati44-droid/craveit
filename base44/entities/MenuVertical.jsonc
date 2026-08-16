@@ -1,0 +1,76 @@
+{
+  "name": "MenuVertical",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "title": "Vertical code (unique identifier, e.g. SHAWARMA)"
+    },
+    "name_ar": {
+      "type": "string",
+      "title": "Arabic display name"
+    },
+    "name_he": {
+      "type": "string",
+      "title": "Hebrew display name"
+    },
+    "description": {
+      "type": "string"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "default_fulfillment_type": {
+      "type": "string",
+      "enum": [
+        "ON_DEMAND_PREPARED_FOOD",
+        "SCHEDULED_PREPARED_FOOD",
+        "RETAIL_PICK_AND_PACK",
+        "FRESH_WEIGHT_BASED",
+        "PREORDER"
+      ],
+      "title": "Default fulfillment model for this vertical"
+    },
+    "default_preparation_model": {
+      "type": "string",
+      "enum": [
+        "made_to_order",
+        "batch_prepared",
+        "pre_packaged",
+        "weight_based",
+        "scheduled_prep"
+      ]
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0
+    },
+    "metadata_json": {
+      "type": "string",
+      "title": "JSON: master-product id map, default operating hours, vertical-specific rules"
+    }
+  },
+  "required": [
+    "code",
+    "name_ar"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

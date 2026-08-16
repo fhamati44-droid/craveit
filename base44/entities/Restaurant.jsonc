@@ -138,6 +138,32 @@
       "type": "string",
       "title": "Last source used to resolve capacity (set by engine)"
     },
+    "primary_vertical_id": {
+      "type": "string",
+      "title": "Primary MenuVertical id"
+    },
+    "secondary_vertical_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Secondary MenuVertical ids"
+    },
+    "fulfillment_type": {
+      "type": "string",
+      "enum": [
+        "ON_DEMAND_PREPARED_FOOD",
+        "SCHEDULED_PREPARED_FOOD",
+        "RETAIL_PICK_AND_PACK",
+        "FRESH_WEIGHT_BASED",
+        "PREORDER"
+      ],
+      "title": "How this restaurant fulfills orders"
+    },
+    "vertical_strategy_override_json": {
+      "type": "string",
+      "title": "JSON: per-restaurant overrides on vertical daypart/playbook strategy"
+    },
     "is_demo": {
       "type": "boolean",
       "default": false,

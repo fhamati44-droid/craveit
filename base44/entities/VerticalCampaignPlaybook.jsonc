@@ -1,0 +1,103 @@
+{
+  "name": "VerticalCampaignPlaybook",
+  "type": "object",
+  "properties": {
+    "vertical_id": {
+      "type": "string",
+      "title": "MenuVertical id"
+    },
+    "name": {
+      "type": "string",
+      "title": "Playbook name (Arabic)"
+    },
+    "objective": {
+      "type": "string",
+      "title": "Campaign.objective enum value (WHY)"
+    },
+    "mechanic": {
+      "type": "string",
+      "title": "Intervention mechanism (HOW)"
+    },
+    "allowed_dayparts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Daypart types where this playbook fits"
+    },
+    "preferred_tiers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "classic",
+          "mix",
+          "plus"
+        ]
+      }
+    },
+    "preferred_mood_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "audience_segments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommended_component_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "side / drink / addon component types to compose the offer"
+    },
+    "commercial_rules_json": {
+      "type": "string",
+      "title": "JSON: max contribution, discount ceiling, quota guidance"
+    },
+    "minimum_data_requirements_json": {
+      "type": "string",
+      "title": "JSON: data the engine needs before auto-suggesting this playbook"
+    },
+    "priority": {
+      "type": "number",
+      "default": 0
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "vertical_id",
+    "name",
+    "objective",
+    "mechanic"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

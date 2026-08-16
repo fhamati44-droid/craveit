@@ -1,0 +1,123 @@
+{
+  "name": "VerticalDaypartStrategy",
+  "type": "object",
+  "properties": {
+    "vertical_id": {
+      "type": "string",
+      "title": "MenuVertical id"
+    },
+    "day_of_week": {
+      "type": "number",
+      "title": "0=Sun \u2026 6=Sat; null/undefined = applies to any day"
+    },
+    "start_time": {
+      "type": "string",
+      "title": "HH:MM"
+    },
+    "end_time": {
+      "type": "string",
+      "title": "HH:MM"
+    },
+    "daypart_type": {
+      "type": "string",
+      "enum": [
+        "BREAKFAST",
+        "MID_MORNING",
+        "LUNCH",
+        "AFTERNOON",
+        "DINNER",
+        "LATE_NIGHT",
+        "WEEKEND",
+        "SEASONAL",
+        "CUSTOM"
+      ]
+    },
+    "demand_expectation": {
+      "type": "string",
+      "enum": [
+        "quiet",
+        "medium",
+        "busy",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "recommended_objectives": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Campaign.objective enum values"
+    },
+    "recommended_mechanics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Offer mechanism values"
+    },
+    "preferred_tiers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "classic",
+          "mix",
+          "plus"
+        ]
+      }
+    },
+    "preferred_mood_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "avoid_discounting": {
+      "type": "boolean",
+      "default": false
+    },
+    "maximum_discount_percent": {
+      "type": "number",
+      "default": 0,
+      "title": "Hard ceiling on direct discount for this daypart (0 = no ceiling)"
+    },
+    "priority": {
+      "type": "number",
+      "default": 0
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "metadata_json": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "vertical_id",
+    "daypart_type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "name": "CampaignRecommendation",
+  "type": "object",
+  "properties": {
+    "restaurant_id": {
+      "type": "string",
+      "title": "Restaurant (Base44 id)"
+    },
+    "vertical_id": {
+      "type": "string",
+      "title": "Resolved MenuVertical id"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recommended_objective": {
+      "type": "string",
+      "title": "WHY the campaign exists"
+    },
+    "recommended_mechanic": {
+      "type": "string",
+      "title": "WHAT value is offered"
+    },
+    "recommended_tier": {
+      "type": "string",
+      "enum": [
+        "classic",
+        "mix",
+        "plus"
+      ]
+    },
+    "recommended_master_products": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "title": "TAMAM master product ids"
+    },
+    "recommended_restaurant_items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "RestaurantMealOffer ids"
+    },
+    "recommended_audience": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "WHO can see it"
+    },
+    "recommended_placements": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "WHERE it appears (home / mood / offers / push / \u2026)"
+    },
+    "recommended_start_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recommended_end_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recommended_quota": {
+      "type": "number"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Machine-readable explanation codes"
+    },
+    "explanation_ar": {
+      "type": "string",
+      "title": "Human-readable Arabic explanation"
+    },
+    "confidence_score": {
+      "type": "number",
+      "title": "0-1 confidence"
+    },
+    "missing_data": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Inputs the engine lacked"
+    },
+    "source_signals_json": {
+      "type": "string",
+      "title": "JSON snapshot of inputs used (precedence chain)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "approved",
+        "rejected",
+        "expired",
+        "converted"
+      ],
+      "default": "draft",
+      "title": "Recommendations remain drafts until admin approval"
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false
+    },
+    "demo_batch_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "restaurant_id",
+    "recommended_objective",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -58,6 +58,38 @@
     },
     "internal_notes": {
       "type": "string"
+    },
+    "vertical_id": {
+      "type": "string",
+      "title": "MenuVertical id \u2014 mood matching considers business type, not only mood name"
+    },
+    "daypart_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "BREAKFAST / LUNCH / DINNER / \u2026 \u2014 time context for this assignment"
+    },
+    "day_of_week": {
+      "type": "number",
+      "title": "0=Sun \u2026 6=Sat; null = any day"
+    },
+    "audience_size_min": {
+      "type": "number"
+    },
+    "audience_size_max": {
+      "type": "number"
+    },
+    "weather_contexts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "hot / cold / rainy / \u2026"
+    },
+    "priority": {
+      "type": "number",
+      "default": 0
     }
   },
   "required": [
