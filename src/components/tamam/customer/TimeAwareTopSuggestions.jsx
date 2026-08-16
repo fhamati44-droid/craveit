@@ -9,8 +9,6 @@ import { PLACEHOLDER_IMAGE } from '@/lib/imageUtils';
  * Shows 2–3 large food cards from time-aware top_suggestions. Each card opens
  * the existing meal/suggestion route with "شوف الوجبة" — never an Add-to-Cart.
  * Falls back to a lightweight CTA into the existing suggestion flow when empty.
- * The "اقتراح ثاني" action routes into the existing TAMAM suggestion flow
- * (the backend has no safe regenerate endpoint, so we don't fake one).
  */
 export default function TimeAwareTopSuggestions({ timeData }) {
   const navigate = useNavigate();
@@ -40,13 +38,13 @@ export default function TimeAwareTopSuggestions({ timeData }) {
   if (!suggestions || suggestions.length === 0) {
     return (
       <section className="px-4 py-4">
-        <h2 className="text-headline-sm font-bold mb-1">اختيارات TAMAM إلك</h2>
-        <p className="text-body-sm text-on-surface-variant mb-3">حسب مودك والوقت</p>
+        <h2 className="text-headline-sm font-bold text-tamam-text mb-1">اختيارات TAMAM إلك</h2>
+        <p className="text-body-sm text-tamam-text-muted mb-3">حسب مودك والوقت</p>
         <button
           onClick={() => navigate('/tamam-suggestions')}
-          className="w-full h-14 bg-surface-container border border-outline-variant/30 rounded-2xl flex items-center justify-center gap-2 font-bold active:scale-[0.98] transition-transform"
+          className="w-full h-14 bg-tamam-surface border border-tamam-outline/30 rounded-2xl flex items-center justify-center gap-2 font-bold text-tamam-text active:scale-[0.98] transition-transform"
         >
-          <span className="material-symbols-outlined text-[20px] text-primary">auto_awesome</span>
+          <span className="material-symbols-outlined text-[20px] text-tamam-green-bright">auto_awesome</span>
           شوف اقتراحات TAMAM
         </button>
       </section>
@@ -58,17 +56,17 @@ export default function TimeAwareTopSuggestions({ timeData }) {
   return (
     <section className="py-4">
       <div className="px-4 mb-3">
-        <h2 className="text-headline-sm font-bold">اختيارات TAMAM إلك</h2>
-        <p className="text-body-sm text-on-surface-variant">حسب مودك والوقت</p>
+        <h2 className="text-headline-sm font-bold text-tamam-text">اختيارات TAMAM إلك</h2>
+        <p className="text-body-sm text-tamam-text-muted">حسب مودك والوقت</p>
       </div>
       <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
         {picks.map((item) => (
           <button
             key={item.id || item.package}
             onClick={() => openItem(item)}
-            className="flex-shrink-0 w-[260px] bg-surface-container border border-outline-variant/30 rounded-2xl overflow-hidden text-right active:scale-95 transition-transform flex flex-col"
+            className="flex-shrink-0 w-[260px] bg-tamam-surface-lowest border border-tamam-outline/25 rounded-2xl overflow-hidden text-right active:scale-95 transition-transform flex flex-col"
           >
-            <div className="relative h-[160px] bg-surface-container-high">
+            <div className="relative h-[160px] bg-tamam-surface-high">
               <PublicImage
                 source={item.image_url}
                 fallback={PLACEHOLDER_IMAGE}
@@ -81,15 +79,15 @@ export default function TimeAwareTopSuggestions({ timeData }) {
               </span>
             </div>
             <div className="p-3 flex flex-col flex-1">
-              <h3 className="font-bold text-sm leading-tight line-clamp-2 mb-1">{item.title || ''}</h3>
+              <h3 className="font-bold text-sm text-tamam-text leading-tight line-clamp-2 mb-1">{item.title || ''}</h3>
               {item.short_description && (
-                <p className="text-[11px] text-on-surface-variant leading-snug line-clamp-2 mb-2">{item.short_description}</p>
+                <p className="text-[11px] text-tamam-text-muted leading-snug line-clamp-2 mb-2">{item.short_description}</p>
               )}
               <div className="flex items-center justify-between mt-auto pt-1">
                 {item.display_price != null ? (
-                  <span className="text-primary font-bold text-sm" dir="ltr">₪{Math.round(item.display_price)}</span>
+                  <span className="text-tamam-green-bright font-bold text-sm" dir="ltr">₪{Math.round(item.display_price)}</span>
                 ) : <span />}
-                <span className="bg-primary text-on-primary text-[11px] font-bold px-3 py-1.5 rounded-full inline-flex items-center gap-1">
+                <span className="bg-tamam-green text-tamam-ink text-[11px] font-bold px-3 py-1.5 rounded-full inline-flex items-center gap-1">
                   شوف الوجبة
                   <span className="material-symbols-outlined text-[14px]">arrow_back</span>
                 </span>
@@ -101,7 +99,7 @@ export default function TimeAwareTopSuggestions({ timeData }) {
       <div className="px-4 mt-3">
         <button
           onClick={() => navigate('/tamam-suggestions')}
-          className="w-full h-11 rounded-xl bg-surface-container border border-outline-variant/30 text-on-surface-variant text-xs font-bold inline-flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+          className="w-full h-11 rounded-xl bg-tamam-surface border border-tamam-outline/30 text-tamam-text-muted text-xs font-bold inline-flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
         >
           شوف كل الاقتراحات <span className="material-symbols-outlined text-[16px]">arrow_back</span>
         </button>

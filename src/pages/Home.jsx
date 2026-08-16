@@ -10,7 +10,6 @@ import HomepageActiveOrderCard from '@/components/tamam/customer/HomepageActiveO
 import FeaturedRestaurants from '@/components/tamam/customer/FeaturedRestaurants';
 import HomeActiveDealBanner from '@/components/tamam/customer/HomeActiveDealBanner';
 import LoyaltyBalanceCard from '@/components/tamam/customer/LoyaltyBalanceCard';
-import HomeMoodBanners from '@/components/tamam/customer/HomeMoodBanners';
 import InfoFooter from '@/components/tamam/customer/InfoFooter';
 import LazySection from '@/components/tamam/customer/LazySection';
 import CommunityMoodGameSection from '@/components/community/CommunityMoodGameSection';
@@ -21,6 +20,7 @@ import HomeTamamGamePreview from '@/components/tamam/customer/HomeTamamGamePrevi
 import TimeAwareTopSuggestions from '@/components/tamam/customer/TimeAwareTopSuggestions';
 import HomeTrustStrip from '@/components/tamam/customer/HomeTrustStrip';
 import HomeIntentHero from '@/components/tamam/customer/HomeIntentHero';
+import HomeClassicMixPlus from '@/components/tamam/customer/HomeClassicMixPlus';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -69,24 +69,17 @@ export default function Home() {
 
   if (error) return <ErrorState title="ما قدرنا نحمّل البيانات" onRetry={load} />;
 
+  const topSuggestion = timeData?.top_suggestions?.[0];
+
   return (
     <div className="flex flex-col pb-6">
-      {/* 0. Intent hero — fast first decision (مود / اقتراحات / بحث) */}
-      <HomeIntentHero />
+      {/* 1. Food-first hero + intent chips */}
+      <HomeIntentHero topSuggestion={topSuggestion} />
 
-      {/* 1. Active order — conditional only */}
+      {/* 2. Active order tracking (conditional) */}
       <HomepageActiveOrderCard />
 
-      {/* 2. Interactive Mood Game preview (build your own mood) */}
-      <HomeMoodGamePreview timeData={timeData} />
-
-      {/* 2b. TAMAM mood-orbit game — playable from Home (شو مودك؟) */}
-      <HomeTamamGamePreview />
-
-      {/* 3. Quick Mood selector */}
-      <HomeMoodBanners />
-
-      {/* 3b. Active offer strip — moved up so live offers are seen early */}
+      {/* 3. Active / limited offer (if relevant) */}
       {dealView && (
         <section className="px-4 py-3">
           <HomeActiveDealBanner deal={dealView.deal} thresholds={dealView.thresholds} participants={dealView.participants}
@@ -94,35 +87,42 @@ export default function Home() {
         </section>
       )}
 
-      {/* 4. TAMAM Picks — food recommendations */}
-      <TimeAwareTopSuggestions timeData={timeData} />
-
-      {/* 5. خبايا TAMAM (additive point-locked offers) */}
-      <KhabyaSection />
-
-      {/* 5b. Community preview */}
-      <CommunityMoodGameSection />
-
-      {/* 5c. Unified offers (Campaign + GroupDeal, additive, only when offers exist) */}
+      {/* 3b. Additional unified offers (campaign + group deals, only when offers exist) */}
       <HomeUnifiedOffers />
 
-      {/* 6. Curated restaurants */}
+      {/* 4. TAMAM Picks — food recommendation carousel */}
+      <TimeAwareTopSuggestions timeData={timeData} />
+
+      {/* 5. Restaurants — large visual cards */}
       <LazySection>
         <FeaturedRestaurants
           restaurants={data?.featuredRestaurants}
           loading={loading}
-          title="مطاعم اخترناها بعناية"
+          title="مطاعم ممكن يعجبوك"
           onViewAll={() => { track('home_restaurants_opened', { locale }); navigate('/restaurants'); }}
         />
       </LazySection>
 
-      {/* 7. Loyalty (contextual) */}
+      {/* 6. Mood — "مش عارف شو بدك؟" (moved lower; solves indecision) */}
+      <HomeMoodGamePreview timeData={timeData} />
+      <HomeTamamGamePreview />
+
+      {/* 7. Classic / Mix / Plus — decision simplifier (when suggestions exist) */}
+      <HomeClassicMixPlus timeData={timeData} />
+
+      {/* 8. خبايا TAMAM (point-locked offers) */}
+      <KhabyaSection />
+
+      {/* 9. Community teaser (max 2, social proof only) */}
+      <CommunityMoodGameSection />
+
+      {/* 10. TAMAM Points */}
       <LazySection><LoyaltyBalanceCard /></LazySection>
 
-      {/* 8. Consolidated Trust */}
+      {/* 11. Trust / service reassurance */}
       <HomeTrustStrip />
 
-      {/* 9. Footer */}
+      {/* 12. Footer */}
       <InfoFooter />
     </div>
   );

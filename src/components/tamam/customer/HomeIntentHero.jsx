@@ -1,19 +1,23 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { track } from '@/lib/analytics';
+import PublicImage from '@/components/shared/PublicImage';
+import { PLACEHOLDER_IMAGE } from '@/lib/imageUtils';
 
 /**
- * HomeIntentHero — the clear first block on the customer Home.
- * One question + a dominant "فاجئني" action + secondary entries + a row of
- * compact intent chips that route into EXISTING flows (no new backend).
- * Hierarchy: فاجئني (primary, largest) → اقتراحات TAMAM (secondary) → فتّش (utility).
+ * HomeIntentHero — FOOD-FIRST first block on the customer Home.
+ * A real food image reaches the eye in the first second, with the human
+ * headline overlaid. Then a dominant "فاجئني" action, a secondary row
+ * (اقتراحات TAMAM + فتّش), and a row of compact intent chips.
+ * Hierarchy: فاجئني (primary) → اقتراحات TAMAM (secondary) → فتّش (utility).
+ * No new backend — uses the existing top time-aware suggestion image only.
  */
-function greeting() {
+function eyebrow() {
   const h = new Date().getHours();
-  if (h >= 5 && h < 11) return 'صباح الخير — شو عبالك اليوم؟';
-  if (h >= 11 && h < 16) return 'وقت الغدا… شو بدك تاكل؟';
-  if (h >= 16 && h < 22) return 'سهرة حلوة — شو نفسك؟';
-  return 'جوعان بالليل؟ خلّينا نرتبلك.';
+  if (h >= 5 && h < 11) return 'صباح الخير';
+  if (h >= 11 && h < 16) return 'وقت الغدا';
+  if (h >= 16 && h < 22) return 'سهرة حلوة';
+  return 'جوعان بالليل؟';
 }
 
 const CHIPS = [
@@ -25,9 +29,10 @@ const CHIPS = [
   { key: 'late', label: 'آخر الليل', icon: 'nightlight' },
 ];
 
-export default function HomeIntentHero() {
+export default function HomeIntentHero({ topSuggestion }) {
   const navigate = useNavigate();
-  const hello = useMemo(greeting, []);
+  const hello = useMemo(eyebrow, []);
+  const heroImg = topSuggestion?.image_url;
 
   const go = (to, key) => {
     track('home_intent_entry', { entry: key });
@@ -37,13 +42,43 @@ export default function HomeIntentHero() {
     track('home_intent_chip', { chip: key });
     navigate('/tamam-suggestions');
   };
+  const openDish = () => {
+    track('home_hero_dish_opened', { content_id: topSuggestion?.id || '' });
+    navigate(topSuggestion?.route || '/tamam-suggestions');
+  };
 
   return (
-    <section className="px-4 pt-3.5 pb-1" dir="rtl">
-      {/* Greeting — compact */}
-      <div className="mb-2.5">
-        <h1 className="font-bold text-[20px] leading-tight text-tamam-text">{hello}</h1>
-        <p className="text-tamam-text-muted text-[12px] mt-0.5 leading-snug">اختَر وحدة، وإحنا منكمّلك الباقي.</p>
+    <section className="px-4 pt-3 pb-1" dir="rtl">
+      {/* Food-first hero card — real food image reaches the eye first */}
+      <div className="relative rounded-2xl overflow-hidden h-44 mb-3 bg-tamam-surface-high">
+        {heroImg ? (
+          <PublicImage
+            source={heroImg}
+            fallback={PLACEHOLDER_IMAGE}
+            alt={topSuggestion?.title || ''}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-tamam-green/25 via-tamam-surface to-tamam-surface-lowest flex items-center justify-center">
+            <span className="text-5xl opacity-80">🍽️</span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-tamam-surface-lowest via-tamam-surface-lowest/40 to-transparent" />
+        <div className="absolute inset-0 p-4 flex flex-col justify-end">
+          <span className="text-tamam-green-bright text-[11px] font-bold mb-1">{hello}</span>
+          <h1 className="font-bold text-[22px] leading-tight text-tamam-text">شو عبالك تاكل اليوم؟</h1>
+          <p className="text-tamam-text-muted text-[12px] mt-0.5 leading-snug">إذا محتار، TAMAM بتسهّلها عليك.</p>
+        </div>
+        {topSuggestion && (
+          <button
+            type="button"
+            onClick={openDish}
+            className="absolute top-3 left-3 inline-flex items-center gap-1 bg-tamam-green text-tamam-ink text-[11px] font-bold px-2.5 py-1.5 rounded-full active:scale-95 transition-transform"
+          >
+            شوف الوجبة
+            <span className="material-symbols-outlined text-[14px]" style={{ transform: 'scaleX(-1)' }}>arrow_forward</span>
+          </button>
+        )}
       </div>
 
       {/* Primary: فاجئني — dominant green action */}
@@ -73,7 +108,7 @@ export default function HomeIntentHero() {
           <span className="w-9 h-9 rounded-lg bg-tamam-surface flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[20px] text-tamam-green-bright">restaurant_menu</span>
           </span>
-          <span className="flex flex-col items-start text-right leading-tight min-w-0">
+          <span className="flex flex-col items-start text-right text-tamam-text leading-tight min-w-0">
             <span className="text-[13px] font-bold">اقتراحات TAMAM</span>
             <span className="text-[10px] text-tamam-text-muted">حسب مودك والوقت</span>
           </span>
@@ -86,7 +121,7 @@ export default function HomeIntentHero() {
           <span className="w-9 h-9 rounded-lg bg-tamam-surface-low flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[20px] text-tamam-text-muted">search</span>
           </span>
-          <span className="flex flex-col items-start text-right leading-tight min-w-0">
+          <span className="flex flex-col items-start text-right text-tamam-text leading-tight min-w-0">
             <span className="text-[13px] font-bold">فتّش</span>
             <span className="text-[10px] text-tamam-text-muted">وجبة أو مطعم</span>
           </span>
