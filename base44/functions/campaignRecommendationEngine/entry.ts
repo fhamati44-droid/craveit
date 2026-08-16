@@ -68,7 +68,7 @@ export default async function (req) {
     const demandSchedule = dayProfiles?.[0] || null;
 
     // 3c. Operational signals — active RestaurantOperationalSignal
-    const opSignals = await svc.entities.RestaurantOperationalSignal.filter({ restaurant_id, active: true }).catch(() => []);
+    const opSignals = await svc.entities.RestaurantOperationalSignal.filter({ restaurant_id, status: "active" }).catch(() => []);
     const operationalSignals = opSignals?.[0] || null;
 
     // 3d. Vertical default daypart strategy
@@ -148,7 +148,7 @@ export default async function (req) {
       void mechToOfferType;
     }
 
-    // 6b-5 campaign load + existing same-item conflict
+    // 6b-5 campaign load (existing same-item conflict computed after draft build)
     const allOffers = await svc.entities.CampaignOffer.filter({ restaurant_id }).catch(() => []);
     const liveOffers = (allOffers || []).filter((o) => ["active", "scheduled"].includes(o.status));
     const campaignLoad = { activeCount: liveOffers.length, max: guardrail?.max_simultaneous_campaigns || 0 };
@@ -159,11 +159,6 @@ export default async function (req) {
       const s1 = new Date(a).getTime(), e1 = new Date(b).getTime();
       return s1 < recEnd.getTime() && e1 > recStart.getTime();
     };
-    const conflicting = liveOffers.find((o) =>
-      restaurantItemIds.includes(o.restaurant_item_id) &&
-      overlap(o.start_at, o.end_at) &&
-      (o.audience_rule || []).some((seg) => (rec.recommended_audience || ["public"]).includes(seg) || (o.audience_rule || []).includes("public")));
-    const existingConflict = { conflict: !!conflicting, conflictingOfferId: conflicting?.id || null };
 
     // 6b-6 restaurant strategy override (JSON)
     let restaurantOverride = null;
@@ -183,6 +178,22 @@ export default async function (req) {
     const reliableBusy = (demandSchedule?.effective_demand_level === "busy") || (operationalSignals?.demand_level === "busy");
     const historicalCtx = { level: historical?.demand_level || null, pressureInWindow: !!reliableBusy };
 
+    // 7. Build recommendation (draft from playbook/daypart/fallback)
+    const draft = buildRecommendation({
+      restaurant, vertical, daypart, demand, daypartStrategy: verticalStrategy,
+      playbook, masterProductIds, restaurantItemIds, guardrail: guardrailCtx,
+      previousResults, missing, reasons, testTime: test_time,
+    });
+    draft._playbookName = playbook?.name || null;
+
+    // 7a. existing same-item / time / audience campaign conflict (needs draft audience)
+    const draftAudience = draft.recommended_audience || ["public"];
+    const conflicting = liveOffers.find((o) =>
+      restaurantItemIds.includes(o.restaurant_item_id) &&
+      overlap(o.start_at, o.end_at) &&
+      ((o.audience_rule || []).some((seg) => draftAudience.includes(seg)) || (o.audience_rule || []).includes("public") || draftAudience.includes("public")));
+    const existingConflict = { conflict: !!conflicting, conflictingOfferId: conflicting?.id || null };
+
     const safety = {
       operationalBlock,
       itemUnavailable: { anyAvailable, soldOutIds, tierTargetSoldOut },
@@ -194,14 +205,6 @@ export default async function (req) {
       partnerFacts,
       historical: historicalCtx,
     };
-
-    // 7. Build recommendation (draft from playbook/daypart/fallback)
-    const draft = buildRecommendation({
-      restaurant, vertical, daypart, demand, daypartStrategy: verticalStrategy,
-      playbook, masterProductIds, restaurantItemIds, guardrail: guardrailCtx,
-      previousResults, missing, reasons, testTime: test_time,
-    });
-    draft._playbookName = playbook?.name || null;
 
     // 7b. Enforce authoritative precedence over the draft (operational → commercial
     // → current facts → override → playbook → daypart → fallback). The vertical
