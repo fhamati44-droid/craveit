@@ -128,24 +128,23 @@ export default async function (req) {
     const tierTargetSoldOut = naturalTargetIds.length > 0 && naturalTargetIds.every((id) => soldOutIds.includes(id));
 
     // 6b-4 commercial guardrail (floor + allowed offer types)
+    // Aggregate across ALL active commercial guardrails — a restaurant may have
+    // more than one; any active floor violation or allowed-type restriction
+    // must be honored (safety precedence section 2).
     const commercialGuardrails = await svc.entities.CommercialGuardrail.filter({ restaurant_id, status: "active" }).catch(() => []);
-    const cg = commercialGuardrails?.[0] || null;
+    const proposedPrice = chosenOffers.length ? Math.min(...chosenOffers.map((o) => Number(o.price || 0))) : 0;
     let commercial = { safe: true, floorViolated: false, valueAddAllowed: true, pointsAllowed: true };
-    if (cg) {
+    for (const cg of (commercialGuardrails || [])) {
       const minPrice = cg.minimum_customer_offer_price;
       const minNet = cg.minimum_restaurant_net;
-      const proposedPrice = chosenOffers.length ? Math.min(...chosenOffers.map((o) => Number(o.price || 0))) : 0;
-      const floorViolated = (minPrice != null && proposedPrice > 0 && proposedPrice < minPrice)
+      const violated = (minPrice != null && proposedPrice > 0 && proposedPrice < minPrice)
         || (minNet != null && proposedPrice > 0 && (proposedPrice - Number(cg.tamam_contribution || 0)) < minNet);
+      if (violated) { commercial.floorViolated = true; commercial.safe = false; }
       const allowedTypes = cg.allowed_offer_types || [];
-      const mechToOfferType = { FIRST_TRIAL: "FIRST_TRIAL", DIRECT_PRICE: "DIRECT_PRICE", VALUE_ADD: "VALUE_ADD", POINT_LOCKED: "POINT_LOCKED", TIME_AND_QUANTITY: "TIME_AND_QUANTITY", LIMITED_QUANTITY: "LIMITED_QUANTITY" };
-      commercial = {
-        safe: !floorViolated,
-        floorViolated: !!floorViolated,
-        valueAddAllowed: !allowedTypes.length || allowedTypes.includes("VALUE_ADD"),
-        pointsAllowed: !allowedTypes.length || allowedTypes.includes("POINT_LOCKED"),
-      };
-      void mechToOfferType;
+      if (allowedTypes.length) {
+        if (!allowedTypes.includes("VALUE_ADD")) commercial.valueAddAllowed = false;
+        if (!allowedTypes.includes("POINT_LOCKED")) commercial.pointsAllowed = false;
+      }
     }
 
     // 6b-5 campaign load (existing same-item conflict computed after draft build)
