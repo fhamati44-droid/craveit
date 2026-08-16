@@ -9,6 +9,7 @@ import {
   EXPLORE_CAPS, VALID_UNTIL, LEARNING, MECHANISM_TO_OFFER_TYPE, OBJECTIVE_TO_CAMPAIGN,
   PLAN_TRANSITIONS, AUDIT_ACTION_AR, MONITOR_STATE_AR, PLAN_STATUS_AR,
 } from '../../shared/demandExecutionConfig.ts';
+import { enrichPlans, buildTimeline } from '../../shared/executionCenter.ts';
 
 // ============================================================================
 // demandExecutionEngine — GUARDED DEMAND EXECUTION (Milestone 3).
@@ -771,13 +772,45 @@ export default async function (req: any) {
       if (!isAdmin) return json({ error: 'forbidden' }, 403);
       const plan = await SR.entities.CampaignPlan.get(payload.plan_id).catch(() => null);
       if (!plan) return json({ error: 'not_found' }, 404);
-      const dd = plan.demand_decision_id ? await SR.entities.DemandDecision.get(plan.demand_decision_id).catch(() => null) : null;
-      const opp = plan.opportunity_id ? await SR.entities.Opportunity.get(plan.opportunity_id).catch(() => null) : null;
-      const camp = plan.campaign_id ? await SR.entities.Campaign.get(plan.campaign_id).catch(() => null) : null;
-      const offer = plan.campaign_offer_id ? await SR.entities.CampaignOffer.get(plan.campaign_offer_id).catch(() => null) : null;
-      const auditLogs = await SR.entities.ExecutionAuditLog.filter({ plan_id: plan.id }).catch(() => []);
-      const gate = plan.safety_gate_json ? JSON.parse(plan.safety_gate_json) : null;
-      return json({ data: { plan, demand_decision: dd, opportunity: opp, campaign: camp, offer, audit: auditLogs || [], safety_gate: gate } });
+      const evMs = payload.test_time ? new Date(payload.test_time).getTime() : now();
+      const [ddRaw, oppRaw, campRaw, offerRaw, auditRaw, restRaw, learnRaw] = await Promise.all([
+        plan.demand_decision_id ? SR.entities.DemandDecision.get(plan.demand_decision_id).catch(() => null) : Promise.resolve(null),
+        plan.opportunity_id ? SR.entities.Opportunity.get(plan.opportunity_id).catch(() => null) : Promise.resolve(null),
+        plan.campaign_id ? SR.entities.Campaign.get(plan.campaign_id).catch(() => null) : Promise.resolve(null),
+        plan.campaign_offer_id ? SR.entities.CampaignOffer.get(plan.campaign_offer_id).catch(() => null) : Promise.resolve(null),
+        SR.entities.ExecutionAuditLog.filter({ plan_id: plan.id }).catch(() => []),
+        SR.entities.Restaurant.get(plan.restaurant_id).catch(() => null),
+        SR.entities.CampaignLearning.filter({ campaign_plan_id: plan.id }).catch(() => []),
+      ]);
+      const item = ddRaw?.restaurant_item_id ? await SR.entities.RestaurantMealOffer.get(ddRaw.restaurant_item_id).catch(() => null) : null;
+      const events = plan.campaign_id ? await SR.entities.CampaignEvent.filter({ campaign_id: plan.campaign_id }).catch(() => []) : [];
+      const sigs = await SR.entities.RestaurantOperationalSignal.filter({ restaurant_id: plan.restaurant_id, status: 'active' }).catch(() => []);
+      const pressure = (sigs || []).some((s: any) => s.type === 'kitchen_pressure' || s.type === 'temporary_pause');
+      // enrich single plan for live/health/learning consistency with the center
+      const enriched = await enrichPlans(SR, [plan], evMs);
+      const gate = plan.safety_gate_json ? (typeof plan.safety_gate_json === 'string' ? JSON.parse(plan.safety_gate_json) : plan.safety_gate_json) : null;
+      const purchases = (events || []).filter((e: any) => e.event_type === 'purchase');
+      const impressions = (events || []).filter((e: any) => e.event_type === 'impression').length;
+      const conflict = gate && gate.no_conflicting_offer && gate.no_conflicting_offer.ok === false ? { reason: 'conflicting_offer' } : null;
+      return json({
+        data: {
+          plan, demand_decision: ddRaw, opportunity: oppRaw, campaign: campRaw, offer: offerRaw,
+          audit: auditRaw || [], safety_gate: gate,
+          restaurant: restRaw ? { id: restRaw.id, name: restRaw.name_ar || restRaw.name, current_status: restRaw.current_status, accepts_orders: restRaw.accepts_orders } : null,
+          item: item ? { id: item.id, name: item.restaurant_product_name || item.meal_name_snapshot || '—', price: item.price } : null,
+          learning: (learnRaw || [])[0] || null,
+          live: enriched[0]?.live || null,
+          health: enriched[0]?.health || null,
+          metrics: {
+            purchases: purchases.length, impressions,
+            revenue: round2(purchases.reduce((s: number, e: any) => s + (e.amount || 0), 0)),
+            restaurant_settlement: round2(purchases.reduce((s: number, e: any) => s + (e.restaurant_settlement || 0), 0)),
+            tamam_revenue: round2(purchases.reduce((s: number, e: any) => s + (e.tamam_revenue || 0), 0)),
+          },
+          pressure, conflict,
+          server_time: iso(new Date(evMs)),
+        },
+      });
     }
     if (action === 'listPlans') {
       if (!isAdmin) return json({ error: 'forbidden' }, 403);
@@ -795,17 +828,141 @@ export default async function (req: any) {
       return json({ data: list || [] });
     }
 
-    // ---------- EXECUTION CENTER ----------
+    // ---------- EXECUTION CENTER (enriched operations view) ----------
     if (action === 'getExecutionCenter') {
       if (!isAdmin) return json({ error: 'forbidden' }, 403);
-      const plans = await SR.entities.CampaignPlan.list('-created_date', 200).catch(() => []);
-      const control = await getControl(SR);
+      const f = payload.filters || {};
+      let plans = await SR.entities.CampaignPlan.list('-created_date', 300).catch(() => []);
+      plans = plans || [];
+      const enriched = await enrichPlans(SR, plans, evalMs);
+      // ---- server-side filters ----
+      let view = enriched;
+      if (f.restaurant_id) view = view.filter((p: any) => p.restaurant_id === f.restaurant_id);
+      if (f.objective) view = view.filter((p: any) => p.objective === f.objective);
+      if (f.mechanism) view = view.filter((p: any) => p.mechanism === f.mechanism);
+      if (f.automation === 'MANUAL') view = view.filter((p: any) => p.execution_mode === 'MANUAL');
+      if (f.automation === 'AUTO') view = view.filter((p: any) => p.execution_mode === 'AUTO_WITHIN_GUARDRAILS');
+      if (f.needs_approval) view = view.filter((p: any) => p.status === 'APPROVAL_REQUIRED');
+      if (f.search) { const q = String(f.search).toLowerCase(); view = view.filter((p: any) => [p.restaurant_name, p.plan_reason_ar, p.objective, p.mechanism, p.product_label].some((v) => v && String(v).toLowerCase().includes(q))); }
+      if (f.period === 'today') { const dk = new Date(evalMs).toISOString().slice(0, 10); view = view.filter((p: any) => (p.start_at || '').slice(0, 10) === dk); }
+      if (f.period === 'week') { const from = evalMs - 7 * 86400000; const to = evalMs + 7 * 86400000; view = view.filter((p: any) => { const t = new Date(p.start_at || 0).getTime(); return t >= from && t <= to; }); }
+      // ---- group by status ----
       const groups: Record<string, any[]> = { READY: [], SCHEDULED: [], EXECUTED: [], PAUSED: [], APPROVAL_REQUIRED: [], COMPLETED: [] };
-      for (const p of (plans || [])) {
-        const s = p.status;
-        if (groups[s]) groups[s].push(p);
+      for (const p of view) { if (groups[p.status]) groups[p.status].push(p); }
+      const control = await getControl(SR);
+      const allRests = await SR.entities.Restaurant.list('name', 200).catch(() => []);
+      const restaurants = (allRests || []).map((r: any) => ({ id: r.id, name: r.name_ar || r.name }));
+      const timeline = buildTimeline(view, evalMs);
+      return json({
+        data: {
+          groups,
+          counts: Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, v.length])),
+          automation_control: control,
+          restaurants,
+          timeline,
+          total: view.length,
+          server_time: iso(new Date(evalMs)),
+        },
+      });
+    }
+
+    // ---------- SEED DEMO EXECUTION CARDS (walkthrough) ----------
+    if (action === 'seedExecutionDemo' || action === 'resetExecutionDemo') {
+      if (!isAdmin) return json({ error: 'forbidden' }, 403);
+      const rest = await getDemoRestaurant(SR);
+      if (!rest) return json({ error: 'demo_restaurant_missing' }, 400);
+      const meals = await SR.entities.RestaurantMealOffer.filter({ restaurant_id: rest.id, is_demo: true }).catch(() => []);
+      const sh = (meals || []).find((m: any) => { const n = ((m.restaurant_product_name || m.meal_name_snapshot || '') + ' ' + (m.short_description_ar || '')).toLowerCase(); return n.includes('شاورما') || n.includes('shawarma'); }) || (meals || [])[0] || null;
+
+      // reset exec-layer demo artifacts only (decision layer + campaign demo seed untouched).
+      // Exec plans carry the decision demo batch ('tamam-demand-decision-demo-v1') or
+      // DEMO_BATCH_EXEC; the campaign demo seed uses 'tamam-campaign-demo-v1' and must survive.
+      const execBatches = ['tamam-demand-decision-demo-v1', DEMO_BATCH_EXEC];
+      await SR.entities.CampaignPlan.deleteMany({ restaurant_id: rest.id, is_demo: true }).catch(() => null);
+      for (const b of execBatches) {
+        await SR.entities.Campaign.deleteMany({ restaurant_id: rest.id, demo_batch_id: b }).catch(() => null);
+        await SR.entities.CampaignOffer.deleteMany({ restaurant_id: rest.id, demo_batch_id: b }).catch(() => null);
+        await SR.entities.CampaignEvent.deleteMany({ restaurant_id: rest.id, demo_batch_id: b }).catch(() => null);
       }
-      return json({ data: { groups, automation_control: control, counts: Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, v.length])) } });
+      await SR.entities.CampaignLearning.deleteMany({ restaurant_id: rest.id, is_demo: true }).catch(() => null);
+      await SR.entities.ExecutionAuditLog.deleteMany({ restaurant_id: rest.id, is_demo: true }).catch(() => null);
+      await SR.entities.RestaurantOperationalSignal.deleteMany({ restaurant_id: rest.id, type: 'kitchen_pressure' }).catch(() => null);
+
+      if (action === 'resetExecutionDemo') return json({ data: { ok: true, reset: true, restaurant: rest.id } });
+
+      const makeDD = async (key: string, tt?: string) => base44.functions.invoke('demandDecisionEngine', { action: 'evaluate', payload: { scenario_key: key, test_time: tt } }).then((x: any) => x?.data?.data ?? x?.data ?? x);
+      const genPlan = async (ddId: string, tt?: string) => base44.functions.invoke('demandExecutionEngine', { action: 'generatePlan', payload: { demand_decision_id: ddId, test_time: tt } }).then((x: any) => x?.data?.data ?? x?.data ?? x);
+      const sched = async (pid: string, tt?: string) => base44.functions.invoke('demandExecutionEngine', { action: 'schedulePlan', payload: { plan_id: pid, test_time: tt } }).then((x: any) => x?.data?.data ?? x?.data ?? x);
+      const activ = async (pid: string, tt?: string) => base44.functions.invoke('demandExecutionEngine', { action: 'activatePlan', payload: { plan_id: pid, test_time: tt } }).then((x: any) => x?.data?.data ?? x?.data ?? x);
+      const reeval = async (pid: string, tt?: string) => base44.functions.invoke('demandExecutionEngine', { action: 'reevaluateActive', payload: { plan_id: pid, test_time: tt } }).then((x: any) => x?.data?.data ?? x?.data ?? x);
+      const complete = async (pid: string) => base44.functions.invoke('demandExecutionEngine', { action: 'completeCampaign', payload: { plan_id: pid } }).then((x: any) => x?.data?.data ?? x?.data ?? x);
+
+      const nowMs = now();
+      const created: any[] = [];
+
+      // 1. READY (manual policy — stays ready, no auto-activation)
+      await base44.functions.invoke('demandExecutionEngine', { action: 'updatePolicy', payload: { restaurant_id: rest.id, changes: { ...POLICY_DEFAULTS } } }).then((x: any) => x?.data).catch(() => null);
+      try { const dd = await makeDD('A_weak_period'); const plan = await genPlan(dd.id); created.push({ state: 'READY', plan_id: plan.id }); } catch (e: any) { created.push({ state: 'READY', error: e.message }); }
+
+      // 2. SCHEDULED (guarded)
+      await base44.functions.invoke('demandExecutionEngine', { action: 'setGuardedDemoPolicy', payload: { restaurant_id: rest.id } }).then((x: any) => x?.data).catch(() => null);
+      try { const dd = await makeDD('A_weak_period'); const plan = await genPlan(dd.id); await sched(plan.id); created.push({ state: 'SCHEDULED', plan_id: plan.id }); } catch (e: any) { created.push({ state: 'SCHEDULED', error: e.message }); }
+
+      // 3. ACTIVE / EXECUTED — live offer with quota progress (window around now)
+      try {
+        const dd = await makeDD('D_surplus'); const plan = await genPlan(dd.id);
+        const s = new Date(nowMs - 20 * 60000).toISOString(); const e = new Date(nowMs + 100 * 60000).toISOString();
+        const batch = plan.demo_batch_id || DEMO_BATCH_EXEC;
+        await SR.entities.CampaignPlan.update(plan.id, { start_at: s, end_at: e }).catch(() => null);
+        await sched(plan.id, s); const act = await activ(plan.id, s);
+        if (act.campaign_offer_id) {
+          const off = await SR.entities.CampaignOffer.get(act.campaign_offer_id).catch(() => null);
+          const campId = (await SR.entities.CampaignPlan.get(plan.id).catch(() => null))?.campaign_id || '';
+          if (off) {
+            const total = off.quota_total || 8; const used = Math.min(total, 3);
+            await SR.entities.CampaignOffer.update(off.id, { start_at: s, end_at: e, quota_used: used }).catch(() => null);
+            for (let i = 0; i < used; i++) await SR.entities.CampaignEvent.create({ campaign_id: campId, offer_id: off.id, restaurant_id: rest.id, phone: '050000000' + i, channel: 'home', event_type: 'purchase', amount: off.customer_price, restaurant_settlement: 40, tamam_revenue: 11, is_demo: true, demo_batch_id: batch }).catch(() => null);
+          }
+        }
+        created.push({ state: 'EXECUTED', plan_id: plan.id });
+      } catch (e: any) { created.push({ state: 'EXECUTED', error: e.message }); }
+
+      // 4. PAUSED — activated then paused by pressure (signal removed after, plan stays paused)
+      try {
+        const dd = await makeDD('D_surplus'); const plan = await genPlan(dd.id);
+        const s = new Date(nowMs - 10 * 60000).toISOString(); const e = new Date(nowMs + 80 * 60000).toISOString();
+        const batch = plan.demo_batch_id || DEMO_BATCH_EXEC;
+        await SR.entities.CampaignPlan.update(plan.id, { start_at: s, end_at: e }).catch(() => null);
+        await sched(plan.id, s); const act = await activ(plan.id, s);
+        if (act.campaign_offer_id) { const off = await SR.entities.CampaignOffer.get(act.campaign_offer_id).catch(() => null); if (off) await SR.entities.CampaignOffer.update(off.id, { start_at: s, end_at: e, quota_used: 2 }).catch(() => null); }
+        await SR.entities.RestaurantOperationalSignal.create({ restaurant_id: rest.id, type: 'kitchen_pressure', status: 'active', reason: 'seed', starts_at: s, expires_at: e }).catch(() => null);
+        await reeval(plan.id, new Date(nowMs + 5 * 60000).toISOString());
+        await SR.entities.RestaurantOperationalSignal.deleteMany({ restaurant_id: rest.id, type: 'kitchen_pressure' }).catch(() => null);
+        created.push({ state: 'PAUSED', plan_id: plan.id });
+      } catch (e: any) { created.push({ state: 'PAUSED', error: e.message }); }
+
+      // 5. APPROVAL_REQUIRED (commercial-unsafe scenario)
+      try { const dd = await makeDD('I_commercial_unsafe'); const plan = await genPlan(dd.id); created.push({ state: 'APPROVAL_REQUIRED', plan_id: plan.id }); } catch (e: any) { created.push({ state: 'APPROVAL_REQUIRED', error: e.message }); }
+
+      // 6. COMPLETED + learning (window in the past, simulated purchases)
+      try {
+        const dd = await makeDD('F_high_intent_new_customer'); const plan = await genPlan(dd.id);
+        const s = new Date(nowMs - 4 * 3600000).toISOString(); const e = new Date(nowMs - 2 * 3600000).toISOString();
+        const batch = plan.demo_batch_id || DEMO_BATCH_EXEC;
+        await SR.entities.CampaignPlan.update(plan.id, { start_at: s, end_at: e }).catch(() => null);
+        await sched(plan.id, s); const act = await activ(plan.id, s);
+        if (act.campaign_offer_id) {
+          const off = await SR.entities.CampaignOffer.get(act.campaign_offer_id).catch(() => null);
+          const campId = (await SR.entities.CampaignPlan.get(plan.id).catch(() => null))?.campaign_id || '';
+          if (off) { await SR.entities.CampaignOffer.update(off.id, { start_at: s, end_at: e, quota_used: 2 }).catch(() => null); for (let i = 0; i < 2; i++) await SR.entities.CampaignEvent.create({ campaign_id: campId, offer_id: off.id, restaurant_id: rest.id, phone: '050000000' + i, channel: 'home', event_type: 'purchase', amount: off.customer_price, restaurant_settlement: 40, tamam_revenue: 11, is_demo: true, demo_batch_id: batch }).catch(() => null); }
+        }
+        await complete(plan.id);
+        created.push({ state: 'COMPLETED', plan_id: plan.id });
+      } catch (e: any) { created.push({ state: 'COMPLETED', error: e.message }); }
+
+      // restore guarded policy for browsing
+      await base44.functions.invoke('demandExecutionEngine', { action: 'setGuardedDemoPolicy', payload: { restaurant_id: rest.id } }).then((x: any) => x?.data).catch(() => null);
+      return json({ data: { ok: true, created, restaurant: rest.id } });
     }
 
     // ---------- RUN EXECUTION TESTS (A–L) ----------

@@ -56,6 +56,8 @@ import OfferValidationLab from '@/pages/admin/OfferValidationLab';
 import Phase2Readiness from '@/pages/admin/Phase2Readiness';
 import DemandDecisionLab from '@/pages/admin/DemandDecisionLab';
 import DemandDecisions from '@/pages/admin/DemandDecisions';
+import ExecutionCenter from '@/pages/admin/ExecutionCenter';
+import ExecutionDetail from '@/pages/admin/ExecutionDetail';
 import HomepageTimeAdmin from '@/pages/admin/HomepageTimeAdmin';
 import MoodGame from '@/pages/MoodGame';
 import CommunityMoods from '@/pages/CommunityMoods';
@@ -186,6 +188,8 @@ function App() {
               <Route path="/admin/phase2-readiness" element={<Phase2Readiness />} />
               <Route path="/admin/demand-decision-lab" element={<DemandDecisionLab />} />
               <Route path="/admin/demand-decisions" element={<DemandDecisions />} />
+              <Route path="/admin/demand-execution" element={<ExecutionCenter />} />
+              <Route path="/admin/demand-execution/:planId" element={<ExecutionDetail />} />
             </Route>
             <Route path="/partner" element={<PartnerRoute />}>
               <Route index element={<Navigate to="/partner/home" replace />} />

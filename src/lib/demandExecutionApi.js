@@ -25,8 +25,10 @@ export const getPlan = (plan_id) => call('getPlan', { plan_id });
 export const listPlans = (status) => call('listPlans', status ? { status } : {});
 export const getPlanDetail = (plan_id) => call('getPlanDetail', { plan_id });
 
-// ---- Execution center aggregation ----
-export const getExecutionCenter = () => call('getExecutionCenter', {});
+// ---- Execution center aggregation (enriched: live state, health, learning, timeline) ----
+export const getExecutionCenter = (filters = {}) => call('getExecutionCenter', { filters });
+export const seedExecutionDemo = () => call('seedExecutionDemo', {});
+export const resetExecutionDemo = () => call('resetExecutionDemo', {});
 
 // ---- Tests ----
 export const runExecutionTests = () => call('runExecutionTests', {});
