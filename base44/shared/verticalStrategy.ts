@@ -460,3 +460,99 @@ function arLayer(k: string) {
     partner_window: "إشارة الشريك",
   }[k] || k;
 }
+
+// ===========================================================================
+// buildVerticalStrategyContext — normalized VERTICAL INTELLIGENCE INPUT for
+// the DemandDecision Engine. Pure, no I/O. Reuses the already safety-applied
+// recommendation (`rec` from applySafetyPrecedence) and expands it into a
+// structured context with up to 3 ranked CANDIDATE strategies.
+//
+// ADVISORY ONLY. DemandDecision remains the final authority. This answers
+// "WHAT usually works here?" — never "SHOULD we act?". Never exposed to
+// Partner/Customer UI (admin-internal only). [Vertical→Demand Bridge §3,4]
+// ===========================================================================
+
+const MECHANISM_COMMERCIAL_INTENSITY: Record<string, "low" | "medium" | "high"> = {
+  NO_DISCOUNT: "low", VALUE_ADD: "low",
+  MIX_VALUE: "medium", POINT_LOCKED: "medium", PLUS_UPSELL: "medium",
+  LIMITED_QUANTITY: "medium", FIRST_TRIAL: "medium", TIME_AND_QUANTITY: "medium",
+  PERSONALIZED_VALUE: "medium", DIRECT_PRICE: "high", CROSS_RESTAURANT: "medium",
+};
+
+export function buildVerticalStrategyContext(args: {
+  rec: any; safety?: any; playbooks?: any[]; daypartStrategy?: any;
+  vertical?: any; restaurant?: any; previousResults?: any[]; offers?: any[]; missing?: string[];
+}): any {
+  const { rec, safety, playbooks = [], daypartStrategy, vertical, restaurant, previousResults = [], offers = [], missing = [] } = args;
+  const obj = rec?.recommended_objective;
+  const noAction = !obj || obj === "NO_ACTION" || obj === "WATCH" || obj === "NEEDS_RESTAURANT_APPROVAL";
+
+  const candidates: any[] = [];
+  const seen = new Set<string>();
+  const pushCand = (c: any) => {
+    const key = `${c.objective}|${c.mechanism}`;
+    if (seen.has(key) || candidates.length >= 3) return;
+    seen.add(key);
+    candidates.push({ rank: candidates.length + 1, ...c });
+  };
+
+  if (!noAction && rec?.recommended_mechanic) {
+    pushCand({
+      objective: obj, mechanism: rec.recommended_mechanic, variant: rec.recommended_tier || null,
+      audience_compatibility: rec.recommended_audience || [],
+      vertical_rationale: rec._playbookName || "vertical_default",
+      commercial_intensity: MECHANISM_COMMERCIAL_INTENSITY[rec.recommended_mechanic] || "medium",
+      intervention_cost: null, confidence: rec.confidence_score ?? null, source: "vertical_playbook",
+    });
+    // alternative matched playbooks
+    (playbooks || []).slice(0, 3).forEach((p) => {
+      if (p.objective && p.mechanic) pushCand({
+        objective: p.objective, mechanism: p.mechanic, variant: rec.recommended_tier || null,
+        audience_compatibility: p.audience_segments || [], vertical_rationale: "alt_playbook",
+        commercial_intensity: MECHANISM_COMMERCIAL_INTENSITY[p.mechanic] || "medium",
+        intervention_cost: null, confidence: rec.confidence_score ?? null, source: "vertical_playbook",
+      });
+    });
+    // minimum-intervention fallback alternatives for the same objective
+    ["VALUE_ADD", "POINT_LOCKED", "FIRST_TRIAL", "TIME_AND_QUANTITY"].forEach((m) => pushCand({
+      objective: obj, mechanism: m, variant: rec.recommended_tier || null,
+      audience_compatibility: rec.recommended_audience || [], vertical_rationale: "min_intervention_fallback",
+      commercial_intensity: MECHANISM_COMMERCIAL_INTENSITY[m] || "medium",
+      intervention_cost: null, confidence: rec.confidence_score ?? null, source: "vertical_fallback",
+    }));
+  }
+
+  return {
+    primary_vertical_id: restaurant?.primary_vertical_id || null,
+    matched_playbook_id: rec?._playbookName || null,
+    matched_daypart_strategy_id: daypartStrategy?.id || null,
+    restaurant_override_id: safety?.restaurantOverride ? "restaurant_configured" : null,
+    _override_mechanism: safety?.restaurantOverride?.mechanic || null,
+    recommended_objective: obj || null,
+    recommended_mechanisms: candidates.map((c) => c.mechanism),
+    compatible_variant_types: [...new Set([...(playbooks || []).flatMap((p) => p.preferred_tiers || []), ...(daypartStrategy?.preferred_tiers || [])])].filter(Boolean),
+    compatible_skus: rec?.recommended_restaurant_items || [],
+    recommended_windows: safety?.partnerFacts?.recommendedWindows || [],
+    recommended_audiences: rec?.recommended_audience || [],
+    reason_codes: rec?.reason_codes || [],
+    confidence: rec?.confidence_score ?? null,
+    source_labels: rec?._source_labels || [],
+    missing_data: missing || [],
+    precedence_result: rec?._precedence_chain || null,
+    candidates,
+    restaurant_specific_learning: summarizeVerticalLearning(previousResults),
+  };
+}
+
+function summarizeVerticalLearning(previousResults: any[]): any {
+  const reliable = (previousResults || []).filter((r) => r.result_status === "STRONG" && r.objective && r.mechanism);
+  if (!reliable.length) return null;
+  const counts: Record<string, { objective: string; mechanism: string; strong: number }> = {};
+  for (const r of reliable) {
+    const k = `${r.objective}|${r.mechanism}`;
+    counts[k] = counts[k] || { objective: r.objective, mechanism: r.mechanism, strong: 0 };
+    counts[k].strong++;
+  }
+  const top = Object.values(counts).sort((a, b) => b.strong - a.strong)[0];
+  return top ? { objective: top.objective, mechanism: top.mechanism, strong_count: top.strong, label: "PLAYBOOK_SUPPORTED" } : null;
+}

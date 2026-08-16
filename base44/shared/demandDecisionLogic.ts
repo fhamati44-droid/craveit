@@ -492,3 +492,84 @@ export function generateExplanation(
 
   return { internal, partner };
 }
+
+// ===========================================================================
+// applyVerticalAdvisory — the VERTICAL INTELLIGENCE → DEMAND DECISION bridge.
+// Pure. Takes the authoritative decision + recommended strategy/alternatives
+// (already computed from demand/capacity/commercial reality) and the advisory
+// vertical_strategy_context, and adjusts STRATEGY RANKING only.
+//
+// It NEVER changes the decision (NO_ACTION stays NO_ACTION), NEVER bypasses
+// demand_gap / safe capacity / operational pressure / commercial safety /
+// fatigue / cannibalization / existing commitments. It answers only:
+// "given DemandDecision decided to act, which mechanism does vertical
+// knowledge favor?" — candidates, not commands. [Vertical→Demand Bridge §5,6]
+// ===========================================================================
+export function applyVerticalAdvisory(
+  i: DecisionInputs, decision: string,
+  rec: { objective: string; strategy: string; variant: string },
+  alternatives: any[],
+  vctx: any | null,
+  internalObjective: string,
+): { rec: { objective: string; strategy: string; variant: string }; alternatives: any[]; note: string; note_ar: string } {
+  if (!vctx || !vctx.candidates || !vctx.candidates.length) {
+    return { rec, alternatives, note: "no_vertical_context", note_ar: "" };
+  }
+
+  // Vertical matched but intervention NOT justified — DemandDecision authority wins.
+  // [§6, §17] NO_ACTION must win even with high vertical confidence.
+  if (["NO_ACTION", "NEEDS_HUMAN_REVIEW", "NEEDS_RESTAURANT_APPROVAL", "WATCH"].includes(decision)) {
+    return {
+      rec, alternatives,
+      note: "vertical_matched_intervention_not_justified",
+      note_ar: "الـPlaybook مناسب نظرياً، بس المطعم ما بحاجة طلب إضافي بالفترة الحالية.",
+    };
+  }
+
+  // Surplus is a real-time restaurant fact — stronger than generic vertical strategy. [§9]
+  if (i.surplus_qty != null) {
+    return { rec, alternatives, note: "surplus_overrides_vertical", note_ar: "فائض فعلي بيتجاوز playbook العام." };
+  }
+
+  const out = alternatives.map((a) => ({ ...a }));
+  let note = "vertical_advisory_applied";
+  let noteAr = "";
+
+  // Restaurant override: highest strategy preference BELOW safety. [§11]
+  // Compatible → rank 1. Incompatible with the actual objective → reject with reason.
+  const overrideMech = vctx._override_mechanism || null;
+  if (overrideMech) {
+    const compatibleMechs = candidateMechanisms(internalObjective);
+    if (compatibleMechs.includes(overrideMech)) {
+      boostMech(out, overrideMech, 100);
+      note = "restaurant_override_preferred";
+      noteAr = "تجاوز استراتيجي مفعّل ومتوافق — تم تفضيله.";
+    } else {
+      note = "restaurant_override_considered_but_not_fit";
+      noteAr = "التجاوز الاستراتيجي ما بيناسب الهدف هلا — تم رفضه.";
+    }
+  }
+
+  // Restaurant-specific reliable learning > generic playbook (never absolute). [§14]
+  const learning = vctx.restaurant_specific_learning;
+  if (learning && learning.objective === rec.objective && learning.mechanism) {
+    boostMech(out, learning.mechanism, 15);
+    note = "restaurant_specific_learning_favored";
+    noteAr = "تعلم سابق موثوق لهاد المطعم بفضّل آلية معينة.";
+  }
+
+  // Vertical candidate alignment: candidates matching the chosen objective get a fit bonus. [§7]
+  for (const c of vctx.candidates) {
+    if (c.objective === rec.objective && c.mechanism) boostMech(out, c.mechanism, 8);
+  }
+
+  out.sort((a, b) => (b.score - a.score) || (a.cost - b.cost));
+  const top = out[0];
+  const newRec = top ? { objective: rec.objective, strategy: top.mechanism, variant: top.variant } : rec;
+  return { rec: newRec, alternatives: out, note, note_ar: noteAr };
+}
+
+function boostMech(alts: any[], mechanism: string, delta: number) {
+  const a = alts.find((x) => x.mechanism === mechanism);
+  if (a) a.score = Math.min(100, Math.max(0, (a.score || 0) + delta));
+}

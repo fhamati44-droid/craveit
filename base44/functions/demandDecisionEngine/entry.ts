@@ -10,9 +10,10 @@ import {
   calcOpportunityScore, decideDemandAction, recommendStrategy, recommendObjective,
   recommendQuota, mapDecisionToOpportunityType, generateExplanation,
   cannibalizationLabel, compareStrategies, calcInterventionCost,
-  calcExpectedIncrementalValue, mechanismVariant, costLabel,
+  calcExpectedIncrementalValue, mechanismVariant, costLabel, applyVerticalAdvisory,
   type DecisionInputs,
 } from '../../shared/demandDecisionLogic.ts';
+import { fetchVerticalStrategyContext } from '../../shared/verticalContextFetcher.ts';
 
 // ============================================================================
 // demandDecisionEngine — the intelligence layer ABOVE the existing
@@ -377,11 +378,17 @@ async function findAudience(SR: any, rid: string, phoneHint?: string): Promise<{
 
 // ---- Run the full decision pipeline on built inputs ----
 async function runDecision(SR: any, ctx: { inputs: DecisionInputs; window_start: string; window_end: string; now_ms: number; upcoming: boolean; scenario_key?: string; test_time?: string; data_sources?: any }) {
-  const { inputs, window_start, window_end, upcoming, scenario_key, test_time, data_sources } = ctx;
+  const { inputs, window_start, window_end, upcoming, scenario_key, test_time, data_sources, vertical_context } = ctx;
   const { decision, blockers, score, components, state } = decideDemandAction(inputs, upcoming);
   const objectiveV2 = recommendObjective(inputs, decision);
-  const alternatives = compareStrategies(inputs, objectiveV2, decision);
-  const rec = recommendStrategy(inputs, decision);
+  let alternatives = compareStrategies(inputs, objectiveV2, decision);
+  let rec = recommendStrategy(inputs, decision);
+  // VERTICAL INTELLIGENCE → DEMAND DECISION BRIDGE: advisory only. DemandDecision
+  // remains the final authority; vertical_context informs strategy RANKING only —
+  // never the decision, demand gap, safe capacity, or commercial safety.
+  const advisory = applyVerticalAdvisory(inputs, decision, rec, alternatives, vertical_context || null, objectiveV2);
+  rec = advisory.rec; alternatives = advisory.alternatives;
+  if (components) components.vertical_context = advisory.note ? { note: advisory.note, note_ar: advisory.note_ar, candidates: (vertical_context?.candidates || []).map((c: any) => ({ rank: c.rank, objective: c.objective, mechanism: c.mechanism, intensity: c.commercial_intensity })) } : null;
   const { quota, explore_exploit } = recommendQuota(inputs, decision, rec.strategy || undefined);
   const expl = generateExplanation(inputs, decision, rec, quota, { score, components });
   const cann = cannibalizationLabel(inputs.cannibalization_score);
@@ -438,7 +445,7 @@ async function runDecision(SR: any, ctx: { inputs: DecisionInputs; window_start:
     expected_restaurant_settlement: ev.restaurant_settlement,
     strategy_alternatives: JSON.stringify(alternatives),
     data_sources: JSON.stringify(data_sources || {}),
-    explanation_internal: expl.internal,
+    explanation_internal: expl.internal + (advisory.note ? ` | vertical_bridge: ${advisory.note}` : ''),
     explanation_partner: expl.partner,
     source_signal_ids: [],
     scenario_key: scenario_key || '',
@@ -543,6 +550,7 @@ export default async function (req) {
         ctx = await buildScenarioInputs(SR, scenario, payload.test_time);
         ctx.scenario_key = payload.scenario_key;
         ctx.test_time = payload.test_time || '';
+        ctx.vertical_context = payload.vertical_context || null;
         ctx.data_sources = {
           baseline_orders: 'DEMO_OVERRIDE', projected_natural_orders: 'DEMO_OVERRIDE',
           safe_operational_target: 'DEMO_OVERRIDE', existing_campaign_commitment: 'DEMO_OVERRIDE',
@@ -594,9 +602,12 @@ export default async function (req) {
         };
         const winStart = ci.window_start || iso(new Date());
         const winEnd = ci.window_end || iso(new Date(Date.now() + 2 * 3600000));
-        ctx = { inputs, window_start: winStart, window_end: winEnd, now_ms: payload.test_time ? new Date(payload.test_time).getTime() : now(), upcoming: false, data_sources: { baseline_orders: 'DEMO_OVERRIDE', projected_natural_orders: 'DEMO_OVERRIDE', safe_operational_target: 'DEMO_OVERRIDE', existing_campaign_commitment: 'DEMO_OVERRIDE', audience: 'DEMO_OVERRIDE', cannibalization: 'DEMO_OVERRIDE', commercial: 'DEMO_OVERRIDE' } };
+        ctx = { inputs, window_start: winStart, window_end: winEnd, now_ms: payload.test_time ? new Date(payload.test_time).getTime() : now(), upcoming: false, vertical_context: payload.vertical_context || null, data_sources: { baseline_orders: 'DEMO_OVERRIDE', projected_natural_orders: 'DEMO_OVERRIDE', safe_operational_target: 'DEMO_OVERRIDE', existing_campaign_commitment: 'DEMO_OVERRIDE', audience: 'DEMO_OVERRIDE', cannibalization: 'DEMO_OVERRIDE', commercial: 'DEMO_OVERRIDE' } };
       } else {
         ctx = await buildRealInputs(SR, payload);
+        // Build advisory vertical context from real vertical data (one brain: the
+        // decision stays DemandDecision's; vertical is INPUT only).
+        ctx.vertical_context = await fetchVerticalStrategyContext(SR, payload.restaurant_id, payload.test_time);
       }
       const result = await runDecision(SR, ctx);
       const saved = await SR.entities.DemandDecision.create(result.record).catch((e: any) => { console.error('DemandDecision create', e); return null; });

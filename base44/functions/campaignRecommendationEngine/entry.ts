@@ -2,7 +2,7 @@ import { createClientFromRequest } from "npm:@base44/sdk@0.8.40";
 import {
   detectDaypart, resolveVertical, resolveDemandExpectation,
   matchDaypartStrategies, matchPlaybooks, buildRecommendation,
-  applySafetyPrecedence,
+  applySafetyPrecedence, buildVerticalStrategyContext,
 } from "../../shared/verticalStrategy.ts";
 
 /**
@@ -210,6 +210,11 @@ export default async function (req) {
     // draft can NEVER override operational/commercial safety.
     const rec = applySafetyPrecedence(draft, safety);
 
+    // 7b-2. Build the normalized vertical_strategy_context — up to 3 ranked
+    // CANDIDATE strategies. Advisory input for DemandDecision; candidates, not
+    // commands. Never auto-publishes. [Vertical→Demand Bridge §3,4]
+    const vctx = buildVerticalStrategyContext({ rec, safety, playbooks: matchedPlaybooks, daypartStrategy: verticalStrategy, vertical, restaurant, previousResults, offers, missing });
+
     // Attach context
     rec.vertical_id = verticalId || null;
     rec.restaurant_id = restaurant_id;
@@ -232,6 +237,7 @@ export default async function (req) {
       },
       precedence_chain: rec._precedence_chain,
       source_labels: rec._source_labels,
+      vertical_context: vctx,
     });
 
     // 8. Idempotency: avoid duplicate drafts for unchanged inputs (section 14).
@@ -273,7 +279,7 @@ export default async function (req) {
       created_by: user.id,
     });
 
-    return Response.json({ recommendation: { ...rec, id: saved.id, status: "draft" } });
+    return Response.json({ recommendation: { ...rec, id: saved.id, status: "draft" }, vertical_context: vctx });
   } catch (error) {
     console.error("campaignRecommendationEngine error", error);
     return Response.json({ error: error.message }, { status: 500 });
