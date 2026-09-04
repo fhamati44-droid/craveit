@@ -6,7 +6,9 @@ const engine = (action, payload = {}) =>
 export const getPublishedConfig = () => engine('getPublishedConfig');
 export const getPublishedHomepage = () => engine('getPublishedHomepage');
 export const getDiscoveryFeed = () => engine('getDiscoveryFeed');
+export const getPublicSuggestions = () => engine('getPublicSuggestions');
 export const getDraftConfig = () => engine('getDraftConfig');
+export const seedMarketingSections = () => engine('seedMarketingSections');
 export const validatePublish = () => engine('validatePublish');
 export const publishDraft = (label, changeSummary) => engine('publishDraft', { label, changeSummary });
 export const listVersions = () => engine('listVersions');
@@ -43,6 +45,13 @@ export const deleteMedia = (id) => base44.entities.HomepageMedia.delete(id);
 export const uploadFile = (file) => base44.integrations.Core.UploadFile({ file });
 
 export const SECTION_LABELS = {
+  home_hero: 'الهيرو الرئيسي',
+  home_campaign_offers: 'عروض الحملات (كلاسيك/ميكس/بلس)',
+  home_categories: 'تصنيفات الطعام',
+  home_featured_menus: 'منيوهات مميزة',
+  home_secondary_banner: 'بانر ثانوي',
+  home_trust: 'الثقة والدفع',
+  featured_menus: 'منيوهات مميزة',
   hero: 'الفيديو أو البانر الرئيسي',
   active_order: 'بطاقة الطلب النشط',
   game_promo: 'ترويج لعبة TAMAM',

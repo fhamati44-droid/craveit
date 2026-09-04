@@ -29,10 +29,19 @@ const CHIPS = [
   { key: 'late', label: 'آخر الليل', icon: 'nightlight' },
 ];
 
-export default function HomeIntentHero({ topSuggestion }) {
+export default function HomeIntentHero({ topSuggestion, cms }) {
   const navigate = useNavigate();
   const hello = useMemo(eyebrow, []);
-  const heroImg = topSuggestion?.image_url;
+  // CMS values (from the homepage section) override copy/image/CTA when set;
+  // anything unset keeps the current defaults. CMS media has priority over the
+  // time-aware suggestion image.
+  const heroImg = cms?.media_url || topSuggestion?.image_url;
+  const heroIsVideo = (cms?.media_kind || '').includes('video');
+  const headline = cms?.headline || 'شو عبالك تاكل اليوم؟';
+  const subtitle = cms?.subtitle || 'إذا محتار، TAMAM بتسهّلها عليك.';
+  const primary = cms?.cta_label
+    ? { label: cms.cta_label, route: cms.cta_route || '/tamam-game', key: 'cms_cta', sub: '' }
+    : { label: 'فاجئني', route: '/tamam-game', key: 'surprise', sub: 'خلّي TAMAM تختارلك وجبة' };
 
   const go = (to, key) => {
     track('home_intent_entry', { entry: key });
@@ -51,7 +60,9 @@ export default function HomeIntentHero({ topSuggestion }) {
     <section className="px-4 pt-3 pb-1" dir="rtl">
       {/* Food-first hero card — real food image reaches the eye first */}
       <div className="relative rounded-2xl overflow-hidden h-52 mb-3 bg-tamam-surface-high">
-        {heroImg ? (
+        {heroIsVideo && heroImg ? (
+          <video src={heroImg} autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover" />
+        ) : heroImg ? (
           <PublicImage
             source={heroImg}
             fallback={PLACEHOLDER_IMAGE}
@@ -66,8 +77,8 @@ export default function HomeIntentHero({ topSuggestion }) {
         <div className="absolute inset-0 bg-gradient-to-t from-tamam-surface-lowest via-tamam-surface-lowest/40 to-transparent" />
         <div className="absolute inset-0 p-4 flex flex-col justify-end">
           <span className="text-tamam-green-bright text-[11px] font-bold mb-1">{hello}</span>
-          <h1 className="font-bold text-[22px] leading-tight text-tamam-text">شو عبالك تاكل اليوم؟</h1>
-          <p className="text-tamam-text-muted text-[12px] mt-0.5 leading-snug">إذا محتار، TAMAM بتسهّلها عليك.</p>
+          <h1 className="font-bold text-[22px] leading-tight text-tamam-text">{headline}</h1>
+          <p className="text-tamam-text-muted text-[12px] mt-0.5 leading-snug">{subtitle}</p>
         </div>
         {topSuggestion && (
           <button
@@ -81,10 +92,10 @@ export default function HomeIntentHero({ topSuggestion }) {
         )}
       </div>
 
-      {/* Primary: فاجئني — dominant green action */}
+      {/* Primary action — CMS CTA when set, otherwise فاجئني */}
       <button
         type="button"
-        onClick={() => go('/tamam-game', 'surprise')}
+        onClick={() => go(primary.route, primary.key)}
         className="w-full rounded-2xl bg-tamam-green text-tamam-ink p-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform mb-2"
         style={{ boxShadow: '0 6px 20px rgba(110,191,95,0.25)' }}
       >
@@ -92,8 +103,8 @@ export default function HomeIntentHero({ topSuggestion }) {
           <span className="material-symbols-outlined text-[26px]">auto_awesome</span>
         </span>
         <span className="flex flex-col items-start text-right leading-tight flex-1 min-w-0">
-          <span className="text-[16px] font-bold">فاجئني</span>
-          <span className="text-[11px] text-tamam-ink/70">خلّي TAMAM تختارلك وجبة</span>
+          <span className="text-[16px] font-bold">{primary.label}</span>
+          {primary.sub && <span className="text-[11px] text-tamam-ink/70">{primary.sub}</span>}
         </span>
         <span className="material-symbols-outlined text-[22px] text-tamam-ink/60" style={{ transform: 'scaleX(-1)' }}>arrow_forward</span>
       </button>
