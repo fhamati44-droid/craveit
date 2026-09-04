@@ -750,28 +750,36 @@ export default async function(req) {
         const snapshot = await buildSnapshot(base44);
         const { errors } = validateSnapshot(snapshot);
         if (errors.length) return Response.json({ error: 'validation_failed', errors }, { status: 400 });
+        const snapshotJson = JSON.stringify(snapshot);
+        console.log(`[publishDraft] snapshot_chars=${snapshotJson.length} sections=${(snapshot.sections || []).length} items=${(snapshot.items || []).length}`);
         const versions = await base44.asServiceRole.entities.HomepageVersion.list('-version_number', 500);
         const lastNum = (versions || []).reduce((m, v) => Math.max(m, v.version_number || 0), 0);
-        // Create the new active version FIRST, then deactivate the previous ones.
-        // If the create fails (e.g. field-size limit), the currently published
-        // version stays live instead of leaving the site without any active one.
+        // Safe publish sequence: create (inactive) -> verify persisted -> activate
+        // new -> only then deactivate old versions. A failure at any earlier step
+        // leaves the currently published version live.
         const created = await base44.asServiceRole.entities.HomepageVersion.create({
           version_number: lastNum + 1,
           label: payload.label || `نسخة ${lastNum + 1}`,
-          snapshot_json: JSON.stringify(snapshot),
-          is_active: true,
+          snapshot_json: snapshotJson,
+          is_active: false,
           published_by_name: user.full_name || '',
           published_by_id: user.id || '',
           change_summary: payload.changeSummary || '',
           is_rollback: false,
         });
+        console.log(`[publishDraft] created version ${created.version_number} id=${created.id}`);
+        const verified = await base44.asServiceRole.entities.HomepageVersion.get(created.id);
+        if (!verified || !verified.id) throw new Error(`publish_verify_failed: version ${created.version_number} not found after create`);
+        console.log(`[publishDraft] verified persisted, stored_chars=${(verified.snapshot_json || '').length}`);
+        await base44.asServiceRole.entities.HomepageVersion.update(created.id, { is_active: true });
         const others = (versions || []).filter((v) => v.id !== created.id);
         if (others.length) {
           await base44.asServiceRole.entities.HomepageVersion.bulkUpdate(
             others.map((v) => ({ id: v.id, is_active: false }))
           );
         }
-        return Response.json({ data: { published: true, version_number: created.version_number, id: created.id } });
+        console.log(`[publishDraft] activated v${created.version_number}, deactivated ${others.length} old versions`);
+        return Response.json({ data: { published: true, version_number: created.version_number, id: created.id, snapshot_chars: snapshotJson.length } });
       }
       case 'listVersions': {
         const versions = await base44.asServiceRole.entities.HomepageVersion.list('-version_number', 100);
