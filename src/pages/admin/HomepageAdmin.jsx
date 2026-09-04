@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { getDraftConfig, saveSection, deleteSection, validatePublish, publishDraft, seedDefaults, addMissingCuratedSections, listSectionItems } from '@/lib/homepageApi';
+import { getDraftConfig, saveSection, deleteSection, validatePublish, publishDraft, seedDefaults, addMissingCuratedSections, seedMarketingSections, listSectionItems } from '@/lib/homepageApi';
 import { SECTION_LABELS } from '@/lib/homepageApi';
 import SectionCard from '@/components/admin/homepage/SectionCard';
 import SectionEditor from '@/components/admin/homepage/SectionEditor';
@@ -91,7 +91,8 @@ export default function HomepageAdmin() {
         </div>
         <p className="text-xs text-on-surface-variant mb-3">تحكم بكل المحتوى اللي بيظهر للزبون في صفحة TAMAM الرئيسية.</p>
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-          <button onClick={() => navigate('/admin/homepage/preview')} className="flex-none flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 px-4 py-2.5 rounded-xl text-sm font-bold"><Icon name="preview" className="text-[18px]" />معاينة الصفحة</button>
+          <button onClick={() => navigate('/admin/homepage/preview')} className="flex-none flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 px-4 py-2.5 rounded-xl text-sm font-bold"><Icon name="preview" className="text-[18px]" />معاينة المسودة</button>
+          <button onClick={() => navigate('/')} className="flex-none flex items-center gap-1.5 bg-surface-container border border-outline-variant/30 px-4 py-2.5 rounded-xl text-sm font-bold"><Icon name="open_in_new" className="text-[18px]" />فتح الصفحة المنشورة</button>
           <VersionHistory onRefresh={load} />
           <div className="flex-1" />
           <button onClick={startPublish} className="flex-none h-10 bg-primary text-on-primary px-5 rounded-xl text-sm font-bold flex items-center gap-1.5"><Icon name="publish" className="text-[18px]" />نشر التغييرات</button>
@@ -136,6 +137,7 @@ export default function HomepageAdmin() {
 
       {/* Add section button */}
       <div className="px-4 space-y-2">
+        <button onClick={() => seedMarketingSections().then(() => load())} className="w-full h-12 bg-primary/10 border border-primary/30 text-primary rounded-xl text-sm font-bold flex items-center justify-center gap-2"><Icon name="storefront" />تفعيل أقسام الصفحة التسويقية (هيرو، عروض، تصنيفات، منيوهات...)</button>
         <button onClick={() => addMissingCuratedSections().then(() => load())} className="w-full h-12 bg-primary/10 border border-primary/30 text-primary rounded-xl text-sm font-bold flex items-center justify-center gap-2"><Icon name="auto_awesome" />إضافة أقسام TAMAM الجاهزة (اختيارات، ميزانية، عيلة...)</button>
         <button onClick={() => setEditing({ section_key: 'new_section', section_type: 'editorial', display_order: sections.length + 1, enabled: false, selection_mode: 'manual', max_items: 8, audience: 'all' })} className="w-full h-12 border-2 border-dashed border-outline-variant/30 rounded-xl text-sm font-bold text-on-surface-variant flex items-center justify-center gap-2"><Icon name="add" />إضافة قسم جديد</button>
       </div>

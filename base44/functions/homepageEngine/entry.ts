@@ -408,11 +408,23 @@ const SECTION_META = {
   promo_banner: { label: 'بانرات ترويجية' },
   editorial: { label: 'قسم تحريري' },
   editorial_banner: { label: 'بانر تحريري' },
+  featured_menus: { label: 'منيوهات مميزة' },
   lunch_meals: { label: 'غدا اليوم' },
   complete_order: { label: 'كمّل طلبك' },
   time_now: { label: 'شو بناسبك هسا؟' },
   mix_plus_ideas: { label: 'Mix وPlus وأفكار أكثر' },
 };
+
+// Media id → { file_url, media_type, poster_image_url } so draft & published
+// configs carry resolvable media URLs client-side (media entity is admin-only).
+async function buildMediaMap(base44) {
+  const map = {};
+  try {
+    const all = await base44.asServiceRole.entities.HomepageMedia.list('-created_date', 500);
+    (all || []).forEach((m) => { map[m.id] = { file_url: m.file_url, media_type: m.media_type, poster_image_url: m.poster_image_url || null }; });
+  } catch (e) { console.error('media map error', e); }
+  return map;
+}
 
 async function buildSnapshot(base44) {
   const sections = await base44.asServiceRole.entities.HomepageSection.list('-display_order', 500);
@@ -434,7 +446,9 @@ function validateSnapshot(snapshot) {
   const now = Date.now();
   for (const s of enabled) {
     const meta = SECTION_META[s.section_type] || {};
-    if (meta.requiresMedia) {
+    // Only the LEGACY hero key hard-requires media. The marketing home_hero slot
+    // falls back to the time-aware suggestion image, so media is optional there.
+    if (meta.requiresMedia && s.section_key === 'hero') {
       const mediaItem = items.find((it) => it.homepage_section_id === s.id && it.item_type === 'media');
       if (!mediaItem || !mediaItem.media_id) errors.push(`القسم "${meta.label || s.section_key}" بحاجة لوسائط.`);
     }
@@ -467,14 +481,11 @@ export default async function(req) {
       const active = versions[0];
       const snapshot = parseJSON(active.snapshot_json, null);
       if (!snapshot) return Response.json({ data: null });
-      const now = Date.now();
-      const sections = (snapshot.sections || []).filter((s) => {
-        if (!s.enabled) return false;
-        if (s.starts_at && new Date(s.starts_at).getTime() > now) return false;
-        if (s.ends_at && new Date(s.ends_at).getTime() < now) return false;
-        return true;
-      }).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-      return Response.json({ data: { version_number: active.version_number, sections, items: snapshot.items || [], generated_at: snapshot.generated_at } });
+      // Return the FULL section list (enabled + disabled). HomePageContent applies
+      // visibility (enabled + time window) uniformly for draft & published so the
+      // disabled state survives publishing and both views behave identically.
+      const sections = (snapshot.sections || []).slice().sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+      return Response.json({ data: { version_number: active.version_number, sections, items: snapshot.items || [], media_map: await buildMediaMap(base44), generated_at: snapshot.generated_at } });
     }
 
     // Public: game moods with suggestion availability
@@ -721,7 +732,7 @@ export default async function(req) {
     switch (action) {
       case 'getDraftConfig': {
         const snapshot = await buildSnapshot(base44);
-        return Response.json({ data: snapshot });
+        return Response.json({ data: { ...snapshot, media_map: await buildMediaMap(base44) } });
       }
       case 'validatePublish': {
         const snapshot = await buildSnapshot(base44);
@@ -972,6 +983,44 @@ export default async function(req) {
         ];
         const created = await base44.asServiceRole.entities.HomepageSection.bulkCreate(defaults);
         return Response.json({ data: { seeded: true, count: created.length } });
+      }
+      case 'seedMarketingSections': {
+        // Create the marketing-first homepage slots (idempotent, by section_key).
+        // These take precedence over legacy keys in HomePageContent resolution.
+        const existing = await base44.asServiceRole.entities.HomepageSection.list('-display_order', 500);
+        const have = new Set((existing || []).map((s) => s.section_key));
+        const defs = [
+          { section_key: 'home_hero', section_type: 'hero', title: 'الهيرو الرئيسي', display_order: 1, enabled: true, selection_mode: 'manual', max_items: 8, settings_json: JSON.stringify({ media_kind: 'image' }) },
+          { section_key: 'home_campaign_offers', section_type: 'suggestions', title: 'كيف بدك الوجبة؟', subtitle: 'اختار حجمها وإحنا منكملها', display_order: 6, enabled: true, selection_mode: 'automatic', max_items: 3 },
+          { section_key: 'home_categories', section_type: 'popular_categories', title: 'تصفح حسب النوع', subtitle: 'شو نفسك فيه اليوم؟', display_order: 7, enabled: true, selection_mode: 'manual', max_items: 8 },
+          { section_key: 'home_featured_menus', section_type: 'featured_menus', title: 'منيوهات جاهزة', subtitle: 'تجميعات اختارها TAMAM إلك', display_order: 8, enabled: true, selection_mode: 'manual', max_items: 6 },
+          { section_key: 'home_secondary_banner', section_type: 'editorial_banner', title: 'بانر ثانوي', display_order: 14, enabled: false, selection_mode: 'manual' },
+          { section_key: 'home_trust', section_type: 'trust_payments', title: 'الدفع والثقة', subtitle: 'طلبك معنا من أول كبسة لحد باب البيت', display_order: 16, enabled: true, selection_mode: 'manual', settings_json: JSON.stringify({ items: ['visa', 'googlepay', 'cash', 'secure', 'tracking'] }) },
+        ];
+        const missing = defs.filter((d) => !have.has(d.section_key));
+        const createdMap = {};
+        for (const d of missing) {
+          const created = await base44.asServiceRole.entities.HomepageSection.create(d);
+          createdMap[d.section_key] = created.id;
+        }
+        // Default category cards
+        if (createdMap.home_categories) {
+          await base44.asServiceRole.entities.HomepageSectionItem.bulkCreate(
+            ['بيتزا', 'برجر', 'أكل بيتي', 'مشاوي', 'سلطات'].map((name, i) => ({
+              homepage_section_id: createdMap.home_categories, item_type: 'category', category_id: name, display_order: i, enabled: true,
+            }))
+          );
+        }
+        // Default featured menu cards (active suggestion sets)
+        if (createdMap.home_featured_menus) {
+          const sets = await base44.asServiceRole.entities.TamamSuggestionSet.filter({ is_active: true }, 'sort_order', 6).catch(() => []);
+          if (sets && sets.length) {
+            await base44.asServiceRole.entities.HomepageSectionItem.bulkCreate(
+              sets.map((s, i) => ({ homepage_section_id: createdMap.home_featured_menus, item_type: 'suggestion', suggestion_id: s.id, display_order: i, enabled: true }))
+            );
+          }
+        }
+        return Response.json({ data: { created: missing.length } });
       }
       default:
         return Response.json({ error: 'Unknown action' }, { status: 400 });

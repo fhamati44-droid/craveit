@@ -82,6 +82,11 @@ export default function SectionEditor({ section, onClose, onSaved }) {
         // config stored entirely in settings_json
       } else if (itemType === 'trust_payments' || itemType === 'tracking_trust') {
         toSave = items.filter((it) => it.item_type === 'trust_item').map((it, i) => ({ item_type: 'trust_item', category_id: it.category_id, display_order: i, enabled: true }));
+      } else if (itemType === 'featured_menus') {
+        toSave = [
+          ...items.filter((it) => it.item_type === 'suggestion').map((it, i) => ({ item_type: 'suggestion', suggestion_id: it.suggestion_id, display_order: i, enabled: true })),
+          ...items.filter((it) => it.item_type === 'category').map((it, i) => ({ item_type: 'category', category_id: it.category_id, display_order: 100 + i, enabled: true })),
+        ];
       }
       await replaceSectionItems(sid, toSave);
       onSaved();
@@ -316,6 +321,14 @@ function renderTypeEditor(type, ctx) {
       return <MixPlusEditor form={form} set={set} settings={settings} setSettings={setSettings} items={items} setItems={setItems} itemIds={itemIds} />;
     case 'editorial_banner':
       return <EditorialBannerEditor form={form} set={set} settings={settings} setSettings={setSettings} />;
+    case 'featured_menus':
+      return (
+        <div className="space-y-3">
+          <div className="bg-surface-container rounded-xl p-3 text-xs text-on-surface-variant">كروت منيوهات وتصنيفات — ما بتفتح بروفايل مطعم، بتفتح المنيو مباشرة.</div>
+          <div><label className="text-[11px] text-on-surface-variant block mb-2">منيوهات TAMAM (اقتراحات جاهزة)</label><SuggestionSelector selectedIds={itemIds('suggestion')} onChange={(ids) => setItems((prev) => [...prev.filter((it) => it.item_type !== 'suggestion'), ...ids.map((id) => ({ item_type: 'suggestion', suggestion_id: id, display_order: 0, enabled: true }))])} /></div>
+          <div><label className="text-[11px] text-on-surface-variant block mb-2">تصنيفات</label><FoodCategorySelector selectedIds={itemIds('category')} onChange={(ids) => setItems((prev) => [...prev.filter((it) => it.item_type !== 'category'), ...ids.map((id) => ({ item_type: 'category', category_id: id, display_order: 0, enabled: true }))])} /></div>
+        </div>
+      );
     case 'budget_meals':
       return <BudgetEditor settings={settings} setSettings={setSettings} />;
     default:
