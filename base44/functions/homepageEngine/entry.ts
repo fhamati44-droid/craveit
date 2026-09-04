@@ -426,6 +426,13 @@ async function buildMediaMap(base44) {
   return map;
 }
 
+// Built-in bookkeeping fields are never consumed by any renderer (HomePageContent,
+// homePageConfig, buildPublishedHomepage) — stripping them keeps snapshot_json
+// well under the entity field-size limit (~20k chars) that used to 500 the publish.
+function stripBuiltins({ created_date, updated_date, created_by_id, created_by, is_sample, entity_name, app_id, ...rest }) {
+  return rest;
+}
+
 async function buildSnapshot(base44) {
   const sections = await base44.asServiceRole.entities.HomepageSection.list('-display_order', 500);
   const sectionIds = (sections || []).map((s) => s.id);
@@ -434,7 +441,7 @@ async function buildSnapshot(base44) {
     items = await base44.asServiceRole.entities.HomepageSectionItem.list('-display_order', 2000);
     items = (items || []).filter((it) => sectionIds.includes(it.homepage_section_id));
   }
-  return { sections: sections || [], items: items || [], generated_at: new Date().toISOString() };
+  return { sections: (sections || []).map(stripBuiltins), items: (items || []).map(stripBuiltins), generated_at: new Date().toISOString() };
 }
 
 function validateSnapshot(snapshot) {
@@ -745,12 +752,9 @@ export default async function(req) {
         if (errors.length) return Response.json({ error: 'validation_failed', errors }, { status: 400 });
         const versions = await base44.asServiceRole.entities.HomepageVersion.list('-version_number', 500);
         const lastNum = (versions || []).reduce((m, v) => Math.max(m, v.version_number || 0), 0);
-        // Deactivate all previous
-        if (versions && versions.length) {
-          await base44.asServiceRole.entities.HomepageVersion.bulkUpdate(
-            (versions || []).map((v) => ({ id: v.id, is_active: false }))
-          );
-        }
+        // Create the new active version FIRST, then deactivate the previous ones.
+        // If the create fails (e.g. field-size limit), the currently published
+        // version stays live instead of leaving the site without any active one.
         const created = await base44.asServiceRole.entities.HomepageVersion.create({
           version_number: lastNum + 1,
           label: payload.label || `نسخة ${lastNum + 1}`,
@@ -761,6 +765,12 @@ export default async function(req) {
           change_summary: payload.changeSummary || '',
           is_rollback: false,
         });
+        const others = (versions || []).filter((v) => v.id !== created.id);
+        if (others.length) {
+          await base44.asServiceRole.entities.HomepageVersion.bulkUpdate(
+            others.map((v) => ({ id: v.id, is_active: false }))
+          );
+        }
         return Response.json({ data: { published: true, version_number: created.version_number, id: created.id } });
       }
       case 'listVersions': {
@@ -866,13 +876,13 @@ export default async function(req) {
         // Recreate sections
         const idMap = {};
         for (const s of targetSnapshot.sections || []) {
-          const { id, created_date, updated_date, created_by_id, ...rest } = s;
+          const { id, created_date, updated_date, created_by_id, created_by, is_sample, entity_name, app_id, ...rest } = s;
           const created = await base44.asServiceRole.entities.HomepageSection.create(rest);
           idMap[id] = created.id;
         }
         // Recreate items
         for (const it of targetSnapshot.items || []) {
-          const { id, created_date, updated_date, created_by_id, ...rest } = it;
+          const { id, created_date, updated_date, created_by_id, created_by, is_sample, entity_name, app_id, ...rest } = it;
           const newSectionId = idMap[rest.homepage_section_id];
           if (!newSectionId) continue;
           await base44.asServiceRole.entities.HomepageSectionItem.create({ ...rest, homepage_section_id: newSectionId });
@@ -880,12 +890,9 @@ export default async function(req) {
         // Create a new active version marking this as rollback
         const lastNum = (versions || []).reduce((m, v) => Math.max(m, v.version_number || 0), 0);
         const newSnapshot = await buildSnapshot(base44);
-        if (versions && versions.length) {
-          await base44.asServiceRole.entities.HomepageVersion.bulkUpdate(
-            (versions || []).map((v) => ({ id: v.id, is_active: false }))
-          );
-        }
-        await base44.asServiceRole.entities.HomepageVersion.create({
+        // Create the rollback version first, then deactivate others (same
+        // create-before-deactivate ordering as publishDraft).
+        const createdRollback = await base44.asServiceRole.entities.HomepageVersion.create({
           version_number: lastNum + 1,
           label: `استرجاع النسخة ${target.version_number}`,
           snapshot_json: JSON.stringify(newSnapshot),
@@ -895,6 +902,12 @@ export default async function(req) {
           change_summary: `استرجاع للنسخة رقم ${target.version_number}`,
           is_rollback: true,
         });
+        const others = (versions || []).filter((v) => v.id !== createdRollback.id);
+        if (others.length) {
+          await base44.asServiceRole.entities.HomepageVersion.bulkUpdate(
+            others.map((v) => ({ id: v.id, is_active: false }))
+          );
+        }
         return Response.json({ data: { rolledBack: true, to_version: target.version_number } });
       }
       case 'diagnoseMoods': {
