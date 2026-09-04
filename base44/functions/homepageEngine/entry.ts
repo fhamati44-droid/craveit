@@ -785,6 +785,62 @@ export default async function(req) {
         const versions = await base44.asServiceRole.entities.HomepageVersion.list('-version_number', 100);
         return Response.json({ data: versions || [] });
       }
+      case 'publishDryRun': {
+        // ISOLATED verification of the deployed publish pipeline. Touches ONLY
+        // temporary test version records (version_number 9999 / 9998) which are
+        // deleted at the end. Never activates, never deactivates, never edits
+        // any live version or homepage content.
+        const activeBefore = ((await base44.asServiceRole.entities.HomepageVersion.filter({ is_active: true })) || [])[0] || null;
+        const steps = [];
+        // 1-2. Build + slim snapshot (exact production pipeline, stripBuiltins)
+        const snapshot = await buildSnapshot(base44);
+        const slimJson = JSON.stringify(snapshot);
+        const hasBuiltins = [...(snapshot.sections || []), ...(snapshot.items || [])].some((r) => 'created_date' in r || 'created_by_id' in r);
+        steps.push({ step: 'build_and_slim_snapshot', ok: slimJson.length > 0 && !hasBuiltins, snapshot_chars: slimJson.length, sections: (snapshot.sections || []).length, items: (snapshot.items || []).length, bookkeeping_stripped: !hasBuiltins });
+        // 3. Size guard (the ~20k field limit that used to 500 the old publish)
+        const SIZE_LIMIT = 20000;
+        steps.push({ step: 'validate_snapshot_size', ok: slimJson.length <= SIZE_LIMIT, snapshot_chars: slimJson.length, limit: SIZE_LIMIT });
+        // 4-5. Isolated create (inactive temp) + verify persisted
+        const tempIds = [];
+        const temp = await base44.asServiceRole.entities.HomepageVersion.create({
+          version_number: 9999, label: 'ISOLATED DRY-RUN TEST', snapshot_json: slimJson, is_active: false,
+          published_by_name: 'dry-run', published_by_id: user.id || '', change_summary: 'ISOLATED TEST RECORD — safe to delete', is_rollback: false,
+        });
+        tempIds.push(temp.id);
+        steps.push({ step: 'create_temp_version', ok: !!temp.id, temp_id: temp.id, created_active: false });
+        const verified = await base44.asServiceRole.entities.HomepageVersion.get(temp.id);
+        steps.push({ step: 'verify_temp_version', ok: !!(verified && verified.id), stored_chars: ((verified && verified.snapshot_json) || '').length, stored_active: verified ? verified.is_active : null });
+        // 6. Failure injection: oversized create must fail (or be cleaned) with zero live impact
+        let oversized;
+        try {
+          const bad = await base44.asServiceRole.entities.HomepageVersion.create({
+            version_number: 9998, label: 'ISOLATED OVERSIZE TEST', snapshot_json: 'x'.repeat(22000), is_active: false,
+            published_by_name: 'dry-run', published_by_id: user.id || '', change_summary: 'ISOLATED TEST RECORD', is_rollback: false,
+          });
+          if (bad && bad.id) tempIds.push(bad.id);
+          oversized = { rejected: false, note: 'platform accepted 22000 chars; temp record deleted in cleanup below' };
+        } catch (e) {
+          oversized = { rejected: true, error: String((e && e.message) || e).slice(0, 120) };
+        }
+        steps.push({ step: 'failure_injection_oversize_create', ok: true, ...oversized });
+        // 7. Cleanup every temp record
+        for (const id of tempIds) { await base44.asServiceRole.entities.HomepageVersion.delete(id).catch(() => null); }
+        const leftovers = ((await base44.asServiceRole.entities.HomepageVersion.list('-version_number', 500)) || []).filter((v) => v.version_number >= 9998);
+        steps.push({ step: 'cleanup_temp_records', ok: leftovers.length === 0, deleted: tempIds.length, leftovers: leftovers.length });
+        // 8. Live version must be completely untouched (same id, still active, same updated_date)
+        const activeAfter = ((await base44.asServiceRole.entities.HomepageVersion.filter({ is_active: true })) || [])[0] || null;
+        const liveOk = !!activeBefore && !!activeAfter && activeBefore.id === activeAfter.id && activeAfter.is_active === true && activeBefore.updated_date === activeAfter.updated_date;
+        steps.push({
+          step: 'live_version_untouched', ok: liveOk,
+          before: activeBefore && { id: activeBefore.id, version_number: activeBefore.version_number, updated_date: activeBefore.updated_date },
+          after: activeAfter && { id: activeAfter.id, version_number: activeAfter.version_number, updated_date: activeAfter.updated_date },
+        });
+        const pass = steps.every((s) => s.ok);
+        return Response.json({ data: {
+          engine_build: 'publish-safe-seq-2026-09-04', pass, steps,
+          active_version: activeAfter ? { id: activeAfter.id, version_number: activeAfter.version_number, is_active: activeAfter.is_active } : null,
+        } });
+      }
       case 'diagnoseDriveImages': {
         const driveRe = /drive\.google\.com|lh3\.googleusercontent\.com|docs\.google\.com/;
         const records = [];
