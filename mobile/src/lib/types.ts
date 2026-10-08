@@ -53,6 +53,7 @@ export interface Mood {
   has_suggestions?: boolean;
 }
 export interface Suggestion {
+  is_active?: boolean;
   id: Id;
   mood_id?: Id;
   title_ar?: string;
@@ -64,6 +65,7 @@ export interface Suggestion {
   display_price_override?: number;
 }
 export interface Section {
+  title?: string;
   id: Id;
   section_key: string;
   enabled?: boolean;

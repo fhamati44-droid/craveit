@@ -20,7 +20,8 @@ Public function requests use the published app's origin: the central Base44 API 
 
 ## Implemented
 
-- Dark TAMAM brand colors and Arabic RTL text from the actual customer components.
+- Dark TAMAM brand colors, bundled Alexandria Arabic typography, vector icons, branded header and a centered mobile-width web preview.
+- Image-led horizontal suggestion/restaurant cards, native mood tiles, and scheduled CMS visibility. Google Drive share links resolve like the original web image utility.
 - Native tabs, home hero with published CMS headline/media and schedule, restaurant search, menu, meal customization, mood selection, suggestion catalog/detail.
 - Existing `supabaseProxy` and `homepageEngine` action contracts.
 - Required extras and maximum selection limits; customization errors block adding an item.

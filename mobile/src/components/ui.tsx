@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import type { ReactNode } from "react";
+import { imageUrl } from "../lib/media";
 export const colors = {
   bg: "#101412",
   surface: "#1C211E",
@@ -27,20 +28,26 @@ export const s = StyleSheet.create({
   text: {
     color: colors.text,
     textAlign: "right",
-    fontSize: 15,
+    fontSize: 14,
+    fontFamily: "Alexandria_400Regular",
+    lineHeight: 24,
     writingDirection: "rtl",
   },
   muted: {
     color: colors.muted,
     textAlign: "right",
-    fontSize: 13,
+    fontSize: 12,
+    fontFamily: "Alexandria_400Regular",
+    lineHeight: 22,
     writingDirection: "rtl",
   },
   heading: {
     color: colors.text,
     textAlign: "right",
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 22,
+    fontFamily: "Alexandria_700Bold",
+    lineHeight: 34,
+
     writingDirection: "rtl",
   },
   row: { flexDirection: "row-reverse", alignItems: "center", gap: 12 },
@@ -66,7 +73,11 @@ export const s = StyleSheet.create({
     minHeight: 48,
     alignItems: "center",
   },
-  buttonText: { color: colors.ink, fontWeight: "800", fontSize: 16 },
+  buttonText: {
+    color: colors.ink,
+    fontFamily: "Alexandria_700Bold",
+    fontSize: 14,
+  },
   image: { width: "100%", height: 160, borderRadius: 16 },
   chip: {
     paddingHorizontal: 16,
@@ -120,7 +131,7 @@ export function Page({ children }: { children: ReactNode }) {
 export function Picture({ uri }: { uri?: string }) {
   return uri ? (
     <Image
-      source={{ uri }}
+      source={{ uri: imageUrl(uri) }}
       style={s.image}
       accessibilityLabel="صورة الوجبة أو المطعم"
     />

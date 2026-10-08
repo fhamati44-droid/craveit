@@ -15,7 +15,9 @@ export interface Connection {
 }
 export const defaultConnection: Connection = {
   appId: process.env.EXPO_PUBLIC_BASE44_APP_ID || "69eb2d67d2208986b7d60a5d",
-  appBaseUrl: process.env.EXPO_PUBLIC_BASE44_APP_BASE_URL || "https://crave-it-delivery.base44.app",
+  appBaseUrl:
+    process.env.EXPO_PUBLIC_BASE44_APP_BASE_URL ||
+    "https://crave-it-delivery.base44.app",
 };
 export function createApi(connection: Connection) {
   async function invoke<T>(
