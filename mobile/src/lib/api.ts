@@ -39,6 +39,10 @@ export const isMissingTable = (e: unknown) =>
   e instanceof DbError &&
   (e.code === "PGRST205" || e.code === "42P01" || e.status === 404);
 
+/** Supabase rejected our key (wrong/rotated anon key) — use Base44 meanwhile. */
+export const isKeyProblem = (e: unknown) =>
+  e instanceof DbError && (e.status === 401 || e.status === 403 || /api key/i.test(e.message));
+
 export async function rest<T>(
   path: string,
   init: { method?: string; body?: unknown; prefer?: string } = {},
@@ -137,22 +141,46 @@ export function createApi(connection: Connection) {
     }
   }
 
+  // If Supabase rejects the key, keep the app working through the Base44
+  // proxy (the previous path) for the rest of the session.
+  let useProxy = false;
+  async function either<T>(
+    fromSupabase: () => Promise<T>,
+    fromBase44: () => Promise<T>,
+  ): Promise<T> {
+    if (useProxy) return fromBase44();
+    try {
+      return await fromSupabase();
+    } catch (e) {
+      if (!isKeyProblem(e)) throw e;
+      useProxy = true;
+      return fromBase44();
+    }
+  }
+  const proxy = <T>(action: string, payload: object = {}) =>
+    base44<T>("supabaseProxy", action, payload);
+
   /** Use the Supabase TAMAM tables when they exist, else Base44. */
   async function tamam<T>(
     fromSupabase: () => Promise<T>,
     fromBase44: () => Promise<T>,
   ): Promise<T> {
+    if (useProxy) return fromBase44();
     try {
       return await fromSupabase();
     } catch (e) {
-      if (isMissingTable(e)) return fromBase44();
+      if (isMissingTable(e) || isKeyProblem(e)) return fromBase44();
       throw e;
     }
   }
 
   const extras = async (itemId: Id): Promise<Extras> => {
-    const groups = await rest<(ExtraGroup & { name?: string })[]>(
-      `menu_extra_groups?select=*,menu_extra_options:menu_extras(*)&item_id=eq.${encodeURIComponent(String(itemId))}&order=sort_order.asc`,
+    const groups = await either(
+      () =>
+        rest<(ExtraGroup & { name?: string })[]>(
+          `menu_extra_groups?select=*,menu_extra_options:menu_extras(*)&item_id=eq.${encodeURIComponent(String(itemId))}&order=sort_order.asc`,
+        ),
+      () => proxy<(ExtraGroup & { name?: string })[]>("getExtraGroups", { itemId }),
     );
     return (groups || []).map((g) => ({
       ...g,
@@ -167,24 +195,48 @@ export function createApi(connection: Connection) {
 
   return {
     restaurants: () =>
-      rest<Restaurant[]>("restaurants?select=*&active=eq.true&order=id.asc"),
+      either(
+        () => rest<Restaurant[]>("restaurants?select=*&active=eq.true&order=id.asc"),
+        () => proxy<Restaurant[]>("getRestaurants"),
+      ),
     restaurant: async (id: Id) => {
-      const rows = await rest<Restaurant[]>(
-        `restaurants?select=*&id=eq.${encodeURIComponent(String(id))}`,
+      const row = await either(
+        async () =>
+          (
+            await rest<Restaurant[]>(
+              `restaurants?select=*&id=eq.${encodeURIComponent(String(id))}`,
+            )
+          )?.[0],
+        () => proxy<Restaurant>("getRestaurantById", { id }),
       );
-      if (!rows?.[0]) throw new Error("المطعم مش موجود.");
-      return rows[0];
+      if (!row) throw new Error("المطعم مش موجود.");
+      return row;
     },
     menu: async (restaurantId: Id): Promise<Category[]> => {
       const rid = encodeURIComponent(String(restaurantId));
-      const [categories, meals] = await Promise.all([
-        rest<Category[]>(
-          `menu_categories?select=*&restaurant_id=eq.${rid}&order=sort_order.asc`,
-        ),
-        rest<(Meal & { category_id: Id; active?: boolean })[]>(
-          `menu_items?select=*&restaurant_id=eq.${rid}&order=sort_order.asc`,
-        ),
-      ]);
+      type Row = Meal & { category_id: Id; active?: boolean };
+      const [categories, meals] = await either(
+        () =>
+          Promise.all([
+            rest<Category[]>(
+              `menu_categories?select=*&restaurant_id=eq.${rid}&order=sort_order.asc`,
+            ),
+            rest<Row[]>(
+              `menu_items?select=*&restaurant_id=eq.${rid}&order=sort_order.asc`,
+            ),
+          ]),
+        async () => {
+          const cats = await proxy<Category[]>("getMenuCategories", { restaurantId });
+          const items = await Promise.all(
+            cats.map((c) =>
+              proxy<Row[]>("getMenuItems", { categoryId: c.id }).then((rows) =>
+                rows.map((m) => ({ ...m, category_id: m.category_id ?? c.id })),
+              ),
+            ),
+          );
+          return [cats, items.flat()] as [Category[], Row[]];
+        },
+      );
       return (categories || []).map((cat) => ({
         ...cat,
         items: (meals || []).filter(
@@ -258,13 +310,22 @@ export function createApi(connection: Connection) {
         ...new Set(items.flatMap((i) => (i.selected_addon_ids || []).map(String))),
       ];
       if (!mealIds.length) return [];
-      const [meals, restaurants, addons] = await Promise.all([
-        rest<Meal[]>(`menu_items?select=*&id=${inList(mealIds)}`),
-        rest<Restaurant[]>(`restaurants?select=*&id=${inList(restIds)}`),
-        extraIds.length
-          ? rest<Extra[]>(`menu_extras?select=*&id=${inList(extraIds)}`)
-          : Promise.resolve([] as Extra[]),
-      ]);
+      const [meals, restaurants, addons] = await either(
+        () =>
+          Promise.all([
+            rest<Meal[]>(`menu_items?select=*&id=${inList(mealIds)}`),
+            rest<Restaurant[]>(`restaurants?select=*&id=${inList(restIds)}`),
+            extraIds.length
+              ? rest<Extra[]>(`menu_extras?select=*&id=${inList(extraIds)}`)
+              : Promise.resolve([] as Extra[]),
+          ]),
+        () =>
+          Promise.all([
+            proxy<Meal[]>("getMenuItemsByIds", { ids: mealIds }),
+            proxy<Restaurant[]>("getRestaurantsByIds", { ids: restIds }),
+            Promise.resolve([] as Extra[]), // no proxy lookup for add-ons by id
+          ]),
+      );
       return items.flatMap((item) => {
         const meal = meals.find((m) => String(m.id) === String(item.meal_id));
         const restaurant = restaurants.find(
@@ -284,27 +345,41 @@ export function createApi(connection: Connection) {
       });
     },
 
-    createOrder: async (order: Omit<Order, "id" | "created_at">) => {
-      const rows = await rest<Order[]>("orders?select=id", {
-        method: "POST",
-        body: order,
-        prefer: "return=representation",
-      });
-      return rows[0];
-    },
-    order: async (id: Id) => {
-      const rows = await rest<Order[]>(
-        `orders?select=*&id=eq.${encodeURIComponent(String(id))}`,
-      );
-      return rows[0] || null;
-    },
+    createOrder: (order: Omit<Order, "id" | "created_at">) =>
+      either(
+        async () =>
+          (
+            await rest<Order[]>("orders?select=id", {
+              method: "POST",
+              body: order,
+              prefer: "return=representation",
+            })
+          )[0],
+        () => proxy<Order>("createOrder", { orderData: order }),
+      ),
+    order: (id: Id) =>
+      either(
+        async () =>
+          (await rest<Order[]>(`orders?select=*&id=eq.${encodeURIComponent(String(id))}`))[0] ||
+          null,
+        async () => (await proxy<Order | null>("getOrderById", { id })) || null,
+      ),
     ordersByIds: (ids: Id[]) =>
       ids.length
-        ? rest<Order[]>(`orders?select=*&id=${inList(ids)}&order=created_at.desc`)
+        ? either(
+            () => rest<Order[]>(`orders?select=*&id=${inList(ids)}&order=created_at.desc`),
+            async () =>
+              (await Promise.all(ids.map((id) => proxy<Order | null>("getOrderById", { id }))))
+                .filter((o): o is Order => !!o),
+          )
         : Promise.resolve([] as Order[]),
     ordersByPhone: (phone: string) =>
-      rest<Order[]>(
-        `orders?select=*&phone=eq.${encodeURIComponent(phone)}&order=created_at.desc&limit=30`,
+      either(
+        () =>
+          rest<Order[]>(
+            `orders?select=*&phone=eq.${encodeURIComponent(phone)}&order=created_at.desc&limit=30`,
+          ),
+        () => proxy<Order[]>("getOrdersByPhone", { phone }),
       ),
   };
 }
