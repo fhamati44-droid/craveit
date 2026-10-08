@@ -14,7 +14,7 @@
 - **Supabase** הוא המקור היחיד לנתונים. כבר היום כל המערכות עובדות מולו.
 - **food-crm-final** נשאר כמו שהוא, כמשרד האחורי. הזמנות מ-TAMAM נכנסות לטבלה `orders` באותו מבנה בדיוק כמו מהאתר הישן (`status: 'new'`, `kitchen_id`, `order_items`...). המטבח רואה אותן מיד. בשדה `channel` יופיע "אתר" או "אפליקציה".
 - **craveit-nextjs** יוחלף באתר שנבנה מאותו קוד של האפליקציה.
-- **Base44** יוצא מהתמונה אחרי שלב 2.
+- **Base44** כבר לא בשימוש בקוד של TAMAM. הוא נשאר דולק רק כדי להעתיק ממנו את המודים בשלב 2, ואז מכבים אותו.
 
 ## שלב 1: לבדוק את הענף
 
@@ -27,7 +27,13 @@ npm install
 npx expo start -c
 ```
 
-האפליקציה כבר קוראת מסעדות, תפריטים והזמנות **ישר מ-Supabase**. המודים והצעות TAMAM עדיין מגיעים מ-Base44 עד שלב 2. המעבר ביניהם אוטומטי.
+לפני ההרצה יוצרים בתיקייה `mobile` קובץ `.env` עם מפתח ה-anon של Supabase:
+```
+EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+```
+את הערך לוקחים מ-Vercel ← craveit-nextjs ← Settings ← Environment Variables ← `NEXT_PUBLIC_SUPABASE_ANON_KEY`, או מ-Supabase ← Project Settings ← API ← anon public.
+
+האפליקציה עובדת **רק מול Supabase**. עד שלב 2 הגלגל יהיה ריק, כי המודים עוד לא הועתקו.
 
 > ⚠️ הזמנה שתבצע בבדיקה היא **הזמנה אמיתית**: היא תופיע במטבח ב-CRM. כדאי לבחור "استلام من المطعم", לכתוב בהערות "בדיקה" ולבטל אותה ב-CRM.
 
@@ -43,13 +49,13 @@ npx expo start -c
    ```
    - ההרצה הראשונה, בלי `--write`, רק סופרת ולא כותבת כלום.
    - את המפתח `service_role` **לא שומרים בקוד ולא שולחים לאף אחד**.
-3. זהו. האפליקציה מזהה את הטבלאות לבד ומפסיקה לפנות ל-Base44.
+3. זהו. הגלגל מתמלא במודים.
    - מעכשיו עורכים מודים וחבילות ב-Supabase, ב-**Table Editor**.
 
 ## שלב 3: להעלות את האתר החדש ל-Vercel
 
 1. ב-Vercel: **Add New → Project** → בוחרים את הריפו `craveit`.
-2. **Root Directory**: `mobile`. את שאר ההגדרות קובע הקובץ `mobile/vercel.json` (בנייה עם `expo export`, תיקייה `dist`).
+2. **Root Directory**: `mobile`. ב-**Environment Variables** מוסיפים `EXPO_PUBLIC_SUPABASE_ANON_KEY`. את שאר ההגדרות קובע הקובץ `mobile/vercel.json` (בנייה עם `expo export`, תיקייה `dist`).
 3. ענף: `feat/tamam-brand-supabase`, או `main` אחרי מיזוג.
 4. מקבלים כתובת כמו `tamam-xxx.vercel.app` ובודקים הזמנה אחת.
 
@@ -62,7 +68,16 @@ Meta Pixel, Microsoft Clarity, זיהוי ManyChat (`?mc_id=`) וה-tracker של
    ```json
    { "redirects": [{ "source": "/(.*)", "destination": "https://<הכתובת-החדשה>/", "permanent": false }] }
    ```
-3. אחרי שבוע-שבועיים שהכול יציב: מעבירים את craveit-nextjs לארכיון ב-GitHub ומכבים את Base44.
+3. אחרי שבוע-שבועיים שהכול יציב: מעבירים את craveit-nextjs לארכיון ב-GitHub.
+
+## כיבוי Base44: הסדר חשוב
+
+1. ✅ שלב 2 בוצע: הסקריפט הדפיס `Done`, ובטבלאות `tamam_*` ב-Supabase יש שורות.
+2. ✅ האפליקציה מציגה את המודים והחבילות (Expo Go או האתר החדש).
+3. בטלפון ובמחשב בודקים שאין שום פנייה ל-`base44.app`. בקוד של TAMAM כבר אין כזאת.
+4. רק אז מכבים או משהים את האפליקציה ב-Base44.
+
+> בתיקייה הראשית של הריפו `craveit` (‏`src/`, `base44/`) נמצא עדיין הקוד של האפליקציה הישנה מ-Base44. TAMAM לא משתמש בו, והוא נשאר שם לעיון. אפשר למחוק אותו אחרי הכיבוי.
 
 ## אבטחה: לפני שמגדילים תנועה
 

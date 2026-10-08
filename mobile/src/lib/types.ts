@@ -107,19 +107,13 @@ export interface Order {
   status?: OrderStatus | string;
   created_at?: string;
 }
-export interface Section {
-  title?: string;
-  id: Id;
-  section_key: string;
-  enabled?: boolean;
-  starts_at?: string;
-  ends_at?: string;
-  settings_json?: string;
-}
-export interface HomeConfig {
-  sections?: Section[];
-  items?: { homepage_section_id: Id; media_id?: string; enabled?: boolean }[];
-  media_map?: Record<string, { file_url?: string; media_type?: string }>;
+/** Row of `site_settings` (id = 1), managed from the old site's admin. */
+export interface SiteSettings {
+  id: number;
+  title?: string | null;
+  logo_url?: string | null;
+  cover_url?: string | null;
+  covers?: { type?: "image" | "video"; url: string }[] | null;
 }
 export const title = (value: { name_ar?: string; name?: string }) =>
   value.name_ar || value.name || "";

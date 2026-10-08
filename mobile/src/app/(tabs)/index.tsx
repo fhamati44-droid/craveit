@@ -1,14 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import {
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, font, Page, RtlRow, Status } from "../../components/ui";
 import { Brush, TamamMark, Tri, TrianglePattern } from "../../components/brand";
@@ -17,7 +11,7 @@ import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
 import { imageUrl } from "../../lib/media";
 import { moodIcon } from "../../lib/moods";
-import { title, type Section } from "../../lib/types";
+import { title } from "../../lib/types";
 
 function SectionTitle({
   label,
@@ -31,7 +25,9 @@ function SectionTitle({
   return (
     <View style={h.sectionTitle}>
       <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+        <View
+          style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}
+        >
           <Tri size={12} color={colors.green} />
           <Text style={h.heading}>{label}</Text>
         </View>
@@ -49,56 +45,30 @@ function SectionTitle({
 
 export default function Home() {
   const { api } = useStore();
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30000);
-    return () => clearInterval(timer);
-  }, []);
-  const home = useLoad(useCallback(() => api.home(), [api]));
+  const site = useLoad(useCallback(() => api.settings(), [api]));
   const restaurants = useLoad(useCallback(() => api.restaurants(), [api]));
   const suggestions = useLoad(useCallback(() => api.suggestions(), [api]));
   const moods = useLoad(useCallback(() => api.moods(), [api]));
-  const section = (key: string, fallback?: string) =>
-    home.value?.sections?.find((x) => x.section_key === key) ||
-    home.value?.sections?.find((x) => x.section_key === fallback);
-  const visible = (value: Section | undefined, defaultVisible = true) =>
-    value
-      ? value.enabled !== false &&
-        (!value.starts_at || Date.parse(value.starts_at) <= now) &&
-        (!value.ends_at || Date.parse(value.ends_at) >= now)
-      : defaultVisible;
-  const hero = section("home_hero", "hero");
-  let settings: {
-    headline?: string;
-    supporting_text?: string;
-    media_id?: string;
-  } = {};
-  try {
-    settings = JSON.parse(hero?.settings_json || "{}") || {};
-  } catch {}
-  const mediaId =
-    settings.media_id ||
-    home.value?.items?.find(
-      (x) =>
-        x.homepage_section_id === hero?.id && x.enabled !== false && x.media_id,
-    )?.media_id;
-  const media = mediaId ? home.value?.media_map?.[mediaId] : undefined;
   const sets =
     suggestions.value?.sets?.filter((x) => x.is_active !== false).slice(0, 6) ||
     [];
-  const suggestionSection = section("time_suggestions", "suggestions");
-  const restaurantSection = section("featured_restaurants");
   const goSuggestions = () => router.push("/suggestions");
-  const heroImage = media?.media_type?.includes("video")
-    ? undefined
-    : media?.file_url || restaurants.value?.[0]?.cover_url;
+  // Hero image: first image cover from site_settings (old site's admin),
+  // else the first restaurant's cover.
+  const heroImage =
+    site.value?.covers?.find((c) => c.type !== "video" && c.url)?.url ||
+    site.value?.cover_url ||
+    restaurants.value?.[0]?.cover_url;
   return (
     <Page>
-      {!home.loading && visible(hero) ? (
+      {!site.loading ? (
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push("/game")}
-          style={({ pressed }) => [h.hero, pressed && { transform: [{ scale: 0.99 }] }]}
+          style={({ pressed }) => [
+            h.hero,
+            pressed && { transform: [{ scale: 0.99 }] },
+          ]}
         >
           <LinearGradient
             colors={[colors.tealMid, colors.teal, colors.tealDeep]}
@@ -109,14 +79,23 @@ export default function Home() {
           <TrianglePattern opacity={0.08} />
           <View style={h.heroCopy}>
             <Text style={h.eyebrow}>TAMAM · حسب مودك</Text>
-            <Text style={h.heroTitle}>
-              {settings.headline || "شو عبالك تاكل اليوم؟"}
-            </Text>
-            <Text style={h.heroSub}>
-              {settings.supporting_text || "لفّ العجلة، و TAMAM بتختارلك الوجبة."}
-            </Text>
-            <Brush style={{ alignSelf: "flex-end", marginTop: 8, paddingHorizontal: 22, paddingVertical: 10 }}>
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+            <Text style={h.heroTitle}>شو عبالك تاكل اليوم؟</Text>
+            <Text style={h.heroSub}>لفّ العجلة، و TAMAM بتختارلك الوجبة.</Text>
+            <Brush
+              style={{
+                alignSelf: "flex-end",
+                marginTop: 8,
+                paddingHorizontal: 22,
+                paddingVertical: 10,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
                 <Text style={h.heroCta}>انطلق</Text>
                 <Ionicons name="arrow-back" size={18} color={colors.white} />
               </View>
@@ -124,7 +103,10 @@ export default function Home() {
           </View>
           <View style={h.heroArt}>
             {heroImage ? (
-              <Image source={{ uri: imageUrl(heroImage) }} style={h.heroImage} />
+              <Image
+                source={{ uri: imageUrl(heroImage) }}
+                style={h.heroImage}
+              />
             ) : (
               <View style={[h.heroImage, h.heroMark]}>
                 <TamamMark size={64} color={colors.white} />
@@ -136,7 +118,10 @@ export default function Home() {
 
       {moods.value?.length ? (
         <View style={h.section}>
-          <SectionTitle label="شو مودك هسا؟" open={() => router.push("/game")} />
+          <SectionTitle
+            label="شو مودك هسا؟"
+            open={() => router.push("/game")}
+          />
           <RtlRow>
             {moods.value.slice(0, 10).map((mood) => (
               <Pressable
@@ -166,28 +151,26 @@ export default function Home() {
         </View>
       ) : null}
 
-      {visible(suggestionSection) ? (
-        <View style={h.section}>
-          <SectionTitle
-            label={suggestionSection?.title || "اختيارات TAMAM إلك"}
-            sub="حسب مودك والوقت"
-            open={goSuggestions}
-          />
-          <Status
-            loading={suggestions.loading}
-            error={suggestions.error}
-            retry={suggestions.reload}
-          />
-          <RtlRow>
-            {sets.map((set) => (
-              <SuggestionCard key={set.id} set={set} />
-            ))}
-          </RtlRow>
-          {!suggestions.loading && !suggestions.error && !sets.length ? (
-            <Text style={h.muted}>ما في اقتراحات منشورة حالياً.</Text>
-          ) : null}
-        </View>
-      ) : null}
+      <View style={h.section}>
+        <SectionTitle
+          label="اختيارات TAMAM إلك"
+          sub="حسب مودك والوقت"
+          open={goSuggestions}
+        />
+        <Status
+          loading={suggestions.loading}
+          error={suggestions.error}
+          retry={suggestions.reload}
+        />
+        <RtlRow>
+          {sets.map((set) => (
+            <SuggestionCard key={set.id} set={set} />
+          ))}
+        </RtlRow>
+        {!suggestions.loading && !suggestions.error && !sets.length ? (
+          <Text style={h.muted}>ما في اقتراحات منشورة حالياً.</Text>
+        ) : null}
+      </View>
 
       <Pressable
         style={h.banner}
@@ -204,39 +187,27 @@ export default function Home() {
         <Ionicons name="chevron-back" size={20} color={colors.teal} />
       </Pressable>
 
-      {visible(restaurantSection) ? (
-        <View style={h.section}>
-          <SectionTitle
-            label={restaurantSection?.title || "مطاعم قريبة منك"}
-            open={() => router.push("/restaurants")}
-          />
-          <Status
-            loading={restaurants.loading}
-            error={restaurants.error}
-            retry={restaurants.reload}
-          />
-          <RtlRow>
-            {restaurants.value?.map((restaurant) => (
-              <RestaurantCard key={restaurant.id} restaurant={restaurant} />
-            ))}
-          </RtlRow>
-        </View>
-      ) : null}
+      <View style={h.section}>
+        <SectionTitle
+          label="مطاعم قريبة منك"
+          open={() => router.push("/restaurants")}
+        />
+        <Status
+          loading={restaurants.loading}
+          error={restaurants.error}
+          retry={restaurants.reload}
+        />
+        <RtlRow>
+          {restaurants.value?.map((restaurant) => (
+            <RestaurantCard key={restaurant.id} restaurant={restaurant} />
+          ))}
+        </RtlRow>
+      </View>
 
-      {visible(section("home_trust", "trust_payments")) ? (
-        <View style={h.trust}>
-          <Ionicons name="location" size={16} color={colors.green} />
-          <Text style={h.muted}>مطاعم محلية · اختيارات حسب مودك</Text>
-        </View>
-      ) : null}
-      {!!home.error ? (
-        <Text style={h.muted}>
-          تعذر تحديث إعدادات الصفحة.{" "}
-          <Text onPress={home.reload} style={h.link}>
-            حاول ثانية
-          </Text>
-        </Text>
-      ) : null}
+      <View style={h.trust}>
+        <Ionicons name="location" size={16} color={colors.green} />
+        <Text style={h.muted}>مطاعم محلية · اختيارات حسب مودك</Text>
+      </View>
     </Page>
   );
 }
@@ -258,7 +229,12 @@ const h = StyleSheet.create({
     textAlign: "right",
   },
   link: { fontFamily: font.bold, color: colors.teal, fontSize: 12 },
-  all: { flexDirection: "row-reverse", gap: 2, alignItems: "center", minHeight: 44 },
+  all: {
+    flexDirection: "row-reverse",
+    gap: 2,
+    alignItems: "center",
+    minHeight: 44,
+  },
   hero: {
     borderRadius: 26,
     overflow: "hidden",
@@ -269,7 +245,12 @@ const h = StyleSheet.create({
     gap: 12,
   },
   heroCopy: { flex: 1.25, gap: 4 },
-  eyebrow: { fontFamily: font.bold, fontSize: 11, color: colors.bright, textAlign: "right" },
+  eyebrow: {
+    fontFamily: font.bold,
+    fontSize: 11,
+    color: colors.bright,
+    textAlign: "right",
+  },
   heroTitle: {
     fontFamily: font.black,
     fontSize: 24,
@@ -293,7 +274,11 @@ const h = StyleSheet.create({
     borderWidth: 4,
     borderColor: "rgba(255,255,255,0.9)",
   },
-  heroMark: { backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" },
+  heroMark: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   mood: { width: 76, alignItems: "center", gap: 6 },
   moodCircle: {
     width: 68,
@@ -330,7 +315,12 @@ const h = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  bannerTitle: { fontFamily: font.black, fontSize: 15, color: colors.teal, textAlign: "right" },
+  bannerTitle: {
+    fontFamily: font.black,
+    fontSize: 15,
+    color: colors.teal,
+    textAlign: "right",
+  },
   trust: {
     flexDirection: "row-reverse",
     justifyContent: "center",

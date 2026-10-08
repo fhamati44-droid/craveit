@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createApi, SUPABASE_URL } from "../src/lib/api.ts";
 
-const api = () =>
-  createApi({ appId: "app", appBaseUrl: "https://b44.example" });
+const api = () => createApi("test-anon-key");
 
 function mockFetch(handler) {
   const original = globalThis.fetch;
@@ -15,7 +14,33 @@ function mockFetch(handler) {
   return { calls, restore: () => (globalThis.fetch = original) };
 }
 
-test("menu reads Supabase directly and groups items under their category", async () => {
+test("without a Supabase key nothing is sent and the error says what's missing", async () => {
+  const m = mockFetch(() => {
+    throw new Error("unexpected network call");
+  });
+  try {
+    await assert.rejects(createApi("").restaurants(), /EXPO_PUBLIC_SUPABASE_ANON_KEY/);
+    assert.equal(m.calls.length, 0);
+  } finally {
+    m.restore();
+  }
+});
+
+test("every call goes to Supabase only — never Base44", async () => {
+  const m = mockFetch((url) => Response.json(url.includes("site_settings") ? [{ id: 1 }] : []));
+  try {
+    const a = api();
+    await Promise.all([a.restaurants(), a.moods(), a.suggestions(), a.settings(), a.menu(1)]);
+    assert.ok(m.calls.length >= 5);
+    assert.ok(m.calls.every((c) => c.url.startsWith(`${SUPABASE_URL}/rest/v1/`)));
+    assert.ok(m.calls.every((c) => !/base44/i.test(c.url)));
+    assert.equal(m.calls[0].options.headers.apikey, "test-anon-key");
+  } finally {
+    m.restore();
+  }
+});
+
+test("menu groups items under their category and hides inactive ones", async () => {
   const m = mockFetch((url) =>
     Response.json(
       url.includes("menu_categories")
@@ -29,18 +54,14 @@ test("menu reads Supabase directly and groups items under their category", async
   try {
     const menu = await api().menu(3);
     assert.deepEqual(menu[0].items.map((x) => x.id), [42]);
-    assert.ok(m.calls.every((c) => c.url.startsWith(`${SUPABASE_URL}/rest/v1/`)));
     assert.match(m.calls[0].url, /restaurant_id=eq\.3/);
-    assert.ok(m.calls[0].options.headers.apikey);
   } finally {
     m.restore();
   }
 });
 
 test("extras failure rejects, so customization can't be skipped", async () => {
-  const m = mockFetch(() =>
-    Response.json({ message: "database unavailable" }, { status: 500 }),
-  );
+  const m = mockFetch(() => Response.json({ message: "database unavailable" }, { status: 500 }));
   try {
     await assert.rejects(api().extras(42), /database unavailable/);
   } finally {
@@ -48,22 +69,19 @@ test("extras failure rejects, so customization can't be skipped", async () => {
   }
 });
 
-test("moods fall back to Base44 until the tamam tables exist in Supabase", async () => {
-  const m = mockFetch((url) =>
-    url.includes("/rest/v1/")
-      ? Response.json({ code: "PGRST205", message: "table not found" }, { status: 404 })
-      : Response.json({ data: [{ id: "m1", name_ar: "طاقة" }] }),
+test("before the TAMAM migration, moods are simply empty (no crash)", async () => {
+  const m = mockFetch(() =>
+    Response.json({ code: "PGRST205", message: "table not found" }, { status: 404 }),
   );
   try {
-    const moods = await api().moods();
-    assert.equal(moods[0].name_ar, "طاقة");
-    assert.match(m.calls.at(-1).url, /b44\.example\/api\/apps\/app\/functions\/homepageEngine/);
+    assert.deepEqual(await api().moods(), []);
+    assert.deepEqual((await api().suggestions("m1")).sets, []);
   } finally {
     m.restore();
   }
 });
 
-test("moods come from Supabase once migrated, flagged when they have packages", async () => {
+test("moods are flagged when they have active packages", async () => {
   const m = mockFetch((url) =>
     Response.json(
       url.includes("tamam_moods")
@@ -72,9 +90,16 @@ test("moods come from Supabase once migrated, flagged when they have packages", 
     ),
   );
   try {
-    const moods = await api().moods();
-    assert.deepEqual(moods.map((x) => x.has_suggestions), [false, true]);
-    assert.ok(m.calls.every((c) => !c.url.includes("b44.example")));
+    assert.deepEqual((await api().moods()).map((x) => x.has_suggestions), [false, true]);
+  } finally {
+    m.restore();
+  }
+});
+
+test("a wrong key surfaces Supabase's error instead of silently failing", async () => {
+  const m = mockFetch(() => Response.json({ message: "Invalid API key" }, { status: 401 }));
+  try {
+    await assert.rejects(api().restaurants(), /Invalid API key/);
   } finally {
     m.restore();
   }
@@ -88,51 +113,6 @@ test("creating an order posts to the shared orders table and returns its id", as
     assert.equal(m.calls[0].options.method, "POST");
     assert.match(m.calls[0].url, /\/rest\/v1\/orders/);
     assert.equal(m.calls[0].options.headers.Prefer, "return=representation");
-  } finally {
-    m.restore();
-  }
-});
-
-test("an unpublished homepage returns null rather than a malformed config", async () => {
-  const m = mockFetch(() => Response.json({ data: null }));
-  try {
-    assert.equal(await api().home(), null);
-  } finally {
-    m.restore();
-  }
-});
-
-test("a rejected Supabase key falls back to the Base44 proxy, and stays there", async () => {
-  const m = mockFetch((url, o) =>
-    url.includes("/rest/v1/")
-      ? Response.json({ message: "Invalid API key" }, { status: 401 })
-      : Response.json({
-          data: JSON.parse(o.body).action === "createOrder" ? { id: 9 } : [{ id: 3, name: "A" }],
-        }),
-  );
-  try {
-    const a = api();
-    assert.equal((await a.restaurants())[0].id, 3);
-    assert.equal((await a.createOrder({ status: "new" })).id, 9);
-    const proxyCalls = m.calls.filter((c) => c.url.endsWith("/functions/supabaseProxy"));
-    assert.deepEqual(
-      proxyCalls.map((c) => JSON.parse(c.options.body).action),
-      ["getRestaurants", "createOrder"],
-    );
-    assert.equal(m.calls.filter((c) => c.url.includes("/rest/v1/")).length, 1); // not retried
-  } finally {
-    m.restore();
-  }
-});
-
-test("moods fall back to Base44 when the Supabase key is rejected", async () => {
-  const m = mockFetch((url) =>
-    url.includes("/rest/v1/")
-      ? Response.json({ message: "Invalid API key" }, { status: 401 })
-      : Response.json({ data: [{ id: "m1", name_ar: "طاقة" }] }),
-  );
-  try {
-    assert.equal((await api().moods())[0].name_ar, "طاقة");
   } finally {
     m.restore();
   }

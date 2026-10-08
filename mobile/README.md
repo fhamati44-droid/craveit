@@ -12,15 +12,11 @@ npm start
 
 Open with an Expo Go version compatible with SDK 57, or build a development client. The EAS project ID is the project already linked by Fadi: `33a3b10b-e776-48ff-98b5-d04d547e9f6e`.
 
-## Backend connection (updated)
+## Backend
 
-Restaurants, menus, extras and orders now go **directly to Supabase** (`src/lib/api.ts`), the same project and tables as `food-crm-final` and `craveit-nextjs`; orders use the exact `orders` row shape the CRM kitchen reads. TAMAM moods/packages read Supabase `tamam_*` tables when they exist and fall back to Base44 until migrated. See `/MIGRATION.md` for the move and the website deploy.
+Supabase only (`src/lib/api.ts`) — the same project and tables as `food-crm-final` and `craveit-nextjs`; orders use the exact `orders` row shape the CRM kitchen reads. TAMAM moods/packages live in `tamam_*` tables (`/supabase/migrations`). Base44 is no longer used by the app or the website.
 
-## Backend connection (original Base44 notes)
-
-The default connection is the published CraveIt project at `https://crave-it-delivery.base44.app`, application ID `69eb2d67d2208986b7d60a5d`, identified from its public HTML. No environment setup is required. Environment variables or the connection screen can override it.
-
-Public function requests use the published app's origin: the central Base44 API returned 403 during verification, while this origin returned six restaurants. No service tokens or Supabase secrets are included.
+Put the public anon key in `mobile/.env` (see `.env.example`) and, for the website, in the Vercel project's environment variables as `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 
 ## Implemented
 
