@@ -100,6 +100,15 @@ export default function Checkout() {
       // One order per restaurant, so each kitchen in the CRM gets its own ticket.
       for (const order of buildOrders(lines, full)) created.push(await api.createOrder(order));
       const ids = created.map((o) => Number(o.id)).filter(Boolean);
+      // Same Meta Pixel event the old site sent (web only).
+      const fbq = (globalThis as { fbq?: (...a: unknown[]) => void }).fbq;
+      fbq?.("track", "Purchase", {
+        value: total,
+        currency: "ILS",
+        num_items: lines.reduce((n, l) => n + l.quantity, 0),
+        content_ids: lines.map((l) => String(l.meal.id)),
+        content_type: "product",
+      });
       rememberOrders(ids);
       clear();
       router.replace({ pathname: "/order/[id]", params: { id: String(ids[0]), more: String(ids.length - 1) } });

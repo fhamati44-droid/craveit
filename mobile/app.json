@@ -21,6 +21,15 @@
       "eas": {
         "projectId": "33a3b10b-e776-48ff-98b5-d04d547e9f6e"
       }
+    },
+    "web": {
+      "output": "single",
+      "bundler": "metro",
+      "name": "TAMAM",
+      "shortName": "TAMAM",
+      "themeColor": "#06463F",
+      "backgroundColor": "#F6F5F0",
+      "lang": "ar"
     }
   }
 }

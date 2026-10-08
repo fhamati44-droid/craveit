@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>TAMAM · شو مودك هسا؟</title>
+    <meta name="description" content="TAMAM — لفّ العجلة وخلّينا نختارلك الوجبة. أكل بيتي ومطاعم محلية، توصيل لعندك." />
+    <meta name="theme-color" content="#06463F" />
+    <meta property="og:title" content="TAMAM · شو مودك هسا؟" />
+    <meta property="og:description" content="لفّ العجلة وخلّينا نختارلك الوجبة." />
+
+    <!-- Carried over from craveit-nextjs so ads/CRM tracking keeps working -->
+    <!-- Meta Pixel -->
+    <script>
+      !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+      n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+      document,'script','https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '978560778428490');
+      fbq('track', 'PageView');
+    </script>
+    <!-- Microsoft Clarity + ManyChat contact id (?mc_id=...) -->
+    <script>
+      (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "wqm7t9tbua");
+      (function () {
+        try {
+          var mcId = new URLSearchParams(window.location.search).get("mc_id");
+          if (mcId) localStorage.setItem("manychat_contact_id", mcId);
+          else mcId = localStorage.getItem("manychat_contact_id");
+          if (mcId) {
+            window.clarity("identify", mcId, undefined, window.location.pathname, "MC-" + mcId);
+            window.clarity("set", "manychat_contact_id", mcId);
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <!-- CRM tracker (session id, fbclid/gclid → CRM) -->
+    <script src="/site-events.js" defer></script>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  </body>
+</html>
