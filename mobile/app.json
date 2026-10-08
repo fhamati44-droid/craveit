@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "TAMAM",
+    "slug": "tamam",
+    "scheme": "tamam",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "plugins": ["expo-router"],
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.craveit.tamam" },
+    "android": { "package": "com.craveit.tamam" },
+    "extra": { "eas": { "projectId": "33a3b10b-e776-48ff-98b5-d04d547e9f6e" } }
+  }
+}
