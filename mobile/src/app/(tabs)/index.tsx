@@ -51,7 +51,7 @@ export default function Home() {
             backgroundColor: colors.surface,
           }}
         >
-          {media?.file_url && !media.media_type?.includes("video") && (
+          {!!media?.file_url && !media.media_type?.includes("video") && (
             <Picture uri={media.file_url} />
           )}
           <LinearGradient
@@ -103,7 +103,7 @@ export default function Home() {
           <Button label="ربط CraveIt" onPress={() => router.push("/profile")} />
         </View>
       )}
-      {connection.appId && data.error && (
+      {!!connection.appId && !!data.error && (
         <View style={s.card}>
           <Txt>{data.error}</Txt>
           <Button
