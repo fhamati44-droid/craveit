@@ -2,8 +2,10 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { Pressable, Text, View, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors } from "./ui";
+import { colors, font } from "./ui";
+import { TamamLogo } from "./brand";
 import { useStore } from "../lib/state";
+
 export function BrandHeader() {
   const { count } = useStore();
   return (
@@ -11,15 +13,17 @@ export function BrandHeader() {
       <View style={h.bar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="الرئيسية"
+          accessibilityLabel="TAMAM الرئيسية"
           onPress={() => router.push("/")}
+          hitSlop={8}
         >
-          <Text style={h.logo}>▲ TAMAM</Text>
+          <TamamLogo height={20} />
         </Pressable>
-        <View style={h.location}>
-          <Ionicons name="location-outline" size={14} color={colors.green} />
+        <Pressable style={h.location} accessibilityRole="button" accessibilityLabel="موقعك الحالي">
+          <Ionicons name="location" size={14} color={colors.green} />
           <Text style={h.locationText}>موقعك الحالي</Text>
-        </View>
+          <Ionicons name="chevron-down" size={12} color={colors.muted} />
+        </Pressable>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Pressable
             accessibilityRole="button"
@@ -27,7 +31,7 @@ export function BrandHeader() {
             onPress={() => router.push("/restaurants")}
             style={h.icon}
           >
-            <Ionicons name="search-outline" size={20} color={colors.muted} />
+            <Ionicons name="search" size={19} color={colors.teal} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -35,11 +39,7 @@ export function BrandHeader() {
             onPress={() => router.push("/cart")}
             style={h.icon}
           >
-            <Ionicons
-              name="bag-handle-outline"
-              size={20}
-              color={colors.muted}
-            />
+            <Ionicons name="bag-handle-outline" size={19} color={colors.teal} />
             {count > 0 ? (
               <View style={h.badge}>
                 <Text style={h.badgeText}>{count}</Text>
@@ -53,34 +53,32 @@ export function BrandHeader() {
 }
 const h = StyleSheet.create({
   safe: {
-    backgroundColor: colors.ink,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: "#263028",
+    borderBottomColor: colors.outline,
   },
   bar: {
     paddingHorizontal: 16,
-    height: 70,
+    height: 62,
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  logo: {
-    color: colors.bright,
-    fontSize: 19,
-    fontWeight: "900",
-    letterSpacing: -0.8,
+  location: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.bg,
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    height: 34,
   },
-  location: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
-  locationText: {
-    fontFamily: "Alexandria_400Regular",
-    fontSize: 10,
-    color: colors.muted,
-  },
+  locationText: { fontFamily: font.medium, fontSize: 11, color: colors.ink },
   icon: {
-    height: 42,
-    width: 42,
-    borderRadius: 21,
-    backgroundColor: colors.surface,
+    height: 40,
+    width: 40,
+    borderRadius: 20,
+    backgroundColor: colors.bg,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -92,8 +90,10 @@ const h = StyleSheet.create({
     borderRadius: 10,
     minWidth: 18,
     height: 18,
+    borderWidth: 2,
+    borderColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
-  badgeText: { fontSize: 10, fontWeight: "800", color: colors.ink },
+  badgeText: { fontSize: 9, fontFamily: font.bold, color: colors.white },
 });

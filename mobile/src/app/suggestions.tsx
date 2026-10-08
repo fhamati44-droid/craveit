@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { Pressable, Text, View } from "react-native";
-import { Button, money, Page, Picture, s, Status, Txt } from "../components/ui";
+import { colors, Page, s, Status, Txt } from "../components/ui";
+import { packageName, SuggestionCard } from "../components/cards";
 import { useStore } from "../lib/state";
 import { useLoad } from "../lib/useLoad";
 export default function Suggestions() {
@@ -11,24 +12,28 @@ export default function Suggestions() {
   const load = useCallback(() => api.suggestions(mood), [api, mood]);
   const data = useLoad(load);
   const sets = data.value?.sets?.filter(
-    (x) => tier === "all" || x.package_level === tier,
+    (x) => x.is_active !== false && (tier === "all" || x.package_level === tier),
   );
   return (
     <Page>
       <Text style={s.heading}>اقتراحات TAMAM</Text>
-      <View style={[s.row, { flexWrap: "wrap" }]}>
+      <View style={[s.row, { flexWrap: "wrap", gap: 8 }]}>
         {["all", "classic", "mix", "plus"].map((t) => (
           <Pressable
             key={t}
-            style={s.chip}
+            style={[s.chip, tier === t && s.chipOn]}
             onPress={() => setTier(t)}
             accessibilityRole="button"
             accessibilityState={{ selected: tier === t }}
           >
-            <Txt>
-              {tier === t ? "✓ " : ""}
-              {t === "all" ? "الكل" : t}
-            </Txt>
+            <Text
+              style={[
+                s.text,
+                { fontSize: 12, color: tier === t ? colors.white : colors.ink },
+              ]}
+            >
+              {t === "all" ? "الكل" : packageName(t)}
+            </Text>
           </Pressable>
         ))}
       </View>
@@ -38,28 +43,9 @@ export default function Suggestions() {
         retry={() => void data.reload()}
       />
       {sets?.map((set) => (
-        <View key={set.id} style={s.card}>
-          <Picture uri={set.hero_image_url} />
-          <Text style={s.heading}>{set.title_ar || set.title}</Text>
-          <Txt muted>{set.description_ar || ""}</Txt>
-          <Txt>
-            {set.package_level}{" "}
-            {set.display_price_override != null || set.display_price != null
-              ? money(set.display_price_override ?? set.display_price ?? 0)
-              : ""}
-          </Txt>
-          <Button
-            label="شوف الاقتراح"
-            onPress={() =>
-              router.push({
-                pathname: "/suggestion/[id]",
-                params: { id: String(set.id) },
-              })
-            }
-          />
-        </View>
+        <SuggestionCard key={set.id} set={set} width="100%" />
       ))}
-      {sets?.length === 0 && <Txt>ما في اقتراحات منشورة لهالمود.</Txt>}
+      {sets?.length === 0 && <Txt muted>ما في اقتراحات منشورة لهالمود.</Txt>}
     </Page>
   );
 }

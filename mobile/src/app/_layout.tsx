@@ -5,12 +5,16 @@ import { Provider } from "../lib/state";
 import { View, ActivityIndicator } from "react-native";
 import { useFonts } from "expo-font";
 import { Alexandria_400Regular } from "@expo-google-fonts/alexandria/400Regular";
+import { Alexandria_500Medium } from "@expo-google-fonts/alexandria/500Medium";
 import { Alexandria_700Bold } from "@expo-google-fonts/alexandria/700Bold";
+import { Alexandria_800ExtraBold } from "@expo-google-fonts/alexandria/800ExtraBold";
 import { colors } from "../components/ui";
 export default function Layout() {
   const [fontsLoaded, fontError] = useFonts({
     Alexandria_400Regular,
+    Alexandria_500Medium,
     Alexandria_700Bold,
+    Alexandria_800ExtraBold,
   });
   if (!fontsLoaded && !fontError)
     return (
@@ -26,11 +30,13 @@ export default function Layout() {
       >
         <View style={{ flex: 1, width: "100%", maxWidth: 480 }}>
           <Provider>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
             <Stack
               screenOptions={{
-                headerStyle: { backgroundColor: colors.bg },
-                headerTintColor: colors.text,
+                headerStyle: { backgroundColor: colors.surface },
+                headerTintColor: colors.teal,
+                headerTitleStyle: { fontFamily: "Alexandria_700Bold", fontSize: 16 },
+                headerShadowVisible: false,
                 contentStyle: { backgroundColor: colors.bg },
                 headerTitleAlign: "center",
               }}

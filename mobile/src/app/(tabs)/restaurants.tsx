@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
-import { router } from "expo-router";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { Button, Page, Picture, s, Status, Txt } from "../../components/ui";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { colors, Page, s, Status, Txt } from "../../components/ui";
+import { RestaurantCard } from "../../components/cards";
 import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
 import { title } from "../../lib/types";
@@ -21,48 +22,54 @@ export default function Restaurants() {
   return (
     <Page>
       <Text style={s.heading}>شو عبالك اليوم؟</Text>
-      <TextInput
-        style={s.input}
-        placeholder="فتّش عن مطعم"
-        placeholderTextColor="#C0CAB8"
-        value={query}
-        onChangeText={setQuery}
-        accessibilityLabel="بحث المطاعم"
-      />
-      <Button
-        label={open ? "كل المطاعم" : "مفتوح هسا"}
-        onPress={() => setOpen(!open)}
-      />
+      <View style={{ justifyContent: "center" }}>
+        <TextInput
+          style={[s.input, { paddingRight: 44 }]}
+          placeholder="فتّش عن مطعم أو أكلة"
+          placeholderTextColor={colors.muted}
+          value={query}
+          onChangeText={setQuery}
+          accessibilityLabel="بحث المطاعم"
+        />
+        <Ionicons
+          name="search"
+          size={19}
+          color={colors.teal}
+          style={{ position: "absolute", right: 14 }}
+        />
+      </View>
+      <View style={s.row}>
+        {[
+          [false, "كل المطاعم"],
+          [true, "مفتوح هسا"],
+        ].map(([value, label]) => (
+          <Pressable
+            key={String(label)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: open === value }}
+            onPress={() => setOpen(value as boolean)}
+            style={[s.chip, open === value && s.chipOn]}
+          >
+            <Text
+              style={[
+                s.text,
+                { fontSize: 12, color: open === value ? colors.white : colors.ink },
+              ]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
       <Status
         loading={data.loading}
         error={data.error}
         retry={() => void data.reload()}
       />
       {restaurants?.map((r) => (
-        <Pressable
-          key={r.id}
-          accessibilityRole="button"
-          onPress={() =>
-            router.push({
-              pathname: "/restaurant/[id]",
-              params: { id: String(r.id) },
-            })
-          }
-          style={s.card}
-        >
-          <Picture uri={r.cover_url || r.image_url} />
-          <Text style={s.heading}>{title(r)}</Text>
-          <Txt muted>{r.description_ar || r.description || ""}</Txt>
-          <View style={s.row}>
-            <Txt>{(r.is_open ?? r.active) === false ? "مغلق" : "مفتوح"}</Txt>
-            {r.delivery_time != null && (
-              <Txt muted>{r.delivery_time} دقيقة</Txt>
-            )}
-            {r.delivery_fee != null && <Txt muted>توصيل ₪{r.delivery_fee}</Txt>}
-          </View>
-        </Pressable>
+        <RestaurantCard key={r.id} restaurant={r} width="100%" />
       ))}
-      {restaurants?.length === 0 && <Txt>ما لقينا مطاعم مناسبة.</Txt>}
+      {restaurants?.length === 0 && <Txt muted>ما لقينا مطاعم مناسبة.</Txt>}
     </Page>
   );
 }

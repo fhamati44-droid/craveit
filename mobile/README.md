@@ -20,6 +20,11 @@ Public function requests use the published app's origin: the central Base44 API 
 
 ## Implemented
 
+- **Brand refresh (Oct 2026):** light "paper" theme with TAMAM deep teal `#06463F` and brand green `#3FA34D`, SVG wordmark with the green triangles inside the A's (`components/brand.tsx`), triangle confetti, brush-stroke price tags, Alexandria 400/500/700/800.
+- **TAMAM game tab:** a real spinning mood wheel (`components/MoodWheel.tsx`): tap انطلق for a random spin or a mood to spin to it; pointer flick + haptic tick on every slice, chasing rim lights, reduced-motion support. On landing it fetches that mood's suggestion sets and shows one meal in a bottom sheet (بدّي هاي! / لفّ كمان مرة / كل الوجبات).
+- Custom RTL tab bar with a raised TAMAM button in the middle; طلباتي tab is an empty state until order history is ported.
+- `RtlRow` horizontal lists start on their first item (previously opened on the last items).
+
 - Dark TAMAM brand colors, bundled Alexandria Arabic typography, vector icons, branded header and a centered mobile-width web preview.
 - Image-led horizontal suggestion/restaurant cards, native mood tiles, and scheduled CMS visibility. Google Drive share links resolve like the original web image utility.
 - Native tabs, home hero with published CMS headline/media and schedule, restaurant search, menu, meal customization, mood selection, suggestion catalog/detail.

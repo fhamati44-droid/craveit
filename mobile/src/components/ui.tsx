@@ -7,29 +7,49 @@ import {
   Text,
   View,
 } from "react-native";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { imageUrl } from "../lib/media";
 export const colors = {
-  bg: "#101412",
-  surface: "#1C211E",
-  high: "#262B29",
-  green: "#6EBF5F",
-  bright: "#89DB78",
-  ink: "#071312",
-  text: "#DFE3E0",
-  muted: "#C0CAB8",
-  outline: "#40493C",
-  gold: "#EAC45C",
-  error: "#FFB4AB",
+  // TAMAM campaign palette (sampled from the brand ads)
+  bg: "#F6F5F0", // warm paper
+  surface: "#FFFFFF",
+  high: "#EEECE4",
+  teal: "#06463F", // brand deep teal
+  tealDeep: "#03332E",
+  tealMid: "#0D5A51",
+  green: "#3FA34D", // brand green (triangles, price brush)
+  bright: "#5CC25E",
+  mint: "#E6F4E4",
+  ink: "#0F1A19",
+  white: "#FFFFFF",
+  text: "#0F1A19",
+  muted: "#5E6B68",
+  outline: "#E3E1D8",
+  gold: "#E9B949",
+  error: "#B3261E",
+};
+export const font = {
+  regular: "Alexandria_400Regular",
+  medium: "Alexandria_500Medium",
+  bold: "Alexandria_700Bold",
+  black: "Alexandria_800ExtraBold",
+};
+export const shadow = {
+  shadowColor: "#06463F",
+  shadowOpacity: 0.1,
+  shadowRadius: 14,
+  shadowOffset: { width: 0, height: 6 },
+  elevation: 3,
 };
 export const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 16, gap: 16, paddingBottom: 32 },
+  content: { padding: 16, gap: 16, paddingBottom: 40 },
   text: {
     color: colors.text,
     textAlign: "right",
     fontSize: 14,
-    fontFamily: "Alexandria_400Regular",
+    fontFamily: font.regular,
     lineHeight: 24,
     writingDirection: "rtl",
   },
@@ -37,7 +57,7 @@ export const s = StyleSheet.create({
     color: colors.muted,
     textAlign: "right",
     fontSize: 12,
-    fontFamily: "Alexandria_400Regular",
+    fontFamily: font.regular,
     lineHeight: 22,
     writingDirection: "rtl",
   },
@@ -45,9 +65,8 @@ export const s = StyleSheet.create({
     color: colors.text,
     textAlign: "right",
     fontSize: 22,
-    fontFamily: "Alexandria_700Bold",
+    fontFamily: font.black,
     lineHeight: 34,
-
     writingDirection: "rtl",
   },
   row: { flexDirection: "row-reverse", alignItems: "center", gap: 12 },
@@ -56,36 +75,46 @@ export const s = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     gap: 8,
+    borderWidth: 1,
+    borderColor: colors.outline,
   },
   input: {
     color: colors.text,
-    backgroundColor: colors.high,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.outline,
     borderRadius: 14,
     padding: 14,
     textAlign: "right",
-    fontSize: 16,
-    minHeight: 48,
+    fontSize: 15,
+    fontFamily: font.regular,
+    minHeight: 50,
   },
   button: {
-    backgroundColor: colors.green,
+    backgroundColor: colors.teal,
     borderRadius: 16,
     padding: 16,
-    minHeight: 48,
+    minHeight: 50,
     alignItems: "center",
+    justifyContent: "center",
   },
   buttonText: {
-    color: colors.ink,
-    fontFamily: "Alexandria_700Bold",
+    color: colors.white,
+    fontFamily: font.bold,
     fontSize: 14,
   },
   image: { width: "100%", height: 160, borderRadius: 16 },
   chip: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 24,
-    backgroundColor: colors.high,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.outline,
     minHeight: 44,
+    justifyContent: "center",
   },
+  chipOn: { backgroundColor: colors.teal, borderColor: colors.teal },
 });
 export function Txt({
   children,
@@ -100,10 +129,12 @@ export function Button({
   label,
   onPress,
   disabled = false,
+  tone = "teal",
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  tone?: "teal" | "green" | "ghost";
 }) {
   return (
     <Pressable
@@ -111,9 +142,23 @@ export function Button({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={[s.button, disabled && { opacity: 0.45 }]}
+      style={({ pressed }) => [
+        s.button,
+        tone === "green" && { backgroundColor: colors.green },
+        tone === "ghost" && {
+          backgroundColor: "transparent",
+          borderWidth: 1.5,
+          borderColor: colors.teal,
+        },
+        pressed && { transform: [{ scale: 0.98 }], opacity: 0.92 },
+        disabled && { opacity: 0.45 },
+      ]}
     >
-      <Text style={s.buttonText}>{label}</Text>
+      <Text
+        style={[s.buttonText, tone === "ghost" && { color: colors.teal }]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -146,7 +191,7 @@ export function Picture({ uri }: { uri?: string }) {
         },
       ]}
     >
-      <Text style={{ fontSize: 46 }}>🍽️</Text>
+      <Ionicons name="restaurant-outline" size={40} color={colors.green} />
     </View>
   );
 }
@@ -175,3 +220,38 @@ export function Status({
   ) : null;
 }
 export const money = (value: number) => `₪${Number(value).toFixed(2)}`;
+
+/**
+ * Horizontal row laid out right-to-left. With `row-reverse`, the first item
+ * sits at the far end of the content, so start scrolled to the end, otherwise
+ * the row opens on its last items.
+ */
+export function RtlRow({
+  children,
+  gap = 12,
+}: {
+  children: ReactNode;
+  gap?: number;
+}) {
+  const ref = useRef<ScrollView>(null);
+  // Runs after layout settles (web applies scroll only once sizes are known).
+  const toStart = () =>
+    setTimeout(() => ref.current?.scrollToEnd({ animated: false }), 0);
+  return (
+    <ScrollView
+      ref={ref}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      onLayout={toStart}
+      onContentSizeChange={toStart}
+      contentContainerStyle={{
+        flexDirection: "row-reverse",
+        gap,
+        paddingBottom: 12,
+        paddingHorizontal: 2,
+      }}
+    >
+      {children}
+    </ScrollView>
+  );
+}

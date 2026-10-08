@@ -1,27 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import {
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, money, Page, s, Status } from "../../components/ui";
+import { colors, font, Page, RtlRow, Status } from "../../components/ui";
+import { Brush, TamamMark, Tri, TrianglePattern } from "../../components/brand";
+import { RestaurantCard, SuggestionCard } from "../../components/cards";
 import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
 import { imageUrl } from "../../lib/media";
+import { moodIcon } from "../../lib/moods";
 import { title, type Section } from "../../lib/types";
 
-const intents = [
-  ["home-outline", "للبيت"],
-  ["people-outline", "مع الصحاب"],
-  ["restaurant-outline", "مشبعة"],
-  ["leaf-outline", "خفيفة"],
-] as const;
 function SectionTitle({
   label,
   sub,
@@ -33,40 +30,23 @@ function SectionTitle({
 }) {
   return (
     <View style={h.sectionTitle}>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={h.heading}>{label}</Text>
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+          <Tri size={12} color={colors.green} />
+          <Text style={h.heading}>{label}</Text>
+        </View>
         {sub ? <Text style={h.muted}>{sub}</Text> : null}
       </View>
       {open ? (
         <Pressable onPress={open} accessibilityRole="button" style={h.all}>
           <Text style={h.link}>عرض الكل</Text>
-          <Ionicons name="arrow-back" size={17} color={colors.bright} />
+          <Ionicons name="chevron-back" size={15} color={colors.teal} />
         </Pressable>
       ) : null}
     </View>
   );
 }
-function FoodImage({ uri, height = 150 }: { uri?: string; height?: number }) {
-  const [failed, setFailed] = useState(false);
-  return uri && !failed ? (
-    <Image
-      source={{ uri: imageUrl(uri) }}
-      style={{ height, width: "100%", backgroundColor: colors.high }}
-      onError={() => setFailed(true)}
-    />
-  ) : (
-    <View
-      style={{
-        height,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: colors.high,
-      }}
-    >
-      <Ionicons name="restaurant-outline" size={38} color={colors.green} />
-    </View>
-  );
-}
+
 export default function Home() {
   const { api } = useStore();
   const [now, setNow] = useState(() => Date.now());
@@ -109,93 +89,83 @@ export default function Home() {
   const suggestionSection = section("time_suggestions", "suggestions");
   const restaurantSection = section("featured_restaurants");
   const goSuggestions = () => router.push("/suggestions");
+  const heroImage = media?.media_type?.includes("video")
+    ? undefined
+    : media?.file_url || restaurants.value?.[0]?.cover_url;
   return (
     <Page>
       {!home.loading && visible(hero) ? (
-        <View style={h.hero}>
-          <FoodImage
-            uri={
-              media?.media_type?.includes("video")
-                ? undefined
-                : media?.file_url || restaurants.value?.[0]?.cover_url
-            }
-            height={230}
-          />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push("/game")}
+          style={({ pressed }) => [h.hero, pressed && { transform: [{ scale: 0.99 }] }]}
+        >
           <LinearGradient
-            colors={["transparent", "#0B0F0D"]}
-            style={h.heroShade}
+            colors={[colors.tealMid, colors.teal, colors.tealDeep]}
+            start={{ x: 1, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
           />
+          <TrianglePattern opacity={0.08} />
           <View style={h.heroCopy}>
             <Text style={h.eyebrow}>TAMAM · حسب مودك</Text>
             <Text style={h.heroTitle}>
               {settings.headline || "شو عبالك تاكل اليوم؟"}
             </Text>
-            <Text style={h.muted}>
-              {settings.supporting_text || "إذا محتار، TAMAM بتسهّلها عليك."}
+            <Text style={h.heroSub}>
+              {settings.supporting_text || "لفّ العجلة، و TAMAM بتختارلك الوجبة."}
             </Text>
+            <Brush style={{ alignSelf: "flex-end", marginTop: 8, paddingHorizontal: 22, paddingVertical: 10 }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                <Text style={h.heroCta}>انطلق</Text>
+                <Ionicons name="arrow-back" size={18} color={colors.white} />
+              </View>
+            </Brush>
           </View>
+          <View style={h.heroArt}>
+            {heroImage ? (
+              <Image source={{ uri: imageUrl(heroImage) }} style={h.heroImage} />
+            ) : (
+              <View style={[h.heroImage, h.heroMark]}>
+                <TamamMark size={64} color={colors.white} />
+              </View>
+            )}
+          </View>
+        </Pressable>
+      ) : null}
+
+      {moods.value?.length ? (
+        <View style={h.section}>
+          <SectionTitle label="شو مودك هسا؟" open={() => router.push("/game")} />
+          <RtlRow>
+            {moods.value.slice(0, 10).map((mood) => (
+              <Pressable
+                key={mood.id}
+                accessibilityRole="button"
+                style={h.mood}
+                onPress={() =>
+                  router.push({
+                    pathname: "/suggestions",
+                    params: { mood: String(mood.id) },
+                  })
+                }
+              >
+                <View style={h.moodCircle}>
+                  <MaterialIcons
+                    name={moodIcon(mood)}
+                    size={28}
+                    color={colors.teal}
+                  />
+                </View>
+                <Text style={h.moodText} numberOfLines={2}>
+                  {title(mood)}
+                </Text>
+              </Pressable>
+            ))}
+          </RtlRow>
         </View>
       ) : null}
-      <Pressable
-        style={h.surprise}
-        onPress={() => router.push("/game")}
-        accessibilityRole="button"
-      >
-        <View style={h.spark}>
-          <Ionicons name="sparkles" size={26} color={colors.ink} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={h.primaryText}>فاجئني</Text>
-          <Text style={h.primarySub}>خلّي TAMAM تختارلك وجبة</Text>
-        </View>
-        <Ionicons name="arrow-back" size={22} color={colors.ink} />
-      </Pressable>
-      <View style={h.secondaryRow}>
-        <Pressable
-          style={[h.secondary, { flex: 1.6 }]}
-          onPress={goSuggestions}
-          accessibilityRole="button"
-        >
-          <Ionicons name="restaurant-outline" size={23} color={colors.bright} />
-          <View style={{ flex: 1 }}>
-            <Text style={h.cardTitle}>اقتراحات TAMAM</Text>
-            <Text style={h.small}>حسب مودك والوقت</Text>
-          </View>
-        </Pressable>
-        <Pressable
-          style={[
-            h.secondary,
-            {
-              flex: 1,
-              backgroundColor: "transparent",
-              borderWidth: 1,
-              borderColor: "#303A31",
-            },
-          ]}
-          onPress={() => router.push("/restaurants")}
-          accessibilityRole="button"
-        >
-          <Ionicons name="search-outline" size={20} color={colors.muted} />
-          <Text style={h.cardTitle}>فتّش</Text>
-        </Pressable>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={h.horizontal}
-      >
-        {intents.map(([icon, label]) => (
-          <Pressable
-            key={label}
-            style={h.intent}
-            onPress={goSuggestions}
-            accessibilityRole="button"
-          >
-            <Ionicons name={icon} size={15} color={colors.bright} />
-            <Text style={h.small}>{label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+
       {visible(suggestionSection) ? (
         <View style={h.section}>
           <SectionTitle
@@ -208,61 +178,32 @@ export default function Home() {
             error={suggestions.error}
             retry={suggestions.reload}
           />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={h.horizontal}
-          >
+          <RtlRow>
             {sets.map((set) => (
-              <Pressable
-                key={set.id}
-                style={h.foodCard}
-                accessibilityRole="button"
-                onPress={() =>
-                  router.push({
-                    pathname: "/suggestion/[id]",
-                    params: { id: String(set.id) },
-                  })
-                }
-              >
-                <FoodImage uri={set.hero_image_url} />
-                <View style={h.cardBody}>
-                  <View style={h.pill}>
-                    <Text style={h.pillText}>
-                      {set.package_level === "plus"
-                        ? "بلس"
-                        : set.package_level === "mix"
-                          ? "ميكس"
-                          : "كلاسيك"}
-                    </Text>
-                  </View>
-                  <Text style={h.cardTitle} numberOfLines={2}>
-                    {set.title_ar || set.title}
-                  </Text>
-                  <View style={h.priceRow}>
-                    {set.display_price_override != null ||
-                    set.display_price != null ? (
-                      <Text style={h.price}>
-                        {money(
-                          set.display_price_override ?? set.display_price ?? 0,
-                        )}
-                      </Text>
-                    ) : null}
-                    <Ionicons
-                      name="arrow-back"
-                      size={19}
-                      color={colors.bright}
-                    />
-                  </View>
-                </View>
-              </Pressable>
+              <SuggestionCard key={set.id} set={set} />
             ))}
-          </ScrollView>
+          </RtlRow>
           {!suggestions.loading && !suggestions.error && !sets.length ? (
             <Text style={h.muted}>ما في اقتراحات منشورة حالياً.</Text>
           ) : null}
         </View>
       ) : null}
+
+      <Pressable
+        style={h.banner}
+        onPress={() => router.push("/game")}
+        accessibilityRole="button"
+      >
+        <View style={h.bannerIcon}>
+          <TamamMark size={30} color={colors.teal} accent={colors.green} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={h.bannerTitle}>محتار؟ خلّيها علينا</Text>
+          <Text style={h.muted}>دوسة وحدة، والعجلة بتختارلك.</Text>
+        </View>
+        <Ionicons name="chevron-back" size={20} color={colors.teal} />
+      </Pressable>
+
       {visible(restaurantSection) ? (
         <View style={h.section}>
           <SectionTitle
@@ -274,79 +215,18 @@ export default function Home() {
             error={restaurants.error}
             retry={restaurants.reload}
           />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={h.horizontal}
-          >
+          <RtlRow>
             {restaurants.value?.map((restaurant) => (
-              <Pressable
-                key={restaurant.id}
-                style={[h.foodCard, { width: 260 }]}
-                accessibilityRole="button"
-                onPress={() =>
-                  router.push({
-                    pathname: "/restaurant/[id]",
-                    params: { id: String(restaurant.id) },
-                  })
-                }
-              >
-                <FoodImage uri={restaurant.cover_url || restaurant.image_url} />
-                <View style={h.cardBody}>
-                  <Text style={h.cardTitle} numberOfLines={1}>
-                    {title(restaurant)}
-                  </Text>
-                  <View style={h.priceRow}>
-                    <Text style={h.small}>
-                      {restaurant.delivery_fee != null
-                        ? `توصيل ${money(restaurant.delivery_fee)}`
-                        : ""}
-                    </Text>
-                    <Text style={h.link}>شوف المنيو ←</Text>
-                  </View>
-                </View>
-              </Pressable>
+              <RestaurantCard key={restaurant.id} restaurant={restaurant} />
             ))}
-          </ScrollView>
+          </RtlRow>
         </View>
       ) : null}
-      <LinearGradient colors={["#27352A", "#15221B"]} style={h.game}>
-        <Text style={[h.eyebrow, { color: colors.gold }]}>✦ TAMAM مود جيم</Text>
-        <Text style={h.heading}>جوعان ومش عارف شو تختار؟</Text>
-        <Text style={h.muted}>اختار مود، وإحنا بنكمل معك.</Text>
-        <View style={h.moods}>
-          {moods.value?.slice(0, 4).map((mood) => (
-            <Pressable
-              key={mood.id}
-              accessibilityRole="button"
-              style={h.mood}
-              onPress={() =>
-                router.push({
-                  pathname: "/suggestions",
-                  params: { mood: String(mood.id) },
-                })
-              }
-            >
-              <Ionicons name="sparkles-outline" size={20} color={colors.gold} />
-              <Text style={h.small} numberOfLines={2}>
-                {title(mood)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <Pressable
-          onPress={() => router.push("/game")}
-          accessibilityRole="button"
-          style={h.gameCta}
-        >
-          <Text style={h.primaryText}>اكتشف مودك</Text>
-          <Ionicons name="arrow-back" size={20} color={colors.ink} />
-        </Pressable>
-      </LinearGradient>
+
       {visible(section("home_trust", "trust_payments")) ? (
         <View style={h.trust}>
-          <Ionicons name="restaurant-outline" size={20} color={colors.green} />
-          <Text style={h.small}>مطاعم محلية · اختيارات حسب مودك</Text>
+          <Ionicons name="location" size={16} color={colors.green} />
+          <Text style={h.muted}>مطاعم محلية · اختيارات حسب مودك</Text>
         </View>
       ) : null}
       {!!home.error ? (
@@ -361,179 +241,103 @@ export default function Home() {
   );
 }
 const h = StyleSheet.create({
-  section: { gap: 14, marginTop: 12 },
+  section: { gap: 12, marginTop: 6 },
   sectionTitle: { flexDirection: "row-reverse", alignItems: "center", gap: 16 },
   heading: {
-    fontFamily: "Alexandria_700Bold",
+    fontFamily: font.black,
     fontSize: 18,
     lineHeight: 30,
-    color: colors.text,
+    color: colors.teal,
     textAlign: "right",
   },
-  muted: { ...s.muted },
-  small: {
-    fontFamily: "Alexandria_400Regular",
-    fontSize: 11,
+  muted: {
+    fontFamily: font.regular,
+    fontSize: 12,
     lineHeight: 20,
     color: colors.muted,
     textAlign: "right",
   },
-  link: {
-    fontFamily: "Alexandria_700Bold",
-    color: colors.bright,
-    fontSize: 11,
-  },
-  all: {
+  link: { fontFamily: font.bold, color: colors.teal, fontSize: 12 },
+  all: { flexDirection: "row-reverse", gap: 2, alignItems: "center", minHeight: 44 },
+  hero: {
+    borderRadius: 26,
+    overflow: "hidden",
+    minHeight: 210,
     flexDirection: "row-reverse",
-    gap: 5,
     alignItems: "center",
-    minHeight: 44,
+    padding: 18,
+    gap: 12,
   },
-  hero: { borderRadius: 22, overflow: "hidden" },
-  heroShade: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0 },
-  heroCopy: { position: "absolute", bottom: 18, right: 18, left: 18, gap: 6 },
+  heroCopy: { flex: 1.25, gap: 4 },
+  eyebrow: { fontFamily: font.bold, fontSize: 11, color: colors.bright, textAlign: "right" },
   heroTitle: {
-    fontFamily: "Alexandria_700Bold",
-    fontSize: 25,
+    fontFamily: font.black,
+    fontSize: 24,
     lineHeight: 36,
-    color: colors.text,
+    color: colors.white,
     textAlign: "right",
   },
-  eyebrow: {
-    fontFamily: "Alexandria_700Bold",
+  heroSub: {
+    fontFamily: font.regular,
+    fontSize: 12,
+    lineHeight: 20,
+    color: "#CFE3DE",
+    textAlign: "right",
+  },
+  heroCta: { fontFamily: font.black, fontSize: 16, color: colors.white },
+  heroArt: { flex: 1, alignItems: "center" },
+  heroImage: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 999,
+    borderWidth: 4,
+    borderColor: "rgba(255,255,255,0.9)",
+  },
+  heroMark: { backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" },
+  mood: { width: 76, alignItems: "center", gap: 6 },
+  moodCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: colors.mint,
+    borderWidth: 2,
+    borderColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  moodText: {
+    fontFamily: font.medium,
     fontSize: 11,
-    color: colors.bright,
-    textAlign: "right",
+    lineHeight: 16,
+    color: colors.ink,
+    textAlign: "center",
   },
-  surprise: {
+  banner: {
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 12,
-    backgroundColor: colors.green,
+    backgroundColor: colors.mint,
     borderRadius: 20,
-    padding: 16,
-  },
-  spark: {
-    height: 48,
-    width: 48,
-    backgroundColor: "#07131215",
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryText: {
-    fontFamily: "Alexandria_700Bold",
-    fontSize: 16,
-    color: colors.ink,
-    textAlign: "right",
-  },
-  primarySub: {
-    fontFamily: "Alexandria_400Regular",
-    fontSize: 10,
-    lineHeight: 21,
-    color: colors.ink,
-    textAlign: "right",
-  },
-  secondaryRow: { flexDirection: "row-reverse", gap: 10 },
-  secondary: {
-    borderRadius: 18,
     padding: 14,
-    backgroundColor: colors.high,
-    flexDirection: "row-reverse",
-    gap: 10,
-    alignItems: "center",
-  },
-  horizontal: { flexDirection: "row-reverse", gap: 12, paddingBottom: 4 },
-  intent: {
-    flexDirection: "row-reverse",
-    gap: 6,
-    alignItems: "center",
     borderWidth: 1,
-    borderColor: "#303A31",
-    borderRadius: 22,
-    paddingHorizontal: 14,
-    height: 42,
+    borderColor: "#CFE8CB",
+  },
+  bannerIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     backgroundColor: colors.surface,
-  },
-  foodCard: {
-    width: 220,
-    borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#2B332D",
-    backgroundColor: "#0B0F0D",
-  },
-  cardBody: { padding: 14, gap: 10 },
-  cardTitle: {
-    fontFamily: "Alexandria_700Bold",
-    fontSize: 12,
-    lineHeight: 23,
-    color: colors.text,
-    textAlign: "right",
-  },
-  pill: {
-    alignSelf: "flex-end",
-    backgroundColor: "#6EBF5F18",
-    borderRadius: 8,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  pillText: {
-    fontFamily: "Alexandria_700Bold",
-    fontSize: 10,
-    color: colors.bright,
-  },
-  priceRow: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  price: {
-    fontFamily: "Alexandria_700Bold",
-    fontSize: 15,
-    color: colors.bright,
-  },
-  game: {
-    borderRadius: 24,
-    padding: 22,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "#3D4B37",
-    marginTop: 12,
-  },
-  moods: {
-    flexDirection: "row-reverse",
-    gap: 8,
-    marginVertical: 12,
-    flexWrap: "wrap",
-  },
-  mood: {
-    flex: 1,
-    minWidth: 65,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    padding: 10,
-    borderRadius: 15,
-    backgroundColor: "#10141270",
-    minHeight: 90,
   },
-  gameCta: {
-    backgroundColor: colors.green,
-    borderRadius: 15,
-    padding: 14,
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+  bannerTitle: { fontFamily: font.black, fontSize: 15, color: colors.teal, textAlign: "right" },
   trust: {
     flexDirection: "row-reverse",
     justifyContent: "center",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 20,
+    gap: 6,
+    paddingVertical: 18,
     borderTopWidth: 1,
-    borderTopColor: "#263028",
-    marginTop: 10,
+    borderTopColor: colors.outline,
   },
 });
