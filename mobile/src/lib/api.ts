@@ -20,7 +20,11 @@ import type {
 export const SUPABASE_URL =
   process.env.EXPO_PUBLIC_SUPABASE_URL ||
   "https://dcpqgxlgiitrdozkykbq.supabase.co";
-export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
+// Public anon key (role "anon", project dcpqgxlgiitrdozkykbq) — same value as
+// NEXT_PUBLIC_SUPABASE_ANON_KEY on Vercel. Safe to ship; RLS protects data.
+export const SUPABASE_ANON_KEY =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjcHFneGxnaWl0cmRvemt5a2JxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMTg2NzQsImV4cCI6MjA5MDg5NDY3NH0.smWoCEMbvQ2XwO-N40vTUh1vE6g5kFbwBfAZt9JpGWk";
 
 export class DbError extends Error {
   status: number;
