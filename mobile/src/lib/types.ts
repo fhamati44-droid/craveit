@@ -8,10 +8,12 @@ export interface Restaurant {
   image_url?: string;
   cover_url?: string;
   logo_url?: string;
+  slug?: string;
   is_open?: boolean;
   active?: boolean;
+  kitchen_id?: number | null;
   delivery_fee?: number;
-  delivery_time?: number;
+  delivery_time?: number | string;
   minimum_order?: number;
   min_order?: number;
 }
@@ -33,11 +35,14 @@ export interface Category {
 export interface Extra {
   id: Id;
   name: string;
+  name_ar?: string | null;
   price: number;
 }
 export interface ExtraGroup {
   id: Id;
   group_name: string;
+  name?: string;
+  name_ar?: string | null;
   required?: boolean;
   min_select?: number;
   max_select?: number;
@@ -63,6 +68,44 @@ export interface Suggestion {
   package_level?: string;
   display_price?: number;
   display_price_override?: number;
+  badge_text_ar?: string;
+}
+export interface SuggestionItem {
+  suggestion_set_id?: Id;
+  meal_id: Id;
+  restaurant_id: Id;
+  quantity?: number;
+  selected_addon_ids?: Id[];
+  item_note?: string;
+}
+export type OrderStatus =
+  | "new"
+  | "confirmed"
+  | "cooking"
+  | "ready"
+  | "delivered"
+  | "cancelled";
+/** Row of the shared `orders` table (read by the CRM kitchen/courier). */
+export interface Order {
+  id: number;
+  customer_name?: string;
+  phone?: string;
+  address?: string;
+  notes?: string | null;
+  kitchen_id?: number | null;
+  channel?: string;
+  items?: string;
+  order_items?: {
+    name: string;
+    quantity: number;
+    price: number;
+    extras?: { name: string; price: number }[];
+    item_total: number;
+  }[];
+  quantity?: number;
+  amount?: number;
+  status?: OrderStatus | string;
+  created_at?: string;
 }
 export interface Section {
   title?: string;

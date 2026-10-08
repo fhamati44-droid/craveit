@@ -47,6 +47,8 @@ export default function Layout() {
                 options={{ title: "المطعم" }}
               />
               <Stack.Screen name="cart" options={{ title: "السلة" }} />
+              <Stack.Screen name="checkout" options={{ title: "تأكيد الطلب" }} />
+              <Stack.Screen name="order/[id]" options={{ title: "تتبّع الطلب" }} />
               <Stack.Screen
                 name="suggestions"
                 options={{ title: "اقتراحات TAMAM" }}

@@ -19,8 +19,18 @@ export interface Line {
   note: string;
   quantity: number;
 }
+export interface Customer {
+  name: string;
+  phone: string;
+  address: string;
+}
+const emptyCustomer: Customer = { name: "", phone: "", address: "" };
 interface Store {
   api: Api;
+  customer: Customer;
+  saveCustomer: (c: Customer) => void;
+  orderIds: number[];
+  rememberOrders: (ids: number[]) => void;
   connection: Connection;
   ready: boolean;
   saveConnection: (c: Connection) => Promise<void>;
@@ -36,14 +46,24 @@ export function Provider({ children }: { children: ReactNode }) {
   const [connection, setConnection] = useState(defaultConnection);
   const [lines, setLines] = useState<Line[]>([]);
   const [ready, setReady] = useState(false);
+  const [customer, setCustomer] = useState<Customer>(emptyCustomer);
+  const [orderIds, setOrderIds] = useState<number[]>([]);
   useEffect(() => {
     let active = true;
-    AsyncStorage.multiGet(["craveit.connection", "craveit.cart"])
+    AsyncStorage.multiGet([
+      "craveit.connection",
+      "craveit.cart",
+      "tamam.customer",
+      "tamam.orders",
+    ])
       .then((values) => {
         if (!active) return;
         try {
           if (values[0][1]) setConnection(JSON.parse(values[0][1]));
           if (values[1][1]) setLines(JSON.parse(values[1][1]));
+          if (values[2][1])
+            setCustomer({ ...emptyCustomer, ...JSON.parse(values[2][1]) });
+          if (values[3][1]) setOrderIds(JSON.parse(values[3][1]));
         } catch {
           /* Ignore an old/corrupt local snapshot. */
         }
@@ -65,6 +85,18 @@ export function Provider({ children }: { children: ReactNode }) {
   const api = useMemo(() => createApi(connection), [connection]);
   const store: Store = {
     api,
+    customer,
+    saveCustomer: (c) => {
+      setCustomer(c);
+      AsyncStorage.setItem("tamam.customer", JSON.stringify(c)).catch(() => {});
+    },
+    orderIds,
+    rememberOrders: (ids) =>
+      setOrderIds((previous) => {
+        const next = [...ids, ...previous.filter((x) => !ids.includes(x))].slice(0, 30);
+        AsyncStorage.setItem("tamam.orders", JSON.stringify(next)).catch(() => {});
+        return next;
+      }),
     connection,
     ready,
     lines,
