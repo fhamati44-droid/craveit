@@ -14,8 +14,8 @@ export interface Connection {
   appBaseUrl: string;
 }
 export const defaultConnection: Connection = {
-  appId: process.env.EXPO_PUBLIC_BASE44_APP_ID || "",
-  appBaseUrl: process.env.EXPO_PUBLIC_BASE44_APP_BASE_URL || "",
+  appId: process.env.EXPO_PUBLIC_BASE44_APP_ID || "69eb2d67d2208986b7d60a5d",
+  appBaseUrl: process.env.EXPO_PUBLIC_BASE44_APP_BASE_URL || "https://crave-it-delivery.base44.app",
 };
 export function createApi(connection: Connection) {
   async function invoke<T>(
@@ -31,7 +31,7 @@ export function createApi(connection: Connection) {
     const timeout = setTimeout(() => controller.abort(), 20000);
     try {
       const response = await fetch(
-        `https://base44.app/api/apps/${encodeURIComponent(connection.appId)}/functions/${encodeURIComponent(name)}`,
+        `${connection.appBaseUrl || "https://base44.app"}/api/apps/${encodeURIComponent(connection.appId)}/functions/${encodeURIComponent(name)}`,
         {
           method: "POST",
           headers: {

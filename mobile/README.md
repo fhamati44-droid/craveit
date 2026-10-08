@@ -14,9 +14,9 @@ Open with an Expo Go version compatible with SDK 57, or build a development clie
 
 ## Backend connection
 
-The repository does not contain its real `VITE_BASE44_APP_ID` or deployment URL. The README's ID is explicitly an example and is not used.
+The default connection is the published CraveIt project at `https://crave-it-delivery.base44.app`, application ID `69eb2d67d2208986b7d60a5d`, identified from its public HTML. No environment setup is required. Environment variables or the connection screen can override it.
 
-Set `EXPO_PUBLIC_BASE44_APP_ID` in `mobile/.env` using the web deployment's real value, or enter it in the native **حسابي** connection screen. The connection is checked with `getRestaurants` before saving locally. The optional Base44 app URL is retained as deployment metadata; public function calls use the central Base44 API, as the source SDK does. Do not put service tokens or Supabase secrets in the mobile app.
+Public function requests use the published app's origin: the central Base44 API returned 403 during verification, while this origin returned six restaurants. No service tokens or Supabase secrets are included.
 
 ## Implemented
 
@@ -28,7 +28,7 @@ Set `EXPO_PUBLIC_BASE44_APP_ID` in `mobile/.env` using the web deployment's real
 
 ## Still pending
 
-This is an initial native customer port, not a full migration of the repository. Live backend data cannot be verified until the actual Base44 app ID is available. Checkout, payments, order tracking/history, rewards, campaign/group-deal mechanics, restaurant fulfillment switching, all CMS slots, Hebrew localization, admin and partner interfaces are not implemented yet. Cart totals currently exclude delivery and discounts. No orders are submitted by this build.
+This is an initial native customer port, not a full migration of the repository. The restaurant read endpoint has been verified against the live published backend. Other live flows and physical-device behavior still need verification. Checkout, payments, order tracking/history, rewards, campaign/group-deal mechanics, restaurant fulfillment switching, all CMS slots, Hebrew localization, admin and partner interfaces are not implemented yet. Cart totals currently exclude delivery and discounts. No orders are submitted by this build.
 
 ```sh
 npm run typecheck
