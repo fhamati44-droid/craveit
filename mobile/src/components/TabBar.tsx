@@ -13,6 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { colors, font } from "./ui";
 import { TamamMark } from "./brand";
+import { useT, type Key } from "../lib/i18n";
 
 type Icon = keyof typeof Ionicons.glyphMap;
 const ICONS: Record<string, [Icon, Icon]> = {
@@ -25,11 +26,14 @@ const ICONS: Record<string, [Icon, Icon]> = {
 /** RTL bottom bar with the raised TAMAM game button in the middle. */
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { t: tr, sheet } = useT();
+  const t = sheet(ts);
   return (
     <View style={[t.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {state.routes.map((route, index) => {
         const focused = state.index === index;
-        const label = descriptors[route.key].options.title ?? route.name;
+        // Tab titles are translation keys (see app/(tabs)/_layout.tsx).
+        const label = tr((descriptors[route.key].options.title ?? route.name) as Key);
         const go = () => {
           const event = navigation.emit({
             type: "tabPress",
@@ -40,7 +44,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             navigation.navigate(route.name, route.params);
         };
         if (route.name === "game")
-          return <GameButton key={route.key} focused={focused} onPress={go} />;
+          return <GameButton key={route.key} focused={focused} onPress={go} label={tr("tamamGame")} />;
         const [off, on] = ICONS[route.name] || ["ellipse-outline", "ellipse"];
         return (
           <Pressable
@@ -68,9 +72,11 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 function GameButton({
   focused,
   onPress,
+  label,
 }: {
   focused: boolean;
   onPress: () => void;
+  label: string;
 }) {
   const reduce = useReducedMotion();
   const ring = useSharedValue(0);
@@ -81,6 +87,7 @@ function GameButton({
       -1,
     );
   }, [reduce, focused, ring]);
+  const t = ts;
   const ringStyle = useAnimatedStyle(() => ({
     opacity: focused ? 0 : 0.55 * (1 - ring.value),
     transform: [{ scale: 1 + ring.value * 0.45 }],
@@ -89,7 +96,7 @@ function GameButton({
     <Pressable
       accessibilityRole="tab"
       accessibilityState={{ selected: focused }}
-      accessibilityLabel="TAMAM، لعبة المود"
+      accessibilityLabel={label}
       onPress={onPress}
       style={t.item}
     >
@@ -108,7 +115,7 @@ function GameButton({
   );
 }
 
-const t = StyleSheet.create({
+const ts = StyleSheet.create({
   bar: {
     flexDirection: "row-reverse",
     backgroundColor: colors.surface,

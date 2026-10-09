@@ -2,17 +2,20 @@ import { useCallback } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Button, colors, font, money, Page, s, Status } from "../../components/ui";
+import { Button, colors, font, money, Page, Status, useS } from "../../components/ui";
+import { useT } from "../../lib/i18n";
 import { Brush } from "../../components/brand";
-import { FoodImage, packageName } from "../../components/cards";
+import { FoodImage } from "../../components/cards";
 import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
 import { lineTotal } from "../../lib/orders";
-import { title } from "../../lib/types";
 
 export default function Suggestion() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, add } = useStore();
+  const { t, name, desc, pkg, sheet } = useT();
+  const s = useS();
+  const p = sheet(ps);
   const data = useLoad(
     useCallback(async () => {
       const { set, items } = await api.suggestion(id);
@@ -46,39 +49,39 @@ export default function Suggestion() {
           </View>
           <View style={{ gap: 6 }}>
             <View style={p.pill}>
-              <Text style={p.pillText}>{set.badge_text_ar || packageName(set.package_level)}</Text>
+              <Text style={p.pillText}>{set.badge_text_ar || pkg(set.package_level)}</Text>
             </View>
-            <Text style={s.heading}>{set.title_ar || set.title}</Text>
-            {set.description_ar ? <Text style={p.muted}>{set.description_ar}</Text> : null}
+            <Text style={s.heading}>{name(set)}</Text>
+            {desc(set) ? <Text style={p.muted}>{desc(set)}</Text> : null}
           </View>
 
           {lines.length ? (
             <View style={s.card}>
-              <Text style={p.section}>شو في بالباقة</Text>
+              <Text style={p.section}>{t("inPackage")}</Text>
               {lines.map((l, i) => (
                 <View key={i} style={p.line}>
                   <Text style={p.qty}>{l.quantity}×</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={p.meal}>{title(l.meal)}</Text>
+                    <Text style={p.meal}>{name(l.meal)}</Text>
                     <Text style={p.muted}>
-                      {title(l.restaurant)}
-                      {l.extras.length ? ` · ${l.extras.map((e) => e.name_ar || e.name).join("، ")}` : ""}
+                      {name(l.restaurant)}
+                      {l.extras.length ? ` · ${l.extras.map((e) => name(e)).join(", ")}` : ""}
                     </Text>
                   </View>
                   <Text style={p.lineTotal}>{money(lineTotal(l))}</Text>
                 </View>
               ))}
               <View style={[p.line, p.totalRow]}>
-                <Text style={p.section}>المجموع</Text>
+                <Text style={p.section}>{t("total")}</Text>
                 <Text style={p.total}>{money(total)}</Text>
               </View>
             </View>
           ) : null}
 
           {lines.length ? (
-            <Button label="ضيف الباقة للسلة" tone="green" onPress={addAll} />
+            <Button label={t("addPackage")} tone="green" onPress={addAll} />
           ) : (
-            <Text style={p.muted}>اختار الوجبات من قائمة المطعم:</Text>
+            <Text style={p.muted}>{t("pickFromMenu")}</Text>
           )}
           {[...new Set((data.value?.items || []).map((it) => String(it.restaurant_id)))].map((rid) => {
             const r = lines.find((l) => String(l.restaurant.id) === rid)?.restaurant;
@@ -86,14 +89,14 @@ export default function Suggestion() {
               <Button
                 key={rid}
                 tone="ghost"
-                label={r ? `غيّر بالطلب من ${title(r)}` : "شوف قائمة المطعم"}
+                label={r ? t("changeAt", { name: name(r) }) : t("seeMenu")}
                 onPress={() => router.push({ pathname: "/restaurant/[id]", params: { id: rid } })}
               />
             );
           })}
           <View style={p.hint}>
             <Ionicons name="information-circle-outline" size={16} color={colors.muted} />
-            <Text style={p.muted}>بتقدر تعدّل الكميات من السلة قبل ما تطلب.</Text>
+            <Text style={p.muted}>{t("editInCart")}</Text>
           </View>
         </>
       ) : null}
@@ -101,7 +104,7 @@ export default function Suggestion() {
   );
 }
 
-const p = StyleSheet.create({
+const ps = StyleSheet.create({
   hero: { borderRadius: 22, overflow: "hidden" },
   price: { position: "absolute", bottom: 14, left: 14, paddingHorizontal: 20 },
   priceText: { fontFamily: font.black, fontSize: 24, color: colors.white },

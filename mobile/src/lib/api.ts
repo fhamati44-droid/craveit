@@ -12,6 +12,8 @@ import type {
   SuggestionItem,
 } from "./types";
 
+// Error messages that are translation keys (errOffline…) are shown translated
+// by the UI (see useT().msg).
 // Everything goes to Supabase directly — the same project the CRM
 // (food-crm-final) and the old site (craveit-nextjs) use. No Base44.
 // The anon key is public by design (it ships in every web bundle); what
@@ -48,7 +50,7 @@ export async function rest<T>(
 ): Promise<T> {
   if (!key)
     throw new DbError(
-      "ناقص مفتاح Supabase (EXPO_PUBLIC_SUPABASE_ANON_KEY) بملف ‎.env",
+      "errNoKey",
       401,
     );
   const controller = new AbortController();
@@ -70,7 +72,7 @@ export async function rest<T>(
     if (!response.ok) {
       const err = data as { message?: string; code?: string } | null;
       throw new DbError(
-        err?.message || `تعذر الاتصال بالخادم (${response.status})`,
+        err?.message || "errServer",
         response.status,
         err?.code,
       );
@@ -78,7 +80,7 @@ export async function rest<T>(
     return data as T;
   } catch (e) {
     if (e instanceof DbError) throw e;
-    throw new DbError("ما في اتصال بالإنترنت، أو الخادم مش متاح هسا.", 0);
+    throw new DbError("errOffline", 0);
   } finally {
     clearTimeout(timeout);
   }
@@ -107,7 +109,7 @@ export function createApi(key: string = SUPABASE_ANON_KEY) {
       get<Restaurant[]>("restaurants?select=*&active=eq.true&order=id.asc"),
     restaurant: async (id: Id) => {
       const rows = await get<Restaurant[]>(`restaurants?select=*&id=${eq(id)}`);
-      if (!rows?.[0]) throw new Error("المطعم مش موجود.");
+      if (!rows?.[0]) throw new Error("errNotFound");
       return rows[0];
     },
     menu: async (restaurantId: Id): Promise<Category[]> => {
@@ -132,7 +134,7 @@ export function createApi(key: string = SUPABASE_ANON_KEY) {
       );
       return (groups || []).map((g) => ({
         ...g,
-        group_name: g.group_name || g.name_ar || g.name || "إضافات",
+        group_name: g.group_name || g.name_ar || g.name || "+",
         menu_extra_options: [...(g.menu_extra_options || [])].sort(
           (a, b) =>
             Number((a as { sort_order?: number }).sort_order || 0) -
@@ -175,7 +177,7 @@ export function createApi(key: string = SUPABASE_ANON_KEY) {
           `tamam_suggestion_items?select=*&suggestion_set_id=${eq(id)}&order=sort_order.asc`,
         ),
       ]);
-      if (!sets[0]) throw new Error("الاقتراح مش موجود.");
+      if (!sets[0]) throw new Error("errNotFound");
       return { set: sets[0], items };
     },
 

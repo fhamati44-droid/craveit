@@ -2,15 +2,19 @@ import { useCallback } from "react";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Button, colors, font, money, Page, s, Status } from "../../components/ui";
+import { Button, colors, font, money, Page, Status, useS } from "../../components/ui";
+import { useT } from "../../lib/i18n";
 import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
-import { STATUS_LABEL } from "../../lib/orders";
+import { statusKey } from "../../lib/orders";
 import type { Order } from "../../lib/types";
 
 const live = (o: Order) => o.status !== "delivered" && o.status !== "cancelled";
 
 export default function Orders() {
+  const { t, sheet, lang } = useT();
+  const s = useS();
+  const o = sheet(os);
   const { api, count, orderIds, customer } = useStore();
   const phone = customer.phone.trim();
   // Orders placed from this device, plus older ones (e.g. from the old site)
@@ -35,19 +39,19 @@ export default function Orders() {
           <View style={o.icon}>
             <Ionicons name="receipt-outline" size={34} color={colors.teal} />
           </View>
-          <Text style={o.title}>لسا ما في طلبات</Text>
-          <Text style={o.sub}>أول طلب إلك رح يبيّن هون. محتار شو تطلب؟ خلّي TAMAM تختارلك.</Text>
+          <Text style={o.title}>{t("noOrdersYet")}</Text>
+          <Text style={o.sub}>{t("noOrdersSub")}</Text>
         </View>
-        <Button label="العب TAMAM" tone="green" onPress={() => router.push("/game")} />
+        <Button label={t("playTamam")} tone="green" onPress={() => router.push("/game")} />
         {count > 0 ? (
-          <Button label={`كمّل سلتك · ${count}`} tone="ghost" onPress={() => router.push("/cart")} />
+          <Button label={t("continueCart", { n: count })} tone="ghost" onPress={() => router.push("/cart")} />
         ) : null}
       </Page>
     );
 
   return (
     <Page>
-      <Text style={s.heading}>طلباتي</Text>
+      <Text style={s.heading}>{t("tabOrders")}</Text>
       <Status loading={data.loading} error={data.error} retry={data.reload} />
       {data.value?.map((order) => (
         <Pressable
@@ -58,23 +62,23 @@ export default function Orders() {
         >
           <View style={[o.badge, live(order) ? o.badgeLive : order.status === "cancelled" ? o.badgeOff : null]}>
             <Text style={[o.badgeText, live(order) && { color: colors.white }]}>
-              {STATUS_LABEL[order.status || "new"] || order.status}
+              {t(statusKey(order.status))}
             </Text>
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={o.items} numberOfLines={2}>{order.items || `طلب #${order.id}`}</Text>
+            <Text style={o.items} numberOfLines={2}>{order.items || t("orderFallback", { id: order.id })}</Text>
             <Text style={o.meta}>
-              #{order.id} · {order.created_at ? new Date(order.created_at).toLocaleDateString("ar") : ""}
+              #{order.id} · {order.created_at ? new Date(order.created_at).toLocaleDateString(lang) : ""}
             </Text>
           </View>
           <Text style={o.amount}>{money(Number(order.amount || 0))}</Text>
         </Pressable>
       ))}
-      {data.value?.length === 0 ? <Text style={o.sub}>ما لقينا طلبات.</Text> : null}
+      {data.value?.length === 0 ? <Text style={o.sub}>{t("noOrdersFound")}</Text> : null}
     </Page>
   );
 }
-const o = StyleSheet.create({
+const os = StyleSheet.create({
   empty: { alignItems: "center", gap: 10, paddingTop: 48, paddingBottom: 16 },
   icon: {
     width: 80,

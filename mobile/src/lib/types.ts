@@ -21,7 +21,10 @@ export interface Meal {
   id: Id;
   name?: string;
   name_ar?: string;
+  name_he?: string;
+  name_en?: string;
   description?: string;
+  description_ar?: string;
   image_url?: string;
   price: number;
   is_available?: boolean;
@@ -52,6 +55,8 @@ export interface Mood {
   id: Id;
   name?: string;
   name_ar?: string;
+  name_he?: string;
+  name_en?: string;
   emoji?: string;
   icon?: string;
   description_ar?: string;
@@ -62,8 +67,12 @@ export interface Suggestion {
   id: Id;
   mood_id?: Id;
   title_ar?: string;
+  title_he?: string;
+  title_en?: string;
   title?: string;
   description_ar?: string;
+  description_he?: string;
+  description_en?: string;
   hero_image_url?: string;
   package_level?: string;
   display_price?: number;

@@ -11,7 +11,7 @@ import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
 import { imageUrl } from "../../lib/media";
 import { moodIcon } from "../../lib/moods";
-import { title } from "../../lib/types";
+import { useT } from "../../lib/i18n";
 
 function SectionTitle({
   label,
@@ -22,11 +22,13 @@ function SectionTitle({
   sub?: string;
   open?: () => void;
 }) {
+  const { t, sheet, f, fwd } = useT();
+  const h = sheet(hs);
   return (
     <View style={h.sectionTitle}>
       <View style={{ flex: 1 }}>
         <View
-          style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}
+          style={f({ flexDirection: "row-reverse", alignItems: "center", gap: 8 })}
         >
           <Tri size={12} color={colors.green} />
           <Text style={h.heading}>{label}</Text>
@@ -35,8 +37,8 @@ function SectionTitle({
       </View>
       {open ? (
         <Pressable onPress={open} accessibilityRole="button" style={h.all}>
-          <Text style={h.link}>عرض الكل</Text>
-          <Ionicons name="chevron-back" size={15} color={colors.teal} />
+          <Text style={h.link}>{t("viewAll")}</Text>
+          <Ionicons name={fwd("chevron-back")} size={15} color={colors.teal} />
         </Pressable>
       ) : null}
     </View>
@@ -45,6 +47,8 @@ function SectionTitle({
 
 export default function Home() {
   const { api } = useStore();
+  const { t, name, sheet, f, fwd } = useT();
+  const h = sheet(hs);
   const site = useLoad(useCallback(() => api.settings(), [api]));
   const restaurants = useLoad(useCallback(() => api.restaurants(), [api]));
   const suggestions = useLoad(useCallback(() => api.suggestions(), [api]));
@@ -78,26 +82,26 @@ export default function Home() {
           />
           <TrianglePattern opacity={0.08} />
           <View style={h.heroCopy}>
-            <Text style={h.eyebrow}>TAMAM · حسب مودك</Text>
-            <Text style={h.heroTitle}>شو عبالك تاكل اليوم؟</Text>
-            <Text style={h.heroSub}>لفّ العجلة، و TAMAM بتختارلك الوجبة.</Text>
+            <Text style={h.eyebrow}>{t("homeEyebrow")}</Text>
+            <Text style={h.heroTitle}>{t("homeTitle")}</Text>
+            <Text style={h.heroSub}>{t("homeSub")}</Text>
             <Brush
-              style={{
+              style={f({
                 alignSelf: "flex-end",
                 marginTop: 8,
                 paddingHorizontal: 22,
                 paddingVertical: 10,
-              }}
+              })}
             >
               <View
-                style={{
+                style={f({
                   flexDirection: "row-reverse",
                   alignItems: "center",
                   gap: 6,
-                }}
+                })}
               >
-                <Text style={h.heroCta}>انطلق</Text>
-                <Ionicons name="arrow-back" size={18} color={colors.white} />
+                <Text style={h.heroCta}>{t("go")}</Text>
+                <Ionicons name={fwd("arrow-back")} size={18} color={colors.white} />
               </View>
             </Brush>
           </View>
@@ -119,7 +123,7 @@ export default function Home() {
       {moods.value?.length ? (
         <View style={h.section}>
           <SectionTitle
-            label="شو مودك هسا؟"
+            label={t("moodQuestion")}
             open={() => router.push("/game")}
           />
           <RtlRow>
@@ -143,7 +147,7 @@ export default function Home() {
                   />
                 </View>
                 <Text style={h.moodText} numberOfLines={2}>
-                  {title(mood)}
+                  {name(mood)}
                 </Text>
               </Pressable>
             ))}
@@ -153,8 +157,8 @@ export default function Home() {
 
       <View style={h.section}>
         <SectionTitle
-          label="اختيارات TAMAM إلك"
-          sub="حسب مودك والوقت"
+          label={t("picksForYou")}
+          sub={t("byMoodTime")}
           open={goSuggestions}
         />
         <Status
@@ -168,7 +172,7 @@ export default function Home() {
           ))}
         </RtlRow>
         {!suggestions.loading && !suggestions.error && !sets.length ? (
-          <Text style={h.muted}>ما في اقتراحات منشورة حالياً.</Text>
+          <Text style={h.muted}>{t("noSuggestions")}</Text>
         ) : null}
       </View>
 
@@ -181,15 +185,15 @@ export default function Home() {
           <TamamMark size={30} color={colors.teal} accent={colors.green} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={h.bannerTitle}>محتار؟ خلّيها علينا</Text>
-          <Text style={h.muted}>دوسة وحدة، والعجلة بتختارلك.</Text>
+          <Text style={h.bannerTitle}>{t("undecided")}</Text>
+          <Text style={h.muted}>{t("oneTap")}</Text>
         </View>
-        <Ionicons name="chevron-back" size={20} color={colors.teal} />
+        <Ionicons name={fwd("chevron-back")} size={20} color={colors.teal} />
       </Pressable>
 
       <View style={h.section}>
         <SectionTitle
-          label="مطاعم قريبة منك"
+          label={t("nearby")}
           open={() => router.push("/restaurants")}
         />
         <Status
@@ -206,12 +210,12 @@ export default function Home() {
 
       <View style={h.trust}>
         <Ionicons name="location" size={16} color={colors.green} />
-        <Text style={h.muted}>مطاعم محلية · اختيارات حسب مودك</Text>
+        <Text style={h.muted}>{t("trust")}</Text>
       </View>
     </Page>
   );
 }
-const h = StyleSheet.create({
+const hs = StyleSheet.create({
   section: { gap: 12, marginTop: 6 },
   sectionTitle: { flexDirection: "row-reverse", alignItems: "center", gap: 16 },
   heading: {

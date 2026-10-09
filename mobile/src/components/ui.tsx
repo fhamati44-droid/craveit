@@ -10,6 +10,7 @@ import {
 import { useRef, type ReactNode } from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { imageUrl } from "../lib/media";
+import { useT } from "../lib/i18n";
 export const colors = {
   // TAMAM campaign palette (sampled from the brand ads)
   bg: "#F6F5F0", // warm paper
@@ -42,7 +43,7 @@ export const shadow = {
   shadowOffset: { width: 0, height: 6 },
   elevation: 3,
 };
-export const s = StyleSheet.create({
+const base = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 16, gap: 16, paddingBottom: 40 },
   text: {
@@ -116,6 +117,11 @@ export const s = StyleSheet.create({
   },
   chipOn: { backgroundColor: colors.teal, borderColor: colors.teal },
 });
+/** Shared styles, RTL as written. Components should use `useS()` so English mirrors. */
+export const s = base;
+export function useS() {
+  return useT().sheet(base);
+}
 export function Txt({
   children,
   muted = false,
@@ -123,6 +129,7 @@ export function Txt({
   children: ReactNode;
   muted?: boolean;
 }) {
+  const s = useS();
   return <Text style={muted ? s.muted : s.text}>{children}</Text>;
 }
 export function Button({
@@ -136,6 +143,7 @@ export function Button({
   disabled?: boolean;
   tone?: "teal" | "green" | "ghost";
 }) {
+  const s = useS();
   return (
     <Pressable
       accessibilityRole="button"
@@ -163,6 +171,7 @@ export function Button({
   );
 }
 export function Page({ children }: { children: ReactNode }) {
+  const s = useS();
   return (
     <ScrollView
       style={s.page}
@@ -174,11 +183,13 @@ export function Page({ children }: { children: ReactNode }) {
   );
 }
 export function Picture({ uri }: { uri?: string }) {
+  const s = useS();
+  const { t } = useT();
   return uri ? (
     <Image
       source={{ uri: imageUrl(uri) }}
       style={s.image}
-      accessibilityLabel="صورة الوجبة أو المطعم"
+      accessibilityLabel={t("image")}
     />
   ) : (
     <View
@@ -204,6 +215,8 @@ export function Status({
   error: string;
   retry: () => void;
 }) {
+  const s = useS();
+  const { t, msg } = useT();
   return loading ? (
     <ActivityIndicator
       color={colors.green}
@@ -213,9 +226,9 @@ export function Status({
   ) : error ? (
     <View style={s.card}>
       <Text accessibilityRole="alert" style={[s.text, { color: colors.error }]}>
-        {error}
+        {msg(error)}
       </Text>
-      <Button label="حاول مرة ثانية" onPress={retry} />
+      <Button label={t("retry")} onPress={retry} />
     </View>
   ) : null;
 }
@@ -234,9 +247,11 @@ export function RtlRow({
   gap?: number;
 }) {
   const ref = useRef<ScrollView>(null);
-  // Runs after layout settles (web applies scroll only once sizes are known).
+  const { rtl } = useT();
+  // RTL: start scrolled to the end, where the first item is. Runs after
+  // layout settles (web applies scroll only once sizes are known).
   const toStart = () =>
-    setTimeout(() => ref.current?.scrollToEnd({ animated: false }), 0);
+    rtl && setTimeout(() => ref.current?.scrollToEnd({ animated: false }), 0);
   return (
     <ScrollView
       ref={ref}
@@ -245,7 +260,7 @@ export function RtlRow({
       onLayout={toStart}
       onContentSizeChange={toStart}
       contentContainerStyle={{
-        flexDirection: "row-reverse",
+        flexDirection: rtl ? "row-reverse" : "row",
         gap,
         paddingBottom: 12,
         paddingHorizontal: 2,

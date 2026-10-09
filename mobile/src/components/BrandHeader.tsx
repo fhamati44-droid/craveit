@@ -5,29 +5,29 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, font } from "./ui";
 import { TamamLogo } from "./brand";
 import { useStore } from "../lib/state";
+import { useT } from "../lib/i18n";
+import { LangSwitch } from "./LangSwitch";
 
 export function BrandHeader() {
   const { count } = useStore();
+  const { t, sheet } = useT();
+  const h = sheet(hs);
   return (
     <SafeAreaView edges={["top"]} style={h.safe}>
       <View style={h.bar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="TAMAM الرئيسية"
+          accessibilityLabel={t("homeA11y")}
           onPress={() => router.push("/")}
           hitSlop={8}
         >
           <TamamLogo height={20} />
         </Pressable>
-        <Pressable style={h.location} accessibilityRole="button" accessibilityLabel="موقعك الحالي">
-          <Ionicons name="location" size={14} color={colors.green} />
-          <Text style={h.locationText}>موقعك الحالي</Text>
-          <Ionicons name="chevron-down" size={12} color={colors.muted} />
-        </Pressable>
+        <LangSwitch />
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="بحث"
+            accessibilityLabel={t("search")}
             onPress={() => router.push("/restaurants")}
             style={h.icon}
           >
@@ -35,7 +35,7 @@ export function BrandHeader() {
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`السلة ${count}`}
+            accessibilityLabel={t("cartCount", { n: count })}
             onPress={() => router.push("/cart")}
             style={h.icon}
           >
@@ -51,7 +51,7 @@ export function BrandHeader() {
     </SafeAreaView>
   );
 }
-const h = StyleSheet.create({
+const hs = StyleSheet.create({
   safe: {
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
@@ -64,16 +64,6 @@ const h = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  location: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.bg,
-    borderRadius: 18,
-    paddingHorizontal: 10,
-    height: 34,
-  },
-  locationText: { fontFamily: font.medium, fontSize: 11, color: colors.ink },
   icon: {
     height: 40,
     width: 40,

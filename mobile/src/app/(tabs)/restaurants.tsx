@@ -1,12 +1,14 @@
 import { useCallback, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, Page, s, Status, Txt } from "../../components/ui";
+import { colors, Page, Status, Txt, useS } from "../../components/ui";
 import { RestaurantCard } from "../../components/cards";
 import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
-import { title } from "../../lib/types";
+import { useT } from "../../lib/i18n";
 export default function Restaurants() {
+  const { t, name, f } = useT();
+  const s = useS();
   const { api } = useStore();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -15,33 +17,33 @@ export default function Restaurants() {
   const restaurants = data.value?.filter(
     (r) =>
       (!open || (r.is_open ?? r.active) !== false) &&
-      `${title(r)} ${r.description_ar || r.description || ""}`
+      `${name(r)} ${r.name_ar || ""} ${r.name || ""} ${r.description_ar || r.description || ""}`
         .toLowerCase()
         .includes(query.trim().toLowerCase()),
   );
   return (
     <Page>
-      <Text style={s.heading}>شو عبالك اليوم؟</Text>
+      <Text style={s.heading}>{t("craving")}</Text>
       <View style={{ justifyContent: "center" }}>
         <TextInput
-          style={[s.input, { paddingRight: 44 }]}
-          placeholder="فتّش عن مطعم أو أكلة"
+          style={[s.input, f({ paddingRight: 44 })]}
+          placeholder={t("searchPlaceholder")}
           placeholderTextColor={colors.muted}
           value={query}
           onChangeText={setQuery}
-          accessibilityLabel="بحث المطاعم"
+          accessibilityLabel={t("searchRestaurants")}
         />
         <Ionicons
           name="search"
           size={19}
           color={colors.teal}
-          style={{ position: "absolute", right: 14 }}
+          style={f({ position: "absolute", right: 14 })}
         />
       </View>
       <View style={s.row}>
         {[
-          [false, "كل المطاعم"],
-          [true, "مفتوح هسا"],
+          [false, t("allRestaurants")],
+          [true, t("openNow")],
         ].map(([value, label]) => (
           <Pressable
             key={String(label)}
@@ -69,7 +71,7 @@ export default function Restaurants() {
       {restaurants?.map((r) => (
         <RestaurantCard key={r.id} restaurant={r} width="100%" />
       ))}
-      {restaurants?.length === 0 && <Txt muted>ما لقينا مطاعم مناسبة.</Txt>}
+      {restaurants?.length === 0 && <Txt muted>{t("noRestaurants")}</Txt>}
     </Page>
   );
 }

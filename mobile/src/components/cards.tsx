@@ -5,7 +5,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, font, money, shadow } from "./ui";
 import { Brush } from "./brand";
 import { imageUrl } from "../lib/media";
-import { title, type Restaurant, type Suggestion } from "../lib/types";
+import type { Restaurant, Suggestion } from "../lib/types";
+import { useT } from "../lib/i18n";
 
 export function FoodImage({
   uri,
@@ -15,12 +16,14 @@ export function FoodImage({
   height?: number;
 }) {
   const [failed, setFailed] = useState(false);
+  const { t } = useT();
+  const c = cs;
   return uri && !failed ? (
     <Image
       source={{ uri: imageUrl(uri) }}
       style={{ height, width: "100%", backgroundColor: colors.high }}
       onError={() => setFailed(true)}
-      accessibilityLabel="صورة"
+      accessibilityLabel={t("image")}
     />
   ) : (
     <View style={[c.placeholder, { height }]}>
@@ -29,8 +32,6 @@ export function FoodImage({
   );
 }
 
-export const packageName = (level?: string) =>
-  level === "plus" ? "بلس" : level === "mix" ? "ميكس" : "كلاسيك";
 const price = (value: number) => money(value).replace(".00", "");
 
 export function SuggestionCard({
@@ -41,6 +42,8 @@ export function SuggestionCard({
   width?: number | `${number}%`;
 }) {
   const amount = set.display_price_override ?? set.display_price;
+  const { name, desc, pkg, sheet } = useT();
+  const c = sheet(cs);
   return (
     <Pressable
       style={({ pressed }) => [c.card, { width }, pressed && c.pressed]}
@@ -60,14 +63,14 @@ export function SuggestionCard({
       ) : null}
       <View style={c.body}>
         <View style={c.pill}>
-          <Text style={c.pillText}>{packageName(set.package_level)}</Text>
+          <Text style={c.pillText}>{pkg(set.package_level)}</Text>
         </View>
         <Text style={c.title} numberOfLines={2}>
-          {set.title_ar || set.title}
+          {name(set)}
         </Text>
-        {set.description_ar ? (
+        {desc(set) ? (
           <Text style={c.meta} numberOfLines={1}>
-            {set.description_ar}
+            {desc(set)}
           </Text>
         ) : null}
       </View>
@@ -83,6 +86,8 @@ export function RestaurantCard({
   width?: number | `${number}%`;
 }) {
   const closed = (restaurant.is_open ?? restaurant.active) === false;
+  const { t, name, sheet } = useT();
+  const c = sheet(cs);
   const logo = restaurant.logo_url || restaurant.image_url;
   return (
     <Pressable
@@ -101,7 +106,7 @@ export function RestaurantCard({
           height={130}
         />
         <View style={[c.status, closed && { backgroundColor: colors.error }]}>
-          <Text style={c.statusText}>{closed ? "مسكّر" : "مفتوح"}</Text>
+          <Text style={c.statusText}>{closed ? t("closed") : t("open")}</Text>
         </View>
         {logo ? (
           <View style={c.logo}>
@@ -114,24 +119,24 @@ export function RestaurantCard({
       </View>
       <View style={[c.body, logo ? { paddingTop: 20 } : null]}>
         <Text style={c.title} numberOfLines={1}>
-          {title(restaurant)}
+          {name(restaurant)}
         </Text>
         <View style={c.metaRow}>
           {restaurant.delivery_time != null ? (
             <View style={c.metaItem}>
               <Ionicons name="time-outline" size={13} color={colors.green} />
-              <Text style={c.meta}>{restaurant.delivery_time} د</Text>
+              <Text style={c.meta}>{t("minutesShort", { n: restaurant.delivery_time })}</Text>
             </View>
           ) : null}
           {restaurant.delivery_fee != null ? (
             <View style={c.metaItem}>
               <Ionicons name="bicycle-outline" size={14} color={colors.green} />
-              <Text style={c.meta}>توصيل {price(restaurant.delivery_fee)}</Text>
+              <Text style={c.meta}>{t("deliveryFee", { p: price(restaurant.delivery_fee) })}</Text>
             </View>
           ) : null}
           {(restaurant.minimum_order ?? restaurant.min_order) != null ? (
             <Text style={c.meta}>
-              حد أدنى {price(Number(restaurant.minimum_order ?? restaurant.min_order))}
+              {t("minOrder", { p: price(Number(restaurant.minimum_order ?? restaurant.min_order)) })}
             </Text>
           ) : null}
         </View>
@@ -140,7 +145,7 @@ export function RestaurantCard({
   );
 }
 
-const c = StyleSheet.create({
+const cs = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: 20,

@@ -86,22 +86,24 @@ export function buildOrders(
   });
 }
 
+/** Returns translation keys (see lib/i18n.ts) per invalid field. */
 export function validate(form: CheckoutForm) {
-  const errors: Partial<Record<keyof CheckoutForm, string>> = {};
-  if (!form.name.trim()) errors.name = "الاسم مطلوب";
+  const errors: Partial<Record<keyof CheckoutForm, "errName" | "errPhone" | "errAddress">> = {};
+  if (!form.name.trim()) errors.name = "errName";
   const digits = form.phone.replace(/\D/g, "");
-  if (digits.length < 9 || digits.length > 13) errors.phone = "رقم الهاتف مش صحيح";
+  if (digits.length < 9 || digits.length > 13) errors.phone = "errPhone";
   if (form.delivery === "delivery" && !form.address.trim())
-    errors.address = "العنوان مطلوب للتوصيل";
+    errors.address = "errAddress";
   return errors;
 }
 
 export const STATUS_STEPS: OrderStatus[] = ["new", "confirmed", "cooking", "ready", "delivered"];
-export const STATUS_LABEL: Record<string, string> = {
-  new: "وصل الطلب",
-  confirmed: "المطعم أكّد",
-  cooking: "عم ينطبخ",
-  ready: "جاهز، الشوفير بالطريق",
-  delivered: "وصل! صحتين",
-  cancelled: "انلغى الطلب",
-};
+/** Translation key for an order status (labels live in lib/i18n.ts). */
+export const statusKey = (status?: string) =>
+  (`st_${STATUS_STEPS.includes(status as OrderStatus) || status === "cancelled" ? status : "new"}`) as
+    | "st_new"
+    | "st_confirmed"
+    | "st_cooking"
+    | "st_ready"
+    | "st_delivered"
+    | "st_cancelled";

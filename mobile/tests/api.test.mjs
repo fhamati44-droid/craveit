@@ -19,7 +19,7 @@ test("without a Supabase key nothing is sent and the error says what's missing",
     throw new Error("unexpected network call");
   });
   try {
-    await assert.rejects(createApi("").restaurants(), /EXPO_PUBLIC_SUPABASE_ANON_KEY/);
+    await assert.rejects(createApi("").restaurants(), /errNoKey/);
     assert.equal(m.calls.length, 0);
   } finally {
     m.restore();

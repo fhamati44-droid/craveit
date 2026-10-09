@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { ActivityIndicator, Linking, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Button, colors, font, money, Page, s } from "../../components/ui";
+import { Button, colors, font, money, Page, useS } from "../../components/ui";
+import { useT } from "../../lib/i18n";
 import { TamamMark } from "../../components/brand";
 import { useStore } from "../../lib/state";
-import { STATUS_LABEL, STATUS_STEPS, WHATSAPP_NUMBER } from "../../lib/orders";
+import { statusKey, STATUS_STEPS, WHATSAPP_NUMBER } from "../../lib/orders";
 import type { Order } from "../../lib/types";
 
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -19,6 +20,9 @@ const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 export default function OrderTracking() {
   const { id, more } = useLocalSearchParams<{ id: string; more?: string }>();
   const { api } = useStore();
+  const { t: tr, sheet, msg } = useT();
+  const s = useS();
+  const t = sheet(ts);
   const [order, setOrder] = useState<Order | null>();
   const [error, setError] = useState("");
 
@@ -35,7 +39,7 @@ export default function OrderTracking() {
         setError("");
       })
       .catch((e) => {
-        if (active) setError(e instanceof Error ? e.message : "تعذر تحميل الطلب");
+        if (active) setError(e instanceof Error ? e.message : "loadFailed");
       });
     return () => {
       active = false;
@@ -53,9 +57,9 @@ export default function OrderTracking() {
   if (!order)
     return (
       <Page>
-        <Text style={s.heading}>ما لقينا الطلب</Text>
-        {error ? <Text style={t.muted}>{error}</Text> : null}
-        <Button label="حاول مرة ثانية" onPress={() => load()} />
+        <Text style={s.heading}>{tr("orderNotFound")}</Text>
+        {error ? <Text style={t.muted}>{msg(error)}</Text> : null}
+        <Button label={tr("retry")} onPress={() => load()} />
       </Page>
     );
 
@@ -67,13 +71,13 @@ export default function OrderTracking() {
     <Page>
       <View style={t.hero}>
         <TamamMark size={34} color={colors.white} />
-        <Text style={t.heroTitle}>{cancelled ? STATUS_LABEL.cancelled : STATUS_LABEL[STATUS_STEPS[step]]}</Text>
-        <Text style={t.heroSub}>طلب رقم #{order.id}</Text>
+        <Text style={t.heroTitle}>{tr(statusKey(cancelled ? "cancelled" : STATUS_STEPS[step]))}</Text>
+        <Text style={t.heroSub}>{tr("orderNo", { id: order.id })}</Text>
       </View>
 
       {extra > 0 ? (
         <Text style={t.note}>
-          طلبك انقسم على {extra + 1} مطاعم، كل واحد بيوصل لحاله. بتلاقيهم كلهم بـ«طلباتي».
+          {tr("orderSplit", { n: extra + 1 })}
         </Text>
       ) : null}
 
@@ -90,17 +94,17 @@ export default function OrderTracking() {
                   {i < STATUS_STEPS.length - 1 ? <View style={[t.bar, i < step && t.barOn]} /> : null}
                 </View>
                 <Text style={[t.stepText, done && { color: colors.ink, fontFamily: font.bold }]}>
-                  {STATUS_LABEL[st]}
+                  {tr(statusKey(st))}
                 </Text>
               </View>
             );
           })}
-          {!final ? <Text style={t.muted}>الحالة بتتحدث لحالها.</Text> : null}
+          {!final ? <Text style={t.muted}>{tr("autoUpdate")}</Text> : null}
         </View>
       ) : null}
 
       <View style={s.card}>
-        <Text style={t.section}>تفاصيل الطلب</Text>
+        <Text style={t.section}>{tr("orderDetails")}</Text>
         {(order.order_items || []).map((item, i) => (
           <View key={i} style={t.row}>
             <Text style={t.item}>{item.quantity}× {item.name}</Text>
@@ -109,27 +113,27 @@ export default function OrderTracking() {
         ))}
         {!order.order_items?.length && order.items ? <Text style={t.item}>{order.items}</Text> : null}
         <View style={[t.row, t.totalRow]}>
-          <Text style={t.total}>المجموع</Text>
+          <Text style={t.total}>{tr("total")}</Text>
           <Text style={t.total}>{money(Number(order.amount || 0))}</Text>
         </View>
         {order.address ? <Text style={t.muted}>📍 {order.address}</Text> : null}
       </View>
 
       <Button
-        label="في مشكلة؟ احكي معنا بالواتساب"
+        label={tr("problem")}
         tone="ghost"
         onPress={() =>
           void Linking.openURL(
-            `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`مرحبا، بخصوص طلب رقم #${order.id}`)}`,
+            `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(tr("waAboutOrder", { id: order.id }))}`,
           )
         }
       />
-      <Button label="رجوع للرئيسية" onPress={() => router.replace("/")} />
+      <Button label={tr("backHome")} onPress={() => router.replace("/")} />
     </Page>
   );
 }
 
-const t = StyleSheet.create({
+const ts = StyleSheet.create({
   hero: {
     backgroundColor: colors.teal,
     borderRadius: 24,

@@ -18,7 +18,7 @@ export function useLoad<T>(loader: () => Promise<T>) {
           setResult({
             loader,
             revision,
-            error: e instanceof Error ? e.message : "تعذر تحميل البيانات",
+            error: e instanceof Error ? e.message : "Error",
           });
       });
     return () => {

@@ -28,11 +28,11 @@ import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
 import { imageUrl } from "../../lib/media";
 import { moodIcon } from "../../lib/moods";
-import { title, type Mood, type Suggestion } from "../../lib/types";
+import type { Mood, Suggestion } from "../../lib/types";
+import { useT } from "../../lib/i18n";
+import { LangSwitch } from "../../components/LangSwitch";
 
 const MAX_ON_WHEEL = 8;
-const packageName = (level?: string) =>
-  level === "plus" ? "بلس" : level === "mix" ? "ميكس" : "كلاسيك";
 
 type Result =
   | { mood: Mood; state: "loading" }
@@ -41,6 +41,8 @@ type Result =
 
 export default function Game() {
   const { api } = useStore();
+  const { t, name, sheet, msg } = useT();
+  const g = sheet(gs);
   const { width } = useWindowDimensions();
   const moods = useLoad(useCallback(() => api.moods(), [api]));
   const wheel = useRef<WheelHandle>(null);
@@ -77,9 +79,10 @@ export default function Game() {
         >
           <View style={g.top}>
             <TamamLogo height={18} color={colors.white} />
+            <LangSwitch dark />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="السلة"
+              accessibilityLabel={t("screenCart")}
               onPress={() => router.push("/cart")}
               style={g.iconBtn}
             >
@@ -87,33 +90,33 @@ export default function Game() {
             </Pressable>
           </View>
 
-          <Text style={g.title}>شو مودك هسا؟</Text>
+          <Text style={g.title}>{t("moodQuestion")}</Text>
           <Brush style={{ alignSelf: "center", marginTop: -2 }}>
-            <Text style={g.tag}>لفّ العجلة · TAMAM بتختارلك الوجبة</Text>
+            <Text style={g.tag}>{t("gameTag")}</Text>
           </Brush>
 
           {moods.loading ? (
             <View style={g.state}>
               <ActivityIndicator color={colors.bright} size="large" />
-              <Text style={g.sub}>عم نجهّز المودات...</Text>
+              <Text style={g.sub}>{t("loadingMoods")}</Text>
             </View>
           ) : moods.error ? (
             <View style={g.state}>
-              <Text style={g.stateTitle}>ما قدرنا نحمّل المودات.</Text>
-              <Text style={g.sub}>{moods.error}</Text>
+              <Text style={g.stateTitle}>{t("moodsFailed")}</Text>
+              <Text style={g.sub}>{msg(moods.error)}</Text>
               <Pressable style={g.cta} onPress={moods.reload} accessibilityRole="button">
-                <Text style={g.ctaText}>حاول مرة ثانية</Text>
+                <Text style={g.ctaText}>{t("retry")}</Text>
               </Pressable>
             </View>
           ) : !onWheel.length ? (
             <View style={g.state}>
-              <Text style={g.stateTitle}>ما في مودات جاهزة هسا.</Text>
+              <Text style={g.stateTitle}>{t("noMoods")}</Text>
               <Pressable
                 style={g.cta}
                 onPress={() => router.push("/restaurants")}
                 accessibilityRole="button"
               >
-                <Text style={g.ctaText}>تصفّح المطاعم</Text>
+                <Text style={g.ctaText}>{t("browseRestaurants")}</Text>
               </Pressable>
             </View>
           ) : (
@@ -130,14 +133,14 @@ export default function Game() {
               </View>
               <View style={g.ticker} accessibilityLiveRegion="polite">
                 <Text style={g.tickerText} numberOfLines={1}>
-                  {live ? title(live) : "دوس على مود، أو خلّيها علينا"}
+                  {live ? name(live) : t("tapMood")}
                 </Text>
               </View>
 
               {(moods.value?.length || 0) > MAX_ON_WHEEL ? (
                 <View style={{ gap: 10, marginTop: 8 }}>
                   <Text style={g.section}>
-                    كل المودات ({moods.value?.length})
+                    {t("allMoods", { n: moods.value?.length || 0 })}
                   </Text>
                   <View style={g.chips}>
                     {moods.value?.map((m, i) => (
@@ -159,7 +162,7 @@ export default function Game() {
                           size={15}
                           color={colors.bright}
                         />
-                        <Text style={g.chipText}>{title(m)}</Text>
+                        <Text style={g.chipText}>{name(m)}</Text>
                       </Pressable>
                     ))}
                   </View>
@@ -179,7 +182,7 @@ export default function Game() {
           >
             <Pressable
               style={{ flex: 1 }}
-              accessibilityLabel="إغلاق"
+              accessibilityLabel={t("close")}
               onPress={() => setResult(undefined)}
             />
           </Animated.View>
@@ -213,6 +216,8 @@ function ResultCard({
   retry: () => void;
 }) {
   const { mood } = result;
+  const { t, name, desc, pkg, sheet, f, fwd } = useT();
+  const g = sheet(gs);
   const openMood = () =>
     router.push({ pathname: "/suggestions", params: { mood: String(mood.id) } });
   return (
@@ -227,21 +232,21 @@ function ResultCard({
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={g.eyebrow}>طلع مودك</Text>
-          <Text style={g.moodName}>{title(mood)}</Text>
+          <Text style={g.eyebrow}>{t("yourMood")}</Text>
+          <Text style={g.moodName}>{name(mood)}</Text>
         </View>
       </View>
 
       {result.state === "loading" ? (
         <View style={[g.pickCard, g.center]}>
           <ActivityIndicator color={colors.green} />
-          <Text style={g.muted}>عم نختارلك وجبة...</Text>
+          <Text style={g.muted}>{t("pickingMeal")}</Text>
         </View>
       ) : result.state === "error" ? (
         <View style={[g.pickCard, g.center]}>
-          <Text style={g.muted}>ما قدرنا نجيب الوجبات هسا.</Text>
+          <Text style={g.muted}>{t("mealsFailed")}</Text>
           <Pressable onPress={retry} accessibilityRole="button">
-            <Text style={g.link}>حاول مرة ثانية</Text>
+            <Text style={g.link}>{t("retry")}</Text>
           </Pressable>
         </View>
       ) : result.pick ? (
@@ -258,14 +263,14 @@ function ResultCard({
           <PickImage uri={result.pick.hero_image_url} />
           <View style={g.pickBody}>
             <View style={g.pill}>
-              <Text style={g.pillText}>{packageName(result.pick.package_level)}</Text>
+              <Text style={g.pillText}>{pkg(result.pick.package_level)}</Text>
             </View>
             <Text style={g.pickTitle} numberOfLines={2}>
-              {result.pick.title_ar || result.pick.title}
+              {name(result.pick)}
             </Text>
-            {result.pick.description_ar ? (
+            {desc(result.pick) ? (
               <Text style={g.muted} numberOfLines={2}>
-                {result.pick.description_ar}
+                {desc(result.pick)}
               </Text>
             ) : null}
           </View>
@@ -284,7 +289,7 @@ function ResultCard({
         </Pressable>
       ) : (
         <View style={[g.pickCard, g.center]}>
-          <Text style={g.muted}>لسا ما في وجبات جاهزة لهالمود.</Text>
+          <Text style={g.muted}>{t("noMealsMood")}</Text>
         </View>
       )}
 
@@ -299,20 +304,20 @@ function ResultCard({
             })
           }
         >
-          <Text style={g.primaryText}>بدّي هاي!</Text>
-          <Ionicons name="arrow-back" size={20} color={colors.white} />
+          <Text style={g.primaryText}>{t("wantThis")}</Text>
+          <Ionicons name={fwd("arrow-back")} size={20} color={colors.white} />
         </Pressable>
       ) : null}
-      <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+      <View style={f({ flexDirection: "row-reverse", gap: 10 })}>
         <Pressable style={g.secondary} onPress={again} accessibilityRole="button">
           <Ionicons name="refresh" size={17} color={colors.teal} />
-          <Text style={g.secondaryText}>لفّ كمان مرة</Text>
+          <Text style={g.secondaryText}>{t("spinAgain")}</Text>
         </Pressable>
         <Pressable style={g.secondary} onPress={openMood} accessibilityRole="button">
           <Text style={g.secondaryText}>
             {result.state === "ready" && result.total > 1
-              ? `كل الوجبات (${result.total})`
-              : "كل الوجبات"}
+              ? t("allMealsN", { n: result.total })
+              : t("allMeals")}
           </Text>
         </Pressable>
       </View>
@@ -322,12 +327,14 @@ function ResultCard({
 
 function PickImage({ uri }: { uri?: string }) {
   const [failed, setFailed] = useState(false);
+  const { t } = useT();
+  const g = gs;
   return uri && !failed ? (
     <Image
       source={{ uri: imageUrl(uri) }}
       style={g.pickImage}
       onError={() => setFailed(true)}
-      accessibilityLabel="صورة الوجبة"
+      accessibilityLabel={t("mealImage")}
     />
   ) : (
     <View style={[g.pickImage, g.center]}>
@@ -336,7 +343,7 @@ function PickImage({ uri }: { uri?: string }) {
   );
 }
 
-const g = StyleSheet.create({
+const gs = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.teal },
   content: { padding: 18, paddingBottom: 40, gap: 6 },
   top: {

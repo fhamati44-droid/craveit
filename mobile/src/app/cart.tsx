@@ -1,13 +1,16 @@
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Button, colors, font, money, Page, s } from "../components/ui";
+import { Button, colors, font, money, Page, useS } from "../components/ui";
 import { useStore } from "../lib/state";
-import { title } from "../lib/types";
+import { useT } from "../lib/i18n";
 import { groupByRestaurant, lineTotal } from "../lib/orders";
 
 export default function Cart() {
   const { lines, quantity, subtotal } = useStore();
+  const { t, name, sheet } = useT();
+  const s = useS();
+  const c = sheet(cs);
   if (!lines.length)
     return (
       <Page>
@@ -15,32 +18,32 @@ export default function Cart() {
           <View style={c.emptyIcon}>
             <Ionicons name="bag-handle-outline" size={34} color={colors.teal} />
           </View>
-          <Text style={c.emptyTitle}>سلتك فاضية</Text>
-          <Text style={c.muted}>محتار شو تطلب؟ خلّي TAMAM تختارلك.</Text>
+          <Text style={c.emptyTitle}>{t("cartEmpty")}</Text>
+          <Text style={c.muted}>{t("cartEmptySub")}</Text>
         </View>
-        <Button label="العب TAMAM" tone="green" onPress={() => router.push("/game")} />
-        <Button label="تصفّح المطاعم" tone="ghost" onPress={() => router.push("/restaurants")} />
+        <Button label={t("playTamam")} tone="green" onPress={() => router.push("/game")} />
+        <Button label={t("browseRestaurants")} tone="ghost" onPress={() => router.push("/restaurants")} />
       </Page>
     );
   const groups = groupByRestaurant(lines);
   return (
     <Page>
-      <Text style={s.heading}>سلتك</Text>
+      <Text style={s.heading}>{t("yourCart")}</Text>
       {groups.map((group) => (
         <View key={String(group[0].restaurant.id)} style={s.card}>
           <View style={c.restRow}>
             <Ionicons name="storefront-outline" size={16} color={colors.green} />
-            <Text style={c.restName}>{title(group[0].restaurant)}</Text>
+            <Text style={c.restName}>{name(group[0].restaurant)}</Text>
           </View>
           {group.map((line) => {
             const key = line.key;
             return (
               <View key={key} style={c.line}>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={c.meal}>{title(line.meal)}</Text>
+                  <Text style={c.meal}>{name(line.meal)}</Text>
                   {line.extras.length ? (
                     <Text style={c.muted}>
-                      {line.extras.map((x) => x.name_ar || x.name).join("، ")}
+                      {line.extras.map((x) => name(x)).join(", ")}
                     </Text>
                   ) : null}
                   {line.note ? <Text style={c.muted}>“{line.note}”</Text> : null}
@@ -49,7 +52,7 @@ export default function Cart() {
                 <View style={c.stepper}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="زيادة"
+                    accessibilityLabel={t("increase")}
                     style={c.step}
                     onPress={() => quantity(key, line.quantity + 1)}
                   >
@@ -58,7 +61,7 @@ export default function Cart() {
                   <Text style={c.qty}>{line.quantity}</Text>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={line.quantity === 1 ? "حذف" : "تنقيص"}
+                    accessibilityLabel={line.quantity === 1 ? t("remove") : t("decrease")}
                     style={c.step}
                     onPress={() => quantity(key, line.quantity - 1)}
                   >
@@ -76,19 +79,19 @@ export default function Cart() {
       ))}
       {groups.length > 1 ? (
         <Text style={c.muted}>
-          طلبك من {groups.length} مطاعم، كل مطعم بيوصل لحاله ومع رسوم توصيله.
+          {t("multiRestaurant", { n: groups.length })}
         </Text>
       ) : null}
       <View style={c.total}>
-        <Text style={c.totalLabel}>مجموع الوجبات</Text>
+        <Text style={c.totalLabel}>{t("itemsSubtotal")}</Text>
         <Text style={c.totalValue}>{money(subtotal)}</Text>
       </View>
-      <Button label="كمّل للدفع" tone="green" onPress={() => router.push("/checkout")} />
+      <Button label={t("toCheckout")} tone="green" onPress={() => router.push("/checkout")} />
     </Page>
   );
 }
 
-const c = StyleSheet.create({
+const cs = StyleSheet.create({
   empty: { alignItems: "center", gap: 10, paddingTop: 40, paddingBottom: 10 },
   emptyIcon: {
     width: 80,

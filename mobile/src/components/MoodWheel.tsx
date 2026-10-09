@@ -18,7 +18,8 @@ import Svg, { Circle, G, Path } from "react-native-svg";
 import { colors, font } from "./ui";
 import { TamamMark, Tri } from "./brand";
 import { moodIcon } from "../lib/moods";
-import { title, type Mood } from "../lib/types";
+import type { Mood } from "../lib/types";
+import { useT } from "../lib/i18n";
 
 export interface WheelHandle {
   spin: (index?: number) => void;
@@ -59,6 +60,8 @@ export const MoodWheel = forwardRef<WheelHandle, Props>(function MoodWheel(
   const rim = Math.round(size * 0.045);
   const r = c - rim;
   const reduceMotion = useReducedMotion();
+  const { t, name, sheet } = useT();
+  const styles = sheet(baseStyles);
 
   const rotation = useSharedValue(0);
   const kick = useSharedValue(0);
@@ -210,7 +213,7 @@ export const MoodWheel = forwardRef<WheelHandle, Props>(function MoodWheel(
               <Pressable
                 key={String(m.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`اختار مود ${title(m)}`}
+                accessibilityLabel={t("pickMood", { name: name(m) })}
                 disabled={spinning}
                 onPress={() => spin(i)}
                 style={[
@@ -236,7 +239,7 @@ export const MoodWheel = forwardRef<WheelHandle, Props>(function MoodWheel(
                     { color: ink, fontSize: size < 300 ? 9 : 10.5 },
                   ]}
                 >
-                  {title(m)}
+                  {name(m)}
                 </Text>
               </Pressable>
             );
@@ -259,7 +262,7 @@ export const MoodWheel = forwardRef<WheelHandle, Props>(function MoodWheel(
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="انطلق، خلّي TAMAM تختار"
+            accessibilityLabel={t("spinA11y")}
             accessibilityState={{ disabled: spinning }}
             disabled={spinning}
             onPress={() => spin()}
@@ -271,9 +274,9 @@ export const MoodWheel = forwardRef<WheelHandle, Props>(function MoodWheel(
           >
             <TamamMark size={hub * 0.2} color={colors.white} accent={colors.tealDeep} />
             <Text style={[styles.hubText, { fontSize: hub * 0.2 }]}>
-              {spinning ? "..." : "انطلق"}
+              {spinning ? "..." : t("go")}
             </Text>
-            {!spinning ? <Text style={styles.hubSub}>اضغط هنا</Text> : null}
+            {!spinning ? <Text style={styles.hubSub}>{t("tapHere")}</Text> : null}
           </Pressable>
         </Animated.View>
       </View>
@@ -295,7 +298,7 @@ export const MoodWheel = forwardRef<WheelHandle, Props>(function MoodWheel(
   );
 });
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   glow: {
     position: "absolute",
     backgroundColor: colors.green,

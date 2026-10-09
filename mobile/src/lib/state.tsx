@@ -9,7 +9,7 @@ import {
 } from "react";
 import { createApi, type Api } from "./api";
 import type { Extra, Meal, Restaurant } from "./types";
-import { ActivityIndicator } from "react-native";
+import { ActivityIndicator, Platform } from "react-native";
 
 export interface Line {
   key: string;
@@ -25,8 +25,18 @@ export interface Customer {
   address: string;
 }
 const emptyCustomer: Customer = { name: "", phone: "", address: "" };
+export type Lang = "ar" | "he" | "en";
+const asLang = (v: unknown): Lang | null =>
+  v === "ar" || v === "he" || v === "en" ? v : null;
+/** Website links can force a language: ?lang=he */
+const urlLang = () =>
+  Platform.OS === "web" && typeof window !== "undefined"
+    ? asLang(new URLSearchParams(window.location.search).get("lang"))
+    : null;
 interface Store {
   api: Api;
+  lang: Lang;
+  setLang: (l: Lang) => void;
   customer: Customer;
   saveCustomer: (c: Customer) => void;
   orderIds: number[];
@@ -45,9 +55,10 @@ export function Provider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [customer, setCustomer] = useState<Customer>(emptyCustomer);
   const [orderIds, setOrderIds] = useState<number[]>([]);
+  const [lang, setLangState] = useState<Lang>("ar");
   useEffect(() => {
     let active = true;
-    AsyncStorage.multiGet(["craveit.cart", "tamam.customer", "tamam.orders"])
+    AsyncStorage.multiGet(["craveit.cart", "tamam.customer", "tamam.orders", "tamam.lang"])
       .then((values) => {
         if (!active) return;
         try {
@@ -55,6 +66,11 @@ export function Provider({ children }: { children: ReactNode }) {
           if (values[1][1])
             setCustomer({ ...emptyCustomer, ...JSON.parse(values[1][1]) });
           if (values[2][1]) setOrderIds(JSON.parse(values[2][1]));
+          const fromUrl = urlLang();
+          const chosen = fromUrl || asLang(values[3][1]);
+          if (chosen) setLangState(chosen);
+          // A ?lang= link sticks, so later pages/reloads keep that language.
+          if (fromUrl) AsyncStorage.setItem("tamam.lang", fromUrl).catch(() => {});
         } catch {
           /* Ignore an old/corrupt local snapshot. */
         }
@@ -74,8 +90,18 @@ export function Provider({ children }: { children: ReactNode }) {
       );
   }, [lines, ready]);
   const api = useMemo(() => createApi(), []);
+  // Keep the page's lang attribute in sync for screen readers and search.
+  useEffect(() => {
+    if (Platform.OS === "web" && typeof document !== "undefined")
+      document.documentElement.lang = lang;
+  }, [lang]);
   const store: Store = {
     api,
+    lang,
+    setLang: (l) => {
+      setLangState(l);
+      AsyncStorage.setItem("tamam.lang", l).catch(() => {});
+    },
     customer,
     saveCustomer: (c) => {
       setCustomer(c);

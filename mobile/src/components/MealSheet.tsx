@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import { Modal, Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, colors, money, Page, Picture, s, Status, Txt } from "./ui";
+import { Button, colors, money, Page, Picture, Status, Txt, useS } from "./ui";
+import { useT } from "../lib/i18n";
 import { useStore } from "../lib/state";
 import { useLoad } from "../lib/useLoad";
 import {
-  title,
   type Extra,
   type ExtraGroup,
   type Meal,
@@ -21,6 +21,8 @@ export function MealSheet({
   close: () => void;
 }) {
   const { api, add } = useStore();
+  const { t, name, desc } = useT();
+  const s = useS();
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState("");
   const [selected, setSelected] = useState<Record<string, Extra[]>>({});
@@ -54,7 +56,7 @@ export function MealSheet({
         Math.max(Number(group.min_select || 0), group.required ? 1 : 0),
     );
     if (missing) {
-      setError(`اختار ${missing.group_name} قبل الإضافة.`);
+      setError(t("chooseFirst", { name: missing.group_name }));
       return;
     }
     add({ meal, restaurant, quantity, note: note.trim(), extras });
@@ -64,10 +66,10 @@ export function MealSheet({
     <Modal animationType="slide" onRequestClose={close}>
       <SafeAreaView style={s.page}>
         <Page>
-          <Button label="إغلاق" onPress={close} />
+          <Button label={t("close")} onPress={close} />
           <Picture uri={meal.image_url} />
-          <Text style={s.heading}>{title(meal)}</Text>
-          <Txt muted>{meal.description || ""}</Txt>
+          <Text style={s.heading}>{name(meal)}</Text>
+          <Txt muted>{desc(meal)}</Txt>
           <Txt>{money(Number(meal.price))}</Txt>
           <Status
             loading={data.loading}
@@ -77,9 +79,9 @@ export function MealSheet({
           {data.value?.map((group) => (
             <View key={group.id} style={s.card}>
               <Txt>
-                {group.group_name} {group.required ? "· مطلوب" : ""}
+                {group.group_name} {group.required ? t("required") : ""}
               </Txt>
-              <Txt muted>حتى {group.max_select || 1} خيارات</Txt>
+              <Txt muted>{t("upTo", { n: group.max_select || 1 })}</Txt>
               {(group.menu_extra_options || []).map((option) => (
                 <Pressable
                   key={option.id}
@@ -96,7 +98,7 @@ export function MealSheet({
                     {selected[String(group.id)]?.some((x) => x.id === option.id)
                       ? "✓  "
                       : "○  "}
-                    {option.name} · {money(Number(option.price || 0))}
+                    {name(option)} · {money(Number(option.price || 0))}
                   </Txt>
                 </Pressable>
               ))}
@@ -108,9 +110,9 @@ export function MealSheet({
             onChangeText={setNote}
             multiline
             maxLength={500}
-            placeholder="مثلاً: بدون بصل، صوص زيادة…"
+            placeholder={t("mealNotePh")}
             placeholderTextColor={colors.muted}
-            accessibilityLabel="ملاحظات الوجبة"
+            accessibilityLabel={t("mealNote")}
           />
           <View style={s.row}>
             <Button
@@ -132,7 +134,7 @@ export function MealSheet({
             </Text>
           )}
           <Button
-            label={`إضافة للسلة · ${money(unit * quantity)}`}
+            label={t("addToCart", { p: money(unit * quantity) })}
             disabled={
               data.loading ||
               !!data.error ||

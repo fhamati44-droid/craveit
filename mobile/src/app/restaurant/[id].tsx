@@ -7,17 +7,20 @@ import {
   money,
   Page,
   Picture,
-  s,
   Status,
   Txt,
+  useS,
 } from "../../components/ui";
+import { useT } from "../../lib/i18n";
 import { MealSheet } from "../../components/MealSheet";
 import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
-import { title, type Meal } from "../../lib/types";
+import type { Meal } from "../../lib/types";
 export default function Restaurant() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, count } = useStore();
+  const { t, name, desc } = useT();
+  const s = useS();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Meal>();
   const load = useCallback(async () => {
@@ -39,27 +42,27 @@ export default function Restaurant() {
       {restaurant && (
         <>
           <Picture uri={restaurant.cover_url || restaurant.image_url} />
-          <Text style={s.heading}>{title(restaurant)}</Text>
+          <Text style={s.heading}>{name(restaurant)}</Text>
           <Txt muted>
-            {restaurant.description_ar || restaurant.description || ""}
+            {desc(restaurant)}
           </Txt>
           {(restaurant.is_open ?? restaurant.active) === false && (
-            <Txt>المطعم مغلق حالياً</Txt>
+            <Txt>{t("restaurantClosed")}</Txt>
           )}
           <TextInput
             style={s.input}
             value={query}
             onChangeText={setQuery}
-            placeholder="فتّش بالقائمة"
+            placeholder={t("searchMenu")}
             placeholderTextColor={colors.muted}
-            accessibilityLabel="بحث قائمة المطعم"
+            accessibilityLabel={t("searchMenu")}
           />
           {data.value?.categories.map((category) => (
             <View key={category.id} style={{ gap: 12 }}>
-              <Text style={s.heading}>{title(category)}</Text>
+              <Text style={s.heading}>{name(category)}</Text>
               {category.items
                 .filter((meal) =>
-                  title(meal)
+                  `${name(meal)} ${meal.name || ""} ${meal.name_ar || ""}`
                     .toLowerCase()
                     .includes(query.trim().toLowerCase()),
                 )
@@ -71,22 +74,22 @@ export default function Restaurant() {
                     onPress={() => setSelected(meal)}
                   >
                     <Picture uri={meal.image_url} />
-                    <Txt>{title(meal)}</Txt>
-                    <Txt muted>{meal.description || ""}</Txt>
+                    <Txt>{name(meal)}</Txt>
+                    <Txt muted>{desc(meal)}</Txt>
                     <Txt>
                       {money(Number(meal.price))}{" "}
-                      {meal.is_available === false ? "· غير متوفر" : ""}
+                      {meal.is_available === false ? t("unavailable") : ""}
                     </Txt>
                   </Pressable>
                 ))}
             </View>
           ))}
           {data.value?.categories.length === 0 && (
-            <Txt>القائمة غير منشورة حالياً.</Txt>
+            <Txt>{t("menuUnpublished")}</Txt>
           )}
           {count > 0 && (
             <Button
-              label={`شوف السلة · ${count} وجبات`}
+              label={t("viewCartN", { n: count })}
               onPress={() => router.push("/cart")}
             />
           )}

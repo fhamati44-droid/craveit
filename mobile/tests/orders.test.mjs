@@ -67,3 +67,24 @@ test("validation requires name, a real phone and an address for delivery", () =>
   ]);
   assert.deepEqual(validate({ ...form, delivery: "pickup", address: "" }), {});
 });
+
+test("every translation key exists in Arabic, Hebrew and English", async () => {
+  const src = await import("node:fs").then((fs) =>
+    fs.readFileSync(new URL("../src/lib/i18n.ts", import.meta.url), "utf8"),
+  );
+  const entries = [...src.matchAll(/^\s{2}(\w+): \{ ar: "(.*?)", he: "(.*?)", en: "(.*?)" \},$/gm)];
+  assert.ok(entries.length > 150, `found ${entries.length} keys`);
+  for (const [, key, ar, he, en] of entries) {
+    assert.ok(ar && he && en, `empty translation for ${key}`);
+    const vars = (x) => [...x.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join();
+    assert.equal(vars(he), vars(ar), `placeholders differ (he) in ${key}`);
+    assert.equal(vars(en), vars(ar), `placeholders differ (en) in ${key}`);
+  }
+});
+
+test("statusKey maps CRM statuses to translation keys", async () => {
+  const { statusKey } = await import("../src/lib/orders.ts");
+  assert.equal(statusKey("cooking"), "st_cooking");
+  assert.equal(statusKey("cancelled"), "st_cancelled");
+  assert.equal(statusKey("weird"), "st_new");
+});
