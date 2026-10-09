@@ -56,7 +56,7 @@ export function MealSheet({
         Math.max(Number(group.min_select || 0), group.required ? 1 : 0),
     );
     if (missing) {
-      setError(t("chooseFirst", { name: missing.group_name }));
+      setError(t("chooseFirst", { name: name(missing) || missing.group_name }));
       return;
     }
     add({ meal, restaurant, quantity, note: note.trim(), extras });
@@ -79,7 +79,7 @@ export function MealSheet({
           {data.value?.map((group) => (
             <View key={group.id} style={s.card}>
               <Txt>
-                {group.group_name} {group.required ? t("required") : ""}
+                {name(group) || group.group_name} {group.required ? t("required") : ""}
               </Txt>
               <Txt muted>{t("upTo", { n: group.max_select || 1 })}</Txt>
               {(group.menu_extra_options || []).map((option) => (

@@ -338,6 +338,10 @@ export function useT() {
         (rtl ? icon : (icon.replace("-back", "-forward") as IconName)),
       /** Show a message that may be a translation key (errors from api.ts). */
       msg: (text: string) => (text in dict ? t(text as Key) : text),
+      /** Package badge in the chosen language, else the package level. */
+      badge: (x: { badge_text_ar?: string; badge_text_he?: string; badge_text_en?: string; package_level?: string }) =>
+        (lang === "ar" ? x.badge_text_ar : lang === "he" ? x.badge_text_he : x.badge_text_en) ||
+        t(x.package_level === "plus" ? "pkgPlus" : x.package_level === "mix" ? "pkgMix" : "pkgClassic"),
       pkg: (level?: string) =>
         t(level === "plus" ? "pkgPlus" : level === "mix" ? "pkgMix" : "pkgClassic"),
     }),

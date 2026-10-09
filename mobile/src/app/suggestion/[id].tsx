@@ -13,7 +13,7 @@ import { lineTotal } from "../../lib/orders";
 export default function Suggestion() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, add } = useStore();
-  const { t, name, desc, pkg, sheet } = useT();
+  const { t, name, desc, badge, sheet } = useT();
   const s = useS();
   const p = sheet(ps);
   const data = useLoad(
@@ -49,7 +49,7 @@ export default function Suggestion() {
           </View>
           <View style={{ gap: 6 }}>
             <View style={p.pill}>
-              <Text style={p.pillText}>{set.badge_text_ar || pkg(set.package_level)}</Text>
+              <Text style={p.pillText}>{badge(set)}</Text>
             </View>
             <Text style={s.heading}>{name(set)}</Text>
             {desc(set) ? <Text style={p.muted}>{desc(set)}</Text> : null}

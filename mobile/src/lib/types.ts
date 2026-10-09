@@ -39,6 +39,8 @@ export interface Extra {
   id: Id;
   name: string;
   name_ar?: string | null;
+  name_he?: string | null;
+  name_en?: string | null;
   price: number;
 }
 export interface ExtraGroup {
@@ -46,6 +48,8 @@ export interface ExtraGroup {
   group_name: string;
   name?: string;
   name_ar?: string | null;
+  name_he?: string | null;
+  name_en?: string | null;
   required?: boolean;
   min_select?: number;
   max_select?: number;
@@ -78,6 +82,8 @@ export interface Suggestion {
   display_price?: number;
   display_price_override?: number;
   badge_text_ar?: string;
+  badge_text_he?: string;
+  badge_text_en?: string;
 }
 export interface SuggestionItem {
   suggestion_set_id?: Id;
