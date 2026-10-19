@@ -134,9 +134,15 @@ export default function DailyMealsAdmin() {
   };
   const saveOption = async () => {
     if (!session || !menuId || !optionName.trim()) { setError(t("dailyChooseDate")); return; }
+    if (optionImageUrl.trim()) {
+      try {
+        const url = new URL(optionImageUrl.trim());
+        if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error();
+      } catch { setError(t("adminInvalidImageUrl")); return; }
+    }
     setBusy(true); setError(""); setNotice("");
     try {
-      await saveAdminOption(session.access_token, { ...(editingOptionId ? { id: editingOptionId } : {}), menu_id: menuId, category: optionCategory, name: optionName.trim(), name_ar: optionName.trim(), description: optionDescription.trim() || null, image_url: optionImageUrl || null, active: true });
+      await saveAdminOption(session.access_token, { ...(editingOptionId ? { id: editingOptionId } : {}), menu_id: menuId, category: optionCategory, name: optionName.trim(), name_ar: optionName.trim(), description: optionDescription.trim() || null, image_url: optionImageUrl.trim() || null, active: true });
       setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setNotice(t("adminSaved")); await refresh(session);
     } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
     finally { setBusy(false); }
@@ -284,6 +290,7 @@ export default function DailyMealsAdmin() {
               <Ionicons name="image-outline" size={20} color={colors.teal} />
               <Text style={s.link}>{t(busy ? "adminUploading" : "adminUploadImage")}</Text>
             </Pressable>
+            <TextInput value={optionImageUrl} onChangeText={setOptionImageUrl} style={s.input} placeholder={t("adminPasteImageUrl")} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
             <View style={s.rowBetween}><Text style={s.muted}>{editingOptionId ? t("adminEditOption") : t("adminAddOption")}</Text>{editingOptionId ? <Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); }}><Text style={s.link}>{t("close")}</Text></Pressable> : null}</View>
             <Button label={t(editingOptionId ? "adminSave" : "adminAddOption")} onPress={() => void saveOption()} disabled={busy || !optionName.trim()} />
             {visibleOptions.map((option) => <View key={option.id} style={s.rowCard}>
