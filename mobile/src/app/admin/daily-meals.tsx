@@ -19,7 +19,7 @@ const statusKey: Record<DailyReservation["status"], "adminNew" | "adminConfirmed
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
 
 export default function DailyMealsAdmin() {
-  const { lang } = useStore();
+  const { api, lang } = useStore();
   const { t, sheet } = useT();
   const s = sheet(styles);
   const [session, setSession] = useState<AdminSession | null>(null);
@@ -29,6 +29,7 @@ export default function DailyMealsAdmin() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [recoveryToken, setRecoveryToken] = useState("");
   const [menus, setMenus] = useState<DailyMenu[]>([]);
+  const [restaurants, setRestaurants] = useState<Awaited<ReturnType<typeof api.restaurants>>>([]);
   const [options, setOptions] = useState<DailyOption[]>([]);
   const [reservations, setReservations] = useState<DailyReservation[]>([]);
   const [menuOptionOverrides, setMenuOptionOverrides] = useState<DailyMenuOptionOverride[]>([]);
@@ -38,6 +39,7 @@ export default function DailyMealsAdmin() {
   const [editingMenuId, setEditingMenuId] = useState<number | null>(null);
   const [menuDate, setMenuDate] = useState(today());
   const [restaurantId, setRestaurantId] = useState("");
+  const [restaurantPickerOpen, setRestaurantPickerOpen] = useState(false);
   const [menuTitle, setMenuTitle] = useState("وجبة اليوم");
   const [menuPrice, setMenuPrice] = useState("");
   const [menuImageUrl, setMenuImageUrl] = useState("");
@@ -71,14 +73,14 @@ export default function DailyMealsAdmin() {
 
   const refresh = useCallback(async (current: AdminSession) => {
     try {
-      const [menuRows, optionRows, reservationRows, overrideRows] = await Promise.all([
-        getAdminMenus(current.access_token), getAdminOptions(current.access_token), getAdminReservations(current.access_token), getAdminMenuOptionOverrides(current.access_token),
+      const [menuRows, optionRows, reservationRows, overrideRows, restaurantRows] = await Promise.all([
+        getAdminMenus(current.access_token), getAdminOptions(current.access_token), getAdminReservations(current.access_token), getAdminMenuOptionOverrides(current.access_token), api.restaurants(),
       ]);
-      setMenus(menuRows); setOptions(optionRows); setReservations(reservationRows); setMenuOptionOverrides(overrideRows);
+      setMenus(menuRows); setOptions(optionRows); setReservations(reservationRows); setMenuOptionOverrides(overrideRows); setRestaurants(restaurantRows);
       if (!menuId && menuRows[0]) setMenuId(menuRows[0].id);
     } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
     finally { setLoading(false); }
-  }, [menuId, t]);
+  }, [api, menuId, t]);
   // Load protected records after the sign-in state becomes available.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (session) void refresh(session); }, [session, refresh]);
@@ -117,6 +119,9 @@ export default function DailyMealsAdmin() {
   const saveMenu = async () => {
     if (!session) return;
     const rid = Number(restaurantId), price = Number(menuPrice);
+    if (!restaurants.some((restaurant) => String(restaurant.id) === String(rid))) {
+      setError(t("adminChooseRestaurant")); return;
+    }
     if (!Number.isInteger(rid) || rid <= 0 || !menuDate || !menuTitle.trim() || !Number.isFinite(price) || price < 0) {
       setError(t("adminLoadError")); return;
     }
@@ -279,10 +284,27 @@ export default function DailyMealsAdmin() {
       {tab === "menus" ? (
         <>
           <View style={s.section}>
-            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setMenuId(null); setEditingMenuId(null); setMenuOptionDrafts({}); setMenuDate(today()); setRestaurantId(""); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
+            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setMenuId(null); setEditingMenuId(null); setMenuOptionDrafts({}); setMenuDate(today()); setRestaurantId(""); setRestaurantPickerOpen(false); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
             <View style={s.form}>
               <Text style={s.label}>{t("adminRestaurantId")}</Text>
-              <TextInput value={restaurantId} onChangeText={setRestaurantId} style={s.input} keyboardType="number-pad" />
+              <Pressable accessibilityRole="button" onPress={() => setRestaurantPickerOpen((open) => !open)} style={s.pickerButton}>
+                <Text style={restaurantId ? s.body : s.muted}>
+                  {restaurants.find((restaurant) => String(restaurant.id) === restaurantId)
+                    ? `${localName(lang, restaurants.find((restaurant) => String(restaurant.id) === restaurantId)!)} · #${restaurantId}`
+                    : t("adminChooseRestaurant")}
+                </Text>
+              </Pressable>
+              {restaurantPickerOpen ? (
+                <View style={s.restaurantPicker}>
+                  {restaurants.map((restaurant) => (
+                    <Pressable key={String(restaurant.id)} accessibilityRole="button" onPress={() => { setRestaurantId(String(restaurant.id)); setRestaurantPickerOpen(false); }} style={s.restaurantChoice}>
+                      <Text style={s.body}>{localName(lang, restaurant)}</Text>
+                      <Text style={s.muted}>#{restaurant.id}</Text>
+                    </Pressable>
+                  ))}
+                  {!restaurants.length ? <Text style={s.muted}>{t("adminNoRestaurants")}</Text> : null}
+                </View>
+              ) : null}
               <Text style={s.label}>{t("adminDate")}</Text>
               <TextInput value={menuDate} onChangeText={setMenuDate} style={s.input} placeholder="YYYY-MM-DD" />
               <Text style={s.label}>{t("adminTitle")}</Text>
@@ -304,7 +326,7 @@ export default function DailyMealsAdmin() {
           <View style={s.section}>
             <Text style={s.sectionTitle}>{t("adminMenus")}</Text>
             {menus.map((menu) => <Pressable key={menu.id} onPress={() => chooseMenuForEditing(menu)} style={[s.rowCard, menuId === menu.id && s.rowCardOn]}>
-              <View style={{ flex: 1 }}><Text style={s.cardTitle}>{menu.title} · {menu.service_date}</Text><Text style={s.muted}>{menu.restaurant_id} · {Number(menu.price)} ₪ · {menu.published ? t("adminPublished") : t("adminUnpublished")}</Text></View>
+              <View style={{ flex: 1 }}><Text style={s.cardTitle}>{menu.title} · {menu.service_date}</Text><Text style={s.muted}>{localName(lang, restaurants.find((restaurant) => String(restaurant.id) === String(menu.restaurant_id)) || { name: `#${menu.restaurant_id}` })} · {Number(menu.price)} ₪ · {menu.published ? t("adminPublished") : t("adminUnpublished")}</Text></View>
               <Ionicons name={menuId === menu.id ? "checkmark-circle" : "chevron-back"} size={20} color={menuId === menu.id ? colors.green : colors.muted} />
             </Pressable>)}
             {!menus.length && !loading ? <Text style={s.muted}>{t("dailyNoMenus")}</Text> : null}
@@ -406,6 +428,10 @@ const styles = StyleSheet.create({
   form: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 18, padding: 14, gap: 9 },
   label: { color: colors.ink, fontFamily: font.bold, fontSize: 12, textAlign: "right" },
   input: { minHeight: 46, borderWidth: 1, borderColor: colors.outline, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.surface, color: colors.ink, textAlign: "right", fontFamily: font.regular, fontSize: 13 },
+  pickerButton: { minHeight: 46, borderWidth: 1, borderColor: colors.outline, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.surface, justifyContent: "center" },
+  restaurantPicker: { borderWidth: 1, borderColor: colors.outline, borderRadius: 13, paddingHorizontal: 10, backgroundColor: colors.surface },
+  restaurantChoice: { minHeight: 42, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: colors.outline },
+  body: { color: colors.ink, fontFamily: font.medium, fontSize: 12, textAlign: "right" },
   switchRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
   tabs: { flexDirection: "row-reverse", padding: 4, backgroundColor: colors.high, borderRadius: 14 },
   tab: { flex: 1, padding: 11, borderRadius: 11, alignItems: "center" },
