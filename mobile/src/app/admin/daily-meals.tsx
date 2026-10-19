@@ -137,7 +137,7 @@ export default function DailyMealsAdmin() {
     setBusy(true); setError(""); setNotice("");
     try {
       const creatingMenu = !editingMenuId;
-      const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, ...(menuImageUrl.trim() ? { image_url: menuImageUrl.trim() } : {}), included_note: menuIncludedNote.trim() || null, published });
+      const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, ...(menuImageUrl.trim() ? { image_url: menuImageUrl.trim() } : {}), ...(menuIncludedNote.trim() ? { included_note: menuIncludedNote.trim() } : {}), published });
       if (saved[0]) {
         setMenuId(saved[0].id); setEditingMenuId(saved[0].id);
         if (creatingMenu) setMenuOptionDrafts(Object.fromEntries(SHARED_DAILY_CATEGORIES.map((category) => [category, null])));
