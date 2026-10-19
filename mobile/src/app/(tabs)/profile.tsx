@@ -24,6 +24,8 @@ export default function Profile() {
     ["receipt-outline", t("tabOrders"), () => router.push("/orders")],
     ["bag-handle-outline", t("screenCart"), () => router.push("/cart")],
     ["sparkles-outline", t("playTamam"), () => router.push("/game")],
+    ["calendar-outline", t("dailyHomeCard"), () => router.push("/daily-meal")],
+    ["shield-checkmark-outline", t("adminDailyMeals"), () => router.push("/admin/daily-meals")],
     [
       "logo-whatsapp",
       t("whatsappUs"),

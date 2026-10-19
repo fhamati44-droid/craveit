@@ -120,6 +120,21 @@ export default function Home() {
         </Pressable>
       ) : null}
 
+      <Pressable
+        style={h.dailyBanner}
+        onPress={() => router.push("/daily-meal")}
+        accessibilityRole="button"
+      >
+        <View style={h.dailyIcon}>
+          <Ionicons name="calendar-outline" size={24} color={colors.teal} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={h.bannerTitle}>{t("dailyHomeCard")}</Text>
+          <Text style={h.muted}>{t("dailyHomeSub")}</Text>
+        </View>
+        <Ionicons name={fwd("chevron-back")} size={20} color={colors.teal} />
+      </Pressable>
+
       {moods.value?.length ? (
         <View style={h.section}>
           <SectionTitle
@@ -310,6 +325,24 @@ const hs = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: "#CFE8CB",
+  },
+  dailyBanner: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: colors.green,
+  },
+  dailyIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: colors.mint,
+    alignItems: "center",
+    justifyContent: "center",
   },
   bannerIcon: {
     width: 52,

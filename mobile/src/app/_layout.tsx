@@ -38,6 +38,8 @@ function Screens() {
       <Stack.Screen name="order/[id]" options={{ title: t("screenTracking") }} />
       <Stack.Screen name="suggestions" options={{ title: t("screenSuggestions") }} />
       <Stack.Screen name="suggestion/[id]" options={{ title: t("screenSuggestion") }} />
+      <Stack.Screen name="daily-meal" options={{ title: t("dailyTitle") }} />
+      <Stack.Screen name="admin/daily-meals" options={{ title: t("adminDailyMeals") }} />
     </Stack>
   );
 }
