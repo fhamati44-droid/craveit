@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { router } from "expo-router";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, Page } from "../components/ui";
 import { useStore } from "../lib/state";
@@ -134,7 +134,9 @@ export default function DailyMeal() {
                 const active = selected[currentCategory] === option.id;
                 return (
                   <Pressable key={option.id} onPress={() => setSelected((old) => ({ ...old, [currentCategory]: option.id }))} style={[s.option, active && s.selectedCard]}>
-                    <View style={s.optionIcon}><Ionicons name={categoryIcons[currentCategory]} size={18} color={active ? colors.white : colors.teal} /></View>
+                    {option.image_url
+                      ? <Image source={{ uri: option.image_url }} style={s.optionPhoto} accessibilityLabel={t("image")} />
+                      : <View style={s.optionIcon}><Ionicons name={categoryIcons[currentCategory]} size={18} color={active ? colors.white : colors.teal} /></View>}
                     <View style={{ flex: 1 }}>
                       <Text style={s.optionTitle}>{localName(lang, option) || option.name}</Text>
                       {option.description ? <Text style={s.body}>{option.description}</Text> : null}
@@ -206,6 +208,7 @@ const styles = StyleSheet.create({
   price: { color: colors.teal, fontFamily: font.black, fontSize: 14 },
   option: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 16, padding: 12 },
   optionIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" },
+  optionPhoto: { width: 54, height: 54, borderRadius: 12, backgroundColor: colors.high },
   optionTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 14, textAlign: "right" },
   body: { color: colors.muted, fontFamily: font.regular, fontSize: 12, lineHeight: 19, textAlign: "right" },
   card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 18, padding: 14, gap: 7 },

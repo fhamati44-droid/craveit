@@ -125,6 +125,32 @@ export async function setAdminPassword(accessToken: string, password: string) {
   }
 }
 
+export async function uploadDailyMealImage(accessToken: string, menuId: number, file: File) {
+  if (!file.type.startsWith("image/")) throw new Error("الملف لازم يكون صورة.");
+  if (file.size > 5 * 1024 * 1024) throw new Error("حجم الصورة لازم يكون أقل من 5 ميغابايت.");
+  const safeName = file.name.normalize("NFKD").replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "") || "meal-image";
+  const uniqueId = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const objectPath = `${menuId}/${uniqueId}-${safeName}`;
+  const encodedPath = objectPath.split("/").map(encodeURIComponent).join("/");
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/daily-meal-images/${encodedPath}`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": file.type,
+      "x-upsert": "false",
+    },
+    body: file,
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null) as { message?: string; error?: string } | null;
+    throw new Error(data?.message || data?.error || "تعذر رفع الصورة. تأكد من إعداد مساحة صور وجبة اليوم في Supabase.");
+  }
+  return `${SUPABASE_URL}/storage/v1/object/public/daily-meal-images/${encodedPath}`;
+}
+
 export const getAdminMenus = (token: string) =>
   request<DailyMenu[]>("daily_menus?select=*&order=service_date.desc,id.desc", {}, token);
 export const getAdminOptions = (token: string) =>

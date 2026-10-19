@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, Page } from "../../components/ui";
 import { useStore } from "../../lib/state";
 import { useT, localName } from "../../lib/i18n";
 import {
   DAILY_CATEGORIES, deleteAdminOption, getAdminMenus, getAdminOptions, getAdminReservations,
-  saveAdminMenu, saveAdminOption, sendAdminPasswordRecovery, setAdminPassword, signInAdmin, updateAdminReservation,
+  saveAdminMenu, saveAdminOption, sendAdminPasswordRecovery, setAdminPassword, signInAdmin, updateAdminReservation, uploadDailyMealImage,
   type AdminSession, type DailyCategory, type DailyMenu, type DailyOption, type DailyReservation,
 } from "../../lib/dailyMeals";
 
@@ -43,6 +43,7 @@ export default function DailyMealsAdmin() {
   const [editingOptionId, setEditingOptionId] = useState<number | null>(null);
   const [optionName, setOptionName] = useState("");
   const [optionDescription, setOptionDescription] = useState("");
+  const [optionImageUrl, setOptionImageUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -128,10 +129,27 @@ export default function DailyMealsAdmin() {
     if (!session || !menuId || !optionName.trim()) { setError(t("dailyChooseDate")); return; }
     setBusy(true); setError(""); setNotice("");
     try {
-      await saveAdminOption(session.access_token, { ...(editingOptionId ? { id: editingOptionId } : {}), menu_id: menuId, category: optionCategory, name: optionName.trim(), name_ar: optionName.trim(), description: optionDescription.trim() || null, active: true });
-      setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setNotice(t("adminSaved")); await refresh(session);
+      await saveAdminOption(session.access_token, { ...(editingOptionId ? { id: editingOptionId } : {}), menu_id: menuId, category: optionCategory, name: optionName.trim(), name_ar: optionName.trim(), description: optionDescription.trim() || null, image_url: optionImageUrl || null, active: true });
+      setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setNotice(t("adminSaved")); await refresh(session);
     } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
     finally { setBusy(false); }
+  };
+  const chooseOptionImage = () => {
+    if (typeof document === "undefined" || !menuId || !session) return;
+    const picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = "image/*";
+    picker.onchange = async () => {
+      const file = picker.files?.[0];
+      if (!file) return;
+      setBusy(true); setError(""); setNotice("");
+      try {
+        const url = await uploadDailyMealImage(session.access_token, menuId, file);
+        setOptionImageUrl(url);
+      } catch (e) { setError(e instanceof Error ? e.message : t("adminImageUploadError")); }
+      finally { setBusy(false); }
+    };
+    picker.click();
   };
   const chooseMenu = (menu: DailyMenu) => {
     setMenuId(menu.id); setEditingMenuId(menu.id); setMenuDate(menu.service_date); setRestaurantId(String(menu.restaurant_id));
@@ -227,11 +245,18 @@ export default function DailyMealsAdmin() {
             <View style={s.chips}>{DAILY_CATEGORIES.map((category) => <Pressable key={category} onPress={() => setOptionCategory(category)} style={[s.chip, optionCategory === category && s.chipOn]}><Text style={[s.chipText, optionCategory === category && s.chipTextOn]}>{t(categoryKey[category])}</Text></Pressable>)}</View>
             <TextInput value={optionName} onChangeText={setOptionName} style={s.input} placeholder={t("adminOptionName")} />
             <TextInput value={optionDescription} onChangeText={setOptionDescription} style={s.input} placeholder={t("adminDescription")} />
-            <View style={s.rowBetween}><Text style={s.muted}>{editingOptionId ? t("adminEditOption") : t("adminAddOption")}</Text>{editingOptionId ? <Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); }}><Text style={s.link}>{t("close")}</Text></Pressable> : null}</View>
+            <Text style={s.label}>{t("adminOptionImage")}</Text>
+            {optionImageUrl ? <Image source={{ uri: optionImageUrl }} style={s.optionImagePreview} accessibilityLabel={t("image")} /> : null}
+            <Pressable accessibilityRole="button" onPress={chooseOptionImage} disabled={busy} style={s.imageUpload}>
+              <Ionicons name="image-outline" size={20} color={colors.teal} />
+              <Text style={s.link}>{t(busy ? "adminUploading" : "adminUploadImage")}</Text>
+            </Pressable>
+            <View style={s.rowBetween}><Text style={s.muted}>{editingOptionId ? t("adminEditOption") : t("adminAddOption")}</Text>{editingOptionId ? <Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); }}><Text style={s.link}>{t("close")}</Text></Pressable> : null}</View>
             <Button label={t(editingOptionId ? "adminSave" : "adminAddOption")} onPress={() => void saveOption()} disabled={busy || !optionName.trim()} />
             {visibleOptions.map((option) => <View key={option.id} style={s.rowCard}>
+              {option.image_url ? <Image source={{ uri: option.image_url }} style={s.optionListImage} accessibilityLabel={t("image")} /> : null}
               <View style={{ flex: 1 }}><Text style={s.cardTitle}>{t(categoryKey[option.category])}: {optionLabel(option)}</Text>{option.description ? <Text style={s.muted}>{option.description}</Text> : null}</View>
-              <Pressable accessibilityRole="button" accessibilityLabel={t("adminEditOption")} onPress={() => { setEditingOptionId(option.id); setOptionCategory(option.category); setOptionName(option.name_ar || option.name); setOptionDescription(option.description || ""); }} style={s.iconButton}><Ionicons name="create-outline" size={18} color={colors.teal} /></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={t("adminEditOption")} onPress={() => { setEditingOptionId(option.id); setOptionCategory(option.category); setOptionName(option.name_ar || option.name); setOptionDescription(option.description || ""); setOptionImageUrl(option.image_url || ""); }} style={s.iconButton}><Ionicons name="create-outline" size={18} color={colors.teal} /></Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel={t("remove")} onPress={async () => { try { await deleteAdminOption(session.access_token, option.id); await refresh(session); } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); } }} style={s.iconButton}><Ionicons name="trash-outline" size={18} color={colors.error} /></Pressable>
             </View>)}
           </View> : null}
@@ -279,6 +304,9 @@ const styles = StyleSheet.create({
   tabTextOn: { color: colors.white },
   rowCard: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 15, padding: 12 },
   rowCardOn: { borderColor: colors.green, backgroundColor: colors.mint },
+  optionImagePreview: { width: "100%", height: 180, borderRadius: 14, backgroundColor: colors.high },
+  optionListImage: { width: 48, height: 48, borderRadius: 12, backgroundColor: colors.high },
+  imageUpload: { minHeight: 48, borderWidth: 1, borderStyle: "dashed", borderColor: colors.green, borderRadius: 14, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.mint },
   cardTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 12, textAlign: "right" },
   price: { color: colors.teal, fontFamily: font.black, fontSize: 13 },
   chips: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 7 },
