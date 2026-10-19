@@ -118,9 +118,15 @@ export default function DailyMealsAdmin() {
     if (!Number.isInteger(rid) || rid <= 0 || !menuDate || !menuTitle.trim() || !Number.isFinite(price) || price < 0) {
       setError(t("adminLoadError")); return;
     }
+    if (menuImageUrl) {
+      try {
+        const url = new URL(menuImageUrl.trim());
+        if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error();
+      } catch { setError(t("adminInvalidImageUrl")); return; }
+    }
     setBusy(true); setError(""); setNotice("");
     try {
-      const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, ...(menuImageUrl ? { image_url: menuImageUrl } : {}), published });
+      const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, ...(menuImageUrl.trim() ? { image_url: menuImageUrl.trim() } : {}), published });
       if (saved[0]) { setMenuId(saved[0].id); setEditingMenuId(saved[0].id); }
       setNotice(t("adminSaved")); await refresh(session);
     } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
@@ -253,6 +259,7 @@ export default function DailyMealsAdmin() {
                 <Ionicons name="image-outline" size={20} color={colors.teal} />
                 <Text style={s.link}>{t(busy ? "adminUploading" : "adminUploadImage")}</Text>
               </Pressable>
+              <TextInput value={menuImageUrl} onChangeText={setMenuImageUrl} style={s.input} placeholder={t("adminPasteImageUrl")} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
               {!editingMenuId ? <Text style={s.muted}>{t("adminSaveMenuFirst")}</Text> : menuImageUrl ? <Text style={s.muted}>{t("adminImageSaveHint")}</Text> : null}
               <View style={s.switchRow}><Text style={s.label}>{t("adminPublish")}</Text><Switch value={published} onValueChange={setPublished} trackColor={{ true: colors.green }} /></View>
               <Button label={busy ? t("sending") : t("adminAddMenu")} onPress={() => void saveMenu()} disabled={busy} />
