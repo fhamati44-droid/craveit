@@ -38,6 +38,7 @@ export default function DailyMealsAdmin() {
   const [restaurantId, setRestaurantId] = useState("");
   const [menuTitle, setMenuTitle] = useState("وجبة اليوم");
   const [menuPrice, setMenuPrice] = useState("");
+  const [menuImageUrl, setMenuImageUrl] = useState("");
   const [published, setPublished] = useState(false);
   const [optionCategory, setOptionCategory] = useState<DailyCategory>("soup");
   const [editingOptionId, setEditingOptionId] = useState<number | null>(null);
@@ -119,7 +120,7 @@ export default function DailyMealsAdmin() {
     }
     setBusy(true); setError(""); setNotice("");
     try {
-      const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, published });
+      const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, image_url: menuImageUrl || null, published });
       if (saved[0]) { setMenuId(saved[0].id); setEditingMenuId(saved[0].id); }
       setNotice(t("adminSaved")); await refresh(session);
     } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
@@ -151,9 +152,27 @@ export default function DailyMealsAdmin() {
     };
     picker.click();
   };
+  const chooseMenuImage = () => {
+    if (typeof document === "undefined" || !editingMenuId || !session) return;
+    const picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = "image/*";
+    picker.onchange = async () => {
+      const file = picker.files?.[0];
+      if (!file) return;
+      setBusy(true); setError(""); setNotice("");
+      try {
+        const url = await uploadDailyMealImage(session.access_token, editingMenuId, file, "cover");
+        setMenuImageUrl(url);
+        setNotice(t("adminImageSaveHint"));
+      } catch (e) { setError(e instanceof Error ? e.message : t("adminImageUploadError")); }
+      finally { setBusy(false); }
+    };
+    picker.click();
+  };
   const chooseMenu = (menu: DailyMenu) => {
     setMenuId(menu.id); setEditingMenuId(menu.id); setMenuDate(menu.service_date); setRestaurantId(String(menu.restaurant_id));
-    setMenuTitle(menu.title); setMenuPrice(String(menu.price)); setPublished(menu.published);
+    setMenuTitle(menu.title); setMenuPrice(String(menu.price)); setMenuImageUrl(menu.image_url || ""); setPublished(menu.published);
   };
   const changeStatus = async (row: DailyReservation, status: DailyReservation["status"]) => {
     if (!session) return;
@@ -218,7 +237,7 @@ export default function DailyMealsAdmin() {
       {tab === "menus" ? (
         <>
           <View style={s.section}>
-            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setMenuId(null); setEditingMenuId(null); setMenuDate(today()); setRestaurantId(""); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
+            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setMenuId(null); setEditingMenuId(null); setMenuDate(today()); setRestaurantId(""); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
             <View style={s.form}>
               <Text style={s.label}>{t("adminRestaurantId")}</Text>
               <TextInput value={restaurantId} onChangeText={setRestaurantId} style={s.input} keyboardType="number-pad" />
@@ -228,6 +247,13 @@ export default function DailyMealsAdmin() {
               <TextInput value={menuTitle} onChangeText={setMenuTitle} style={s.input} />
               <Text style={s.label}>{t("adminPrice")}</Text>
               <TextInput value={menuPrice} onChangeText={setMenuPrice} style={s.input} keyboardType="decimal-pad" />
+              <Text style={s.label}>{t("adminMenuImage")}</Text>
+              {menuImageUrl ? <Image source={{ uri: menuImageUrl }} style={s.menuImagePreview} accessibilityLabel={t("image")} /> : null}
+              <Pressable accessibilityRole="button" onPress={chooseMenuImage} disabled={busy || !editingMenuId} style={[s.imageUpload, (!editingMenuId || busy) && { opacity: 0.55 }]}>
+                <Ionicons name="image-outline" size={20} color={colors.teal} />
+                <Text style={s.link}>{t(busy ? "adminUploading" : "adminUploadImage")}</Text>
+              </Pressable>
+              {!editingMenuId ? <Text style={s.muted}>{t("adminSaveMenuFirst")}</Text> : menuImageUrl ? <Text style={s.muted}>{t("adminImageSaveHint")}</Text> : null}
               <View style={s.switchRow}><Text style={s.label}>{t("adminPublish")}</Text><Switch value={published} onValueChange={setPublished} trackColor={{ true: colors.green }} /></View>
               <Button label={busy ? t("sending") : t("adminAddMenu")} onPress={() => void saveMenu()} disabled={busy} />
             </View>
@@ -305,6 +331,7 @@ const styles = StyleSheet.create({
   rowCard: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 15, padding: 12 },
   rowCardOn: { borderColor: colors.green, backgroundColor: colors.mint },
   optionImagePreview: { width: "100%", height: 180, borderRadius: 14, backgroundColor: colors.high },
+  menuImagePreview: { width: "100%", height: 200, borderRadius: 14, backgroundColor: colors.high },
   optionListImage: { width: 48, height: 48, borderRadius: 12, backgroundColor: colors.high },
   imageUpload: { minHeight: 48, borderWidth: 1, borderStyle: "dashed", borderColor: colors.green, borderRadius: 14, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.mint },
   cardTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 12, textAlign: "right" },

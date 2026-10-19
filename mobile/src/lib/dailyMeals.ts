@@ -10,6 +10,7 @@ export interface DailyMenu {
   service_date: string;
   title: string;
   price: number;
+  image_url?: string | null;
   published: boolean;
   created_at?: string;
 }
@@ -125,14 +126,14 @@ export async function setAdminPassword(accessToken: string, password: string) {
   }
 }
 
-export async function uploadDailyMealImage(accessToken: string, menuId: number, file: File) {
+export async function uploadDailyMealImage(accessToken: string, menuId: number, file: File, kind: "option" | "cover" = "option") {
   if (!file.type.startsWith("image/")) throw new Error("الملف لازم يكون صورة.");
   if (file.size > 5 * 1024 * 1024) throw new Error("حجم الصورة لازم يكون أقل من 5 ميغابايت.");
   const safeName = file.name.normalize("NFKD").replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "") || "meal-image";
   const uniqueId = typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const objectPath = `${menuId}/${uniqueId}-${safeName}`;
+  const objectPath = `${menuId}/${kind === "cover" ? "cover/" : ""}${uniqueId}-${safeName}`;
   const encodedPath = objectPath.split("/").map(encodeURIComponent).join("/");
   const response = await fetch(`${SUPABASE_URL}/storage/v1/object/daily-meal-images/${encodedPath}`, {
     method: "POST",

@@ -114,7 +114,9 @@ export default function DailyMeal() {
               <Text style={s.sectionTitle}>{t("dailyPickDate")}</Text>
               {menus.map((item) => (
                 <Pressable key={item.id} onPress={() => { setMenuId(item.id); setSelected({}); }} style={[s.menuCard, menuId === item.id && s.selectedCard]}>
-                  <View style={s.menuMark}><Ionicons name="restaurant" size={20} color={colors.teal} /></View>
+                  {item.image_url
+                    ? <Image source={{ uri: item.image_url }} style={s.menuPhoto} accessibilityLabel={t("image")} />
+                    : <View style={s.menuMark}><Ionicons name="restaurant" size={20} color={colors.teal} /></View>}
                   <View style={{ flex: 1 }}>
                     <Text style={s.menuTitle}>{dateLabel(item.service_date)}</Text>
                     <Text style={s.body}>{item.title} · {restaurantNames[String(item.restaurant_id)] || "TAMAM"}</Text>
@@ -204,6 +206,7 @@ const styles = StyleSheet.create({
   menuCard: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.outline, padding: 13 },
   selectedCard: { borderColor: colors.green, borderWidth: 2, backgroundColor: colors.mint },
   menuMark: { width: 38, height: 38, backgroundColor: colors.high, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  menuPhoto: { width: 58, height: 58, borderRadius: 13, backgroundColor: colors.high },
   menuTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 14, textAlign: "right" },
   price: { color: colors.teal, fontFamily: font.black, fontSize: 14 },
   option: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 16, padding: 12 },
