@@ -206,7 +206,7 @@ const dict = d({
   dailyPreviewWithoutSoup: { ar: "بدون شوربة", he: "ללא מרק", en: "No soup" },
   dailyPreviewWithoutAddition: { ar: "بدون إضافة", he: "ללא תוספת", en: "No addition" },
   dailyPreviewWithoutSalad: { ar: "بدون سلطة", he: "ללא סלט", en: "No salad" },
-  dailyDrinkNoteMissing: { ar: "المشروب: التفاصيل يحددها المطعم", he: "שתייה: הפרטים נקבעים על ידי המסעדה", en: "Drink: details set by the restaurant" },
+  dailyDrinkNoteMissing: { ar: "المشروب: غير محدد، تأكد من المطعم", he: "שתייה: לא צוין, יש לבדוק עם המסעדה", en: "Drink: not specified; check with the restaurant" },
   dailyNoMenus: { ar: "ما في وجبات منشورة للحجز حالياً.", he: "אין כרגע ארוחות שפורסמו להזמנה.", en: "No published meals are available right now." },
   dailyNoOptions: { ar: "ما في خيارات منشورة بهالقسم.", he: "אין אפשרויות שפורסמו בקטגוריה הזו.", en: "No published options in this category." },
   dailySoupOptional: { ar: "الشوربة اختيارية، فيك تكمّل بدون ما تختار شوربة.", he: "המרק הוא לבחירה, אפשר להמשיך גם בלי לבחור מרק.", en: "Soup is optional. You can continue without choosing one." },
