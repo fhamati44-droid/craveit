@@ -13,6 +13,7 @@ const categoryKey: Record<DailyCategory, "dailySoup" | "dailyMain" | "dailyAddit
 const categoryIcons: Record<DailyCategory, React.ComponentProps<typeof Ionicons>["name"]> = {
   soup: "water-outline", main: "restaurant-outline", addition: "add-circle-outline", salad: "leaf-outline",
 };
+const previewCategoryOrder: DailyCategory[] = ["main", "soup", "addition", "salad"];
 const skipKey: Record<SharedDailyCategory, "dailySkipSoup" | "dailySkipAddition" | "dailySkipSalad"> = {
   soup: "dailySkipSoup", addition: "dailySkipAddition", salad: "dailySkipSalad",
 };
@@ -124,15 +125,36 @@ export default function DailyMeal() {
               <Text style={s.sectionTitle}>{t("dailyPickDate")}</Text>
               {menus.map((item) => (
                 <Pressable key={item.id} onPress={() => { setMenuId(item.id); setSelected({}); }} style={[s.menuCard, menuId === item.id && s.selectedCard]}>
-                  {item.image_url
-                    ? <Image source={{ uri: item.image_url }} style={s.menuPhoto} accessibilityLabel={t("image")} />
-                    : <View style={s.menuMark}><Ionicons name="restaurant" size={20} color={colors.teal} /></View>}
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.menuTitle}>{dateLabel(item.service_date)}</Text>
-                    <Text style={s.body}>{item.title} · {restaurantNames[String(item.restaurant_id)] || "TAMAM"}</Text>
+                  <View style={s.menuCardTop}>
+                    {item.image_url
+                      ? <Image source={{ uri: item.image_url }} style={s.menuPhoto} accessibilityLabel={t("image")} />
+                      : <View style={s.menuMark}><Ionicons name="restaurant" size={20} color={colors.teal} /></View>}
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.menuTitle}>{dateLabel(item.service_date)}</Text>
+                      <Text style={s.body}>{item.title} · {restaurantNames[String(item.restaurant_id)] || "TAMAM"}</Text>
+                    </View>
+                    <Text style={s.price}>{Number(item.price)} ₪</Text>
+                    {menuId === item.id ? <Ionicons name="checkmark-circle" size={22} color={colors.green} /> : null}
                   </View>
-                  <Text style={s.price}>{Number(item.price)} ₪</Text>
-                  {menuId === item.id ? <Ionicons name="checkmark-circle" size={22} color={colors.green} /> : null}
+                  <View style={s.menuPreview}>
+                    <Text style={s.previewHeading}>{t("dailyMealPreview")}</Text>
+                    {previewCategoryOrder.map((category) => {
+                      const override = optionOverrides.find((row) => row.menu_id === item.id && row.category === category);
+                      const allowed = getVisibleDailyOptions(options, item.id, category, override);
+                      const missingKey = category === "soup" ? "dailyPreviewWithoutSoup" : category === "addition" ? "dailyPreviewWithoutAddition" : "dailyPreviewWithoutSalad";
+                      return (
+                        <View key={`${item.id}-${category}`} style={s.previewLine}>
+                          <Text style={s.previewCategory}>{t(categoryKey[category])}:</Text>
+                          <Text style={s.previewText}>
+                            {allowed.length
+                              ? `${allowed.map((option) => localName(lang, option) || option.name).join("، ")} · ${t(category === "main" ? "dailyPreviewChooseOneRequired" : "dailyPreviewChooseOneOptional")}`
+                              : t(category === "main" ? "dailyPreviewNoMain" : missingKey)}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                    <Text style={s.previewNote}>{item.included_note?.trim() || t("dailyDrinkNoteMissing")}</Text>
+                  </View>
                 </Pressable>
               ))}
             </View>
@@ -215,7 +237,14 @@ const styles = StyleSheet.create({
   progressActive: { color: colors.teal, fontFamily: font.bold },
   section: { gap: 11 },
   sectionTitle: { color: colors.teal, fontFamily: font.black, fontSize: 18, textAlign: "right" },
-  menuCard: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.outline, padding: 13 },
+  menuCard: { gap: 9, backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.outline, padding: 13 },
+  menuCardTop: { flexDirection: "row-reverse", alignItems: "center", gap: 10 },
+  menuPreview: { borderTopWidth: 1, borderTopColor: colors.outline, paddingTop: 8, gap: 4 },
+  previewHeading: { color: colors.teal, fontFamily: font.bold, fontSize: 11, textAlign: "right" },
+  previewLine: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 4 },
+  previewCategory: { color: colors.ink, fontFamily: font.bold, fontSize: 11, textAlign: "right" },
+  previewText: { flex: 1, color: colors.muted, fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right" },
+  previewNote: { color: colors.teal, fontFamily: font.medium, fontSize: 11, lineHeight: 17, textAlign: "right" },
   selectedCard: { borderColor: colors.green, borderWidth: 2, backgroundColor: colors.mint },
   menuMark: { width: 38, height: 38, backgroundColor: colors.high, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   menuPhoto: { width: 58, height: 58, borderRadius: 13, backgroundColor: colors.high },
