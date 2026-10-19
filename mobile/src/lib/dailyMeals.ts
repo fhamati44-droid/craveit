@@ -97,6 +97,34 @@ export async function signInAdmin(email: string, password: string): Promise<Admi
   return { access_token: data.access_token, user: data.user };
 }
 
+export async function sendAdminPasswordRecovery(email: string, redirectTo: string) {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim() }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null) as { msg?: string; message?: string } | null;
+    throw new Error(data?.msg || data?.message || "تعذر إرسال رابط تعيين كلمة المرور");
+  }
+}
+
+export async function setAdminPassword(accessToken: string, password: string) {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    method: "PUT",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null) as { msg?: string; message?: string } | null;
+    throw new Error(data?.msg || data?.message || "تعذر حفظ كلمة المرور");
+  }
+}
+
 export const getAdminMenus = (token: string) =>
   request<DailyMenu[]>("daily_menus?select=*&order=service_date.desc,id.desc", {}, token);
 export const getAdminOptions = (token: string) =>

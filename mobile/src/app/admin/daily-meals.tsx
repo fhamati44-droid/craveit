@@ -6,7 +6,7 @@ import { useStore } from "../../lib/state";
 import { useT, localName } from "../../lib/i18n";
 import {
   DAILY_CATEGORIES, deleteAdminOption, getAdminMenus, getAdminOptions, getAdminReservations,
-  saveAdminMenu, saveAdminOption, signInAdmin, updateAdminReservation,
+  saveAdminMenu, saveAdminOption, sendAdminPasswordRecovery, setAdminPassword, signInAdmin, updateAdminReservation,
   type AdminSession, type DailyCategory, type DailyMenu, type DailyOption, type DailyReservation,
 } from "../../lib/dailyMeals";
 
@@ -25,6 +25,9 @@ export default function DailyMealsAdmin() {
   const [session, setSession] = useState<AdminSession | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [recoveryToken, setRecoveryToken] = useState("");
   const [menus, setMenus] = useState<DailyMenu[]>([]);
   const [options, setOptions] = useState<DailyOption[]>([]);
   const [reservations, setReservations] = useState<DailyReservation[]>([]);
@@ -44,6 +47,23 @@ export default function DailyMealsAdmin() {
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const readAuthLink = () => {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      const type = params.get("type");
+      const token = params.get("access_token");
+      if ((type === "recovery" || type === "invite") && token) {
+        setRecoveryToken(token);
+        setError("");
+      }
+    };
+    readAuthLink();
+    if (typeof window === "undefined") return;
+    window.addEventListener("hashchange", readAuthLink);
+    return () => window.removeEventListener("hashchange", readAuthLink);
+  }, []);
 
   const refresh = useCallback(async (current: AdminSession) => {
     try {
@@ -66,6 +86,28 @@ export default function DailyMealsAdmin() {
       setLoading(true);
       setSession(result); setPassword("");
     } catch (e) { setError(e instanceof Error ? e.message : t("adminNotAllowed")); }
+    finally { setBusy(false); }
+  };
+  const requestPasswordLink = async () => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      if (typeof window === "undefined") throw new Error(t("adminRecoveryError"));
+      await sendAdminPasswordRecovery(email, `${window.location.origin}/admin/daily-meals`);
+      setNotice(t("adminRecoverySent"));
+    } catch (e) { setError(e instanceof Error ? e.message : t("adminRecoveryError")); }
+    finally { setBusy(false); }
+  };
+  const saveNewPassword = async () => {
+    if (!recoveryToken) return;
+    if (newPassword.length < 8) { setError(t("adminPasswordTooShort")); return; }
+    if (newPassword !== confirmPassword) { setError(t("adminPasswordsMismatch")); return; }
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await setAdminPassword(recoveryToken, newPassword);
+      setRecoveryToken(""); setPassword(""); setNewPassword(""); setConfirmPassword("");
+      if (typeof window !== "undefined") window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+      setNotice(t("adminPasswordUpdated"));
+    } catch (e) { setError(e instanceof Error ? e.message : t("adminRecoveryError")); }
     finally { setBusy(false); }
   };
   const saveMenu = async () => {
@@ -111,10 +153,25 @@ export default function DailyMealsAdmin() {
       <View style={s.form}>
         <Text style={s.label}>{t("adminEmail")}</Text>
         <TextInput value={email} onChangeText={setEmail} style={s.input} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
-        <Text style={s.label}>{t("adminPassword")}</Text>
-        <TextInput value={password} onChangeText={setPassword} style={s.input} secureTextEntry autoComplete="current-password" />
+        {recoveryToken ? <>
+          <Text style={s.label}>{t("adminNewPassword")}</Text>
+          <TextInput value={newPassword} onChangeText={setNewPassword} style={s.input} secureTextEntry autoComplete="new-password" />
+          <Text style={s.label}>{t("adminConfirmPassword")}</Text>
+          <TextInput value={confirmPassword} onChangeText={setConfirmPassword} style={s.input} secureTextEntry autoComplete="new-password" />
+        </> : <>
+          <Text style={s.label}>{t("adminPassword")}</Text>
+          <TextInput value={password} onChangeText={setPassword} style={s.input} secureTextEntry autoComplete="current-password" />
+        </>}
         {error ? <Text style={s.error}>{error}</Text> : null}
-        <Button label={busy ? t("sending") : t("adminSignIn")} onPress={() => void login()} disabled={busy || !email || !password} />
+        {notice ? <Text style={s.notice}>{notice}</Text> : null}
+        {recoveryToken
+          ? <Button label={busy ? t("sending") : t("adminSavePassword")} onPress={() => void saveNewPassword()} disabled={busy || !newPassword || !confirmPassword} />
+          : <>
+            <Button label={busy ? t("sending") : t("adminSignIn")} onPress={() => void login()} disabled={busy || !email || !password} />
+            <Pressable accessibilityRole="button" onPress={() => void requestPasswordLink()} disabled={busy || !email} style={{ paddingVertical: 12, alignItems: "center" }}>
+              <Text style={s.link}>{t("adminForgotPassword")}</Text>
+            </Pressable>
+          </>}
       </View>
     </Page>
   );
