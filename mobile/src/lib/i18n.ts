@@ -235,6 +235,8 @@ const dict = d({
   adminReservations: { ar: "الحجوزات", he: "הזמנות", en: "Reservations" },
   adminNewMenu: { ar: "قائمة جديدة", he: "תפריט חדש", en: "New menu" },
   adminRestaurantId: { ar: "رقم المطعم", he: "מספר מסעדה", en: "Restaurant ID" },
+  adminChooseRestaurant: { ar: "اختار المطعم بالاسم", he: "בחרו מסעדה לפי שם", en: "Choose a restaurant by name" },
+  adminNoRestaurants: { ar: "ما في مطاعم فعّالة للاختيار.", he: "אין מסעדות פעילות לבחירה.", en: "No active restaurants are available." },
   adminTitle: { ar: "عنوان القائمة", he: "כותרת התפריט", en: "Menu title" },
   adminDate: { ar: "تاريخ الخدمة", he: "תאריך הגשה", en: "Service date" },
   adminPrice: { ar: "السعر", he: "מחיר", en: "Price" },
