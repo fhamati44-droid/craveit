@@ -5,9 +5,9 @@ import { Button, colors, font, Page } from "../../components/ui";
 import { useStore } from "../../lib/state";
 import { useT, localName } from "../../lib/i18n";
 import {
-  DAILY_CATEGORIES, getAdminMenus, getAdminOptions, getAdminReservations,
-  saveAdminMenu, saveAdminOption, sendAdminPasswordRecovery, setAdminPassword, signInAdmin, updateAdminReservation, uploadDailyMealImage,
-  type AdminSession, type DailyCategory, type DailyMenu, type DailyOption, type DailyReservation,
+  DAILY_CATEGORIES, SHARED_DAILY_CATEGORIES, deleteAdminMenuOptionOverride, getAdminMenuOptionOverrides, getAdminMenus, getAdminOptions, getAdminReservations,
+  saveAdminMenu, saveAdminMenuOptionOverride, saveAdminOption, sendAdminPasswordRecovery, setAdminPassword, signInAdmin, updateAdminReservation, uploadDailyMealImage,
+  type AdminSession, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type DailyReservation, type SharedDailyCategory,
 } from "../../lib/dailyMeals";
 
 const categoryKey: Record<DailyCategory, "dailySoup" | "dailyMain" | "dailyAddition" | "dailySalad"> = {
@@ -31,6 +31,8 @@ export default function DailyMealsAdmin() {
   const [menus, setMenus] = useState<DailyMenu[]>([]);
   const [options, setOptions] = useState<DailyOption[]>([]);
   const [reservations, setReservations] = useState<DailyReservation[]>([]);
+  const [menuOptionOverrides, setMenuOptionOverrides] = useState<DailyMenuOptionOverride[]>([]);
+  const [menuOptionDrafts, setMenuOptionDrafts] = useState<Partial<Record<SharedDailyCategory, number[] | null>>>({});
   const [tab, setTab] = useState<"menus" | "reservations">("menus");
   const [menuId, setMenuId] = useState<number | null>(null);
   const [editingMenuId, setEditingMenuId] = useState<number | null>(null);
@@ -69,10 +71,10 @@ export default function DailyMealsAdmin() {
 
   const refresh = useCallback(async (current: AdminSession) => {
     try {
-      const [menuRows, optionRows, reservationRows] = await Promise.all([
-        getAdminMenus(current.access_token), getAdminOptions(current.access_token), getAdminReservations(current.access_token),
+      const [menuRows, optionRows, reservationRows, overrideRows] = await Promise.all([
+        getAdminMenus(current.access_token), getAdminOptions(current.access_token), getAdminReservations(current.access_token), getAdminMenuOptionOverrides(current.access_token),
       ]);
-      setMenus(menuRows); setOptions(optionRows); setReservations(reservationRows);
+      setMenus(menuRows); setOptions(optionRows); setReservations(reservationRows); setMenuOptionOverrides(overrideRows);
       if (!menuId && menuRows[0]) setMenuId(menuRows[0].id);
     } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
     finally { setLoading(false); }
@@ -128,13 +130,40 @@ export default function DailyMealsAdmin() {
     }
     setBusy(true); setError(""); setNotice("");
     try {
+      const creatingMenu = !editingMenuId;
       const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, ...(menuImageUrl.trim() ? { image_url: menuImageUrl.trim() } : {}), published });
-      if (saved[0]) { setMenuId(saved[0].id); setEditingMenuId(saved[0].id); }
+      if (saved[0]) {
+        setMenuId(saved[0].id); setEditingMenuId(saved[0].id);
+        if (creatingMenu) setMenuOptionDrafts(Object.fromEntries(SHARED_DAILY_CATEGORIES.map((category) => [category, null])));
+      }
       setNotice(t("adminSaved")); await refresh(session);
     } catch (e) {
       const message = e instanceof Error ? e.message : "";
       setError(message.includes("daily_menus_restaurant_id_service_date_key") ? t("adminDuplicateMenu") : message || t("adminLoadError"));
     }
+    finally { setBusy(false); }
+  };
+  const chooseMenuForEditing = (menu: DailyMenu) => {
+    setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl("");
+    setMenuId(menu.id); setEditingMenuId(menu.id); setMenuDate(menu.service_date); setRestaurantId(String(menu.restaurant_id));
+    setMenuTitle(menu.title); setMenuPrice(String(menu.price)); setMenuImageUrl(menu.image_url || ""); setPublished(menu.published);
+    setMenuOptionDrafts(Object.fromEntries(SHARED_DAILY_CATEGORIES.map((category) => {
+      const override = menuOptionOverrides.find((row) => row.menu_id === menu.id && row.category === category);
+      return [category, override ? override.option_ids.map(Number) : null];
+    })));
+  };
+  const saveMenuOptionSettings = async () => {
+    if (!session || !editingMenuId) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      for (const category of SHARED_DAILY_CATEGORIES) {
+        const draft = menuOptionDrafts[category];
+        if (draft === undefined) continue;
+        if (draft === null) await deleteAdminMenuOptionOverride(session.access_token, editingMenuId, category);
+        else await saveAdminMenuOptionOverride(session.access_token, { menu_id: editingMenuId, category, option_ids: draft });
+      }
+      setNotice(t("adminSaved")); await refresh(session);
+    } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
     finally { setBusy(false); }
   };
   const saveOption = async () => {
@@ -186,11 +215,6 @@ export default function DailyMealsAdmin() {
       finally { setBusy(false); }
     };
     picker.click();
-  };
-  const chooseMenu = (menu: DailyMenu) => {
-    setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl("");
-    setMenuId(menu.id); setEditingMenuId(menu.id); setMenuDate(menu.service_date); setRestaurantId(String(menu.restaurant_id));
-    setMenuTitle(menu.title); setMenuPrice(String(menu.price)); setMenuImageUrl(menu.image_url || ""); setPublished(menu.published);
   };
   const changeStatus = async (row: DailyReservation, status: DailyReservation["status"]) => {
     if (!session) return;
@@ -255,7 +279,7 @@ export default function DailyMealsAdmin() {
       {tab === "menus" ? (
         <>
           <View style={s.section}>
-            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setMenuId(null); setEditingMenuId(null); setMenuDate(today()); setRestaurantId(""); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
+            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setMenuId(null); setEditingMenuId(null); setMenuOptionDrafts({}); setMenuDate(today()); setRestaurantId(""); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
             <View style={s.form}>
               <Text style={s.label}>{t("adminRestaurantId")}</Text>
               <TextInput value={restaurantId} onChangeText={setRestaurantId} style={s.input} keyboardType="number-pad" />
@@ -279,11 +303,50 @@ export default function DailyMealsAdmin() {
           </View>
           <View style={s.section}>
             <Text style={s.sectionTitle}>{t("adminMenus")}</Text>
-            {menus.map((menu) => <Pressable key={menu.id} onPress={() => chooseMenu(menu)} style={[s.rowCard, menuId === menu.id && s.rowCardOn]}>
+            {menus.map((menu) => <Pressable key={menu.id} onPress={() => chooseMenuForEditing(menu)} style={[s.rowCard, menuId === menu.id && s.rowCardOn]}>
               <View style={{ flex: 1 }}><Text style={s.cardTitle}>{menu.title} · {menu.service_date}</Text><Text style={s.muted}>{menu.restaurant_id} · {Number(menu.price)} ₪ · {menu.published ? t("adminPublished") : t("adminUnpublished")}</Text></View>
               <Ionicons name={menuId === menu.id ? "checkmark-circle" : "chevron-back"} size={20} color={menuId === menu.id ? colors.green : colors.muted} />
             </Pressable>)}
             {!menus.length && !loading ? <Text style={s.muted}>{t("dailyNoMenus")}</Text> : null}
+          </View>
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>{t("adminMenuOptionSettings")}</Text>
+            <Text style={s.muted}>{t("adminMenuOptionSettingsHint")}</Text>
+            {!editingMenuId ? <Text style={s.muted}>{t("adminSelectMenuFirst")}</Text> : SHARED_DAILY_CATEGORIES.map((category) => {
+              const saved = menuOptionOverrides.find((row) => row.menu_id === editingMenuId && row.category === category);
+              const draft = menuOptionDrafts[category] === undefined ? (saved ? saved.option_ids.map(Number) : null) : menuOptionDrafts[category];
+              const choices = options.filter((option) => option.category === category && option.menu_id === null && option.active);
+              const inherited = draft === null;
+              const allowed = inherited ? new Set(choices.map((option) => option.id)) : new Set((draft || []).map(Number));
+              return <View key={category} style={s.form}>
+                <Text style={s.cardTitle}>{t(categoryKey[category])}</Text>
+                <Text style={s.muted}>{inherited ? t("adminAllSharedOptions") : `${allowed.size} · ${t("adminSelectedOptions")}`}</Text>
+                {inherited ? (
+                  <Pressable accessibilityRole="button" onPress={() => setMenuOptionDrafts((old) => ({ ...old, [category]: choices.map((option) => option.id) }))} style={s.imageUpload}>
+                    <Ionicons name="options-outline" size={18} color={colors.teal} /><Text style={s.link}>{t("adminCustomizeForMenu")}</Text>
+                  </Pressable>
+                ) : <>
+                  {choices.map((option) => {
+                    const checked = allowed.has(option.id);
+                    return <Pressable key={option.id} accessibilityRole="checkbox" accessibilityState={{ checked }} onPress={() => setMenuOptionDrafts((old) => {
+                      const prior = old[category] ?? saved?.option_ids.map(Number) ?? choices.map((item) => item.id);
+                      const nextIds = new Set(prior);
+                      if (nextIds.has(option.id)) nextIds.delete(option.id); else nextIds.add(option.id);
+                      return { ...old, [category]: [...nextIds] };
+                    })} style={s.rowCard}>
+                      {option.image_url ? <Image source={{ uri: option.image_url }} style={s.optionListImage} accessibilityLabel={t("image")} /> : null}
+                      <Text style={[s.cardTitle, { flex: 1 }]}>{optionLabel(option)}</Text>
+                      <Ionicons name={checked ? "checkbox" : "square-outline"} size={22} color={checked ? colors.green : colors.muted} />
+                    </Pressable>;
+                  })}
+                  {!choices.length ? <Text style={s.muted}>{t("adminNoSharedOptions")}</Text> : null}
+                  <Pressable accessibilityRole="button" onPress={() => setMenuOptionDrafts((old) => ({ ...old, [category]: null }))} style={s.imageUpload}>
+                    <Ionicons name="refresh-outline" size={18} color={colors.teal} /><Text style={s.link}>{t("adminUseAllSharedOptions")}</Text>
+                  </Pressable>
+                </>}
+              </View>;
+            })}
+            {editingMenuId ? <Button label={busy ? t("sending") : t("adminSaveMenuOptionSettings")} onPress={() => void saveMenuOptionSettings()} disabled={busy} /> : null}
           </View>
           <View style={s.section}>
             <Text style={s.sectionTitle}>{t("adminAddOption")}</Text>

@@ -1,8 +1,9 @@
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./api";
 import type { Id } from "./types";
+import type { DailyCategory, SharedDailyCategory } from "./dailyMealOptionRules";
+export { DAILY_CATEGORIES, SHARED_DAILY_CATEGORIES, getVisibleDailyCategories, getVisibleDailyOptions } from "./dailyMealOptionRules";
+export type { DailyCategory, SharedDailyCategory } from "./dailyMealOptionRules";
 
-export type DailyCategory = "soup" | "main" | "addition" | "salad";
-export const DAILY_CATEGORIES: DailyCategory[] = ["soup", "main", "addition", "salad"];
 
 export interface DailyMenu {
   id: number;
@@ -25,6 +26,12 @@ export interface DailyOption {
   sort_order: number;
   active: boolean;
 }
+export interface DailyMenuOptionOverride {
+  menu_id: number;
+  category: SharedDailyCategory;
+  option_ids: number[];
+}
+
 export interface DailyReservation {
   id: number;
   menu_id: number;
@@ -68,6 +75,17 @@ export const getPublicOptions = (menuIds: number[]) => {
   const ids = menuIds.map(String).join(",");
   const menuOrShared = encodeURIComponent(`(menu_id.in.(${ids}),menu_id.is.null)`);
   return request<DailyOption[]>(`daily_menu_options?select=*&active=eq.true&or=${menuOrShared}&order=sort_order.asc`);
+};
+
+export const getPublicMenuOptionOverrides = (menuIds: number[]) => {
+  if (!menuIds.length) return Promise.resolve([] as DailyMenuOptionOverride[]);
+  const ids = encodeURIComponent(menuIds.map(String).join(","));
+  return request<DailyMenuOptionOverride[]>(`daily_menu_option_overrides?select=*&menu_id=in.(${ids})`)
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("daily_menu_option_overrides") || message.includes("PGRST205")) return [];
+      throw error;
+    });
 };
 
 export async function submitDailyReservation(input: {
@@ -157,6 +175,14 @@ export const getAdminMenus = (token: string) =>
   request<DailyMenu[]>("daily_menus?select=*&order=service_date.desc,id.desc", {}, token);
 export const getAdminOptions = (token: string) =>
   request<DailyOption[]>("daily_menu_options?select=*&order=menu_id.desc,sort_order.asc", {}, token);
+
+export const getAdminMenuOptionOverrides = (token: string) =>
+  request<DailyMenuOptionOverride[]>("daily_menu_option_overrides?select=*&order=menu_id.asc,category.asc", {}, token)
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("daily_menu_option_overrides") || message.includes("PGRST205")) return [];
+      throw error;
+    });
 export const getAdminReservations = (token: string) =>
   request<DailyReservation[]>("daily_meal_reservations?select=*&order=created_at.desc&limit=100", {}, token);
 
@@ -173,6 +199,16 @@ export const saveAdminOption = (token: string, option: Partial<DailyOption> & Pi
     headers: { Prefer: "return=representation" },
     body: JSON.stringify(option),
   }, token);
+
+export const saveAdminMenuOptionOverride = (token: string, override: DailyMenuOptionOverride) =>
+  request<DailyMenuOptionOverride[]>("daily_menu_option_overrides?on_conflict=menu_id,category&select=*", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({ ...override, option_ids: override.option_ids.map(Number), updated_at: new Date().toISOString() }),
+  }, token);
+
+export const deleteAdminMenuOptionOverride = (token: string, menuId: number, category: SharedDailyCategory) =>
+  request<null>(`daily_menu_option_overrides?menu_id=eq.${menuId}&category=eq.${category}`, { method: "DELETE" }, token);
 
 export const updateAdminReservation = (token: string, id: Id, status: DailyReservation["status"]) =>
   request<null>(`daily_meal_reservations?id=eq.${encodeURIComponent(String(id))}`, {

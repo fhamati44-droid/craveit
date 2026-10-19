@@ -1,17 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, Page } from "../components/ui";
 import { useStore } from "../lib/state";
 import { useT, localName } from "../lib/i18n";
-import { DAILY_CATEGORIES, getPublicOptions, getPublishedMenus, submitDailyReservation, type DailyCategory, type DailyMenu, type DailyOption } from "../lib/dailyMeals";
+import { DAILY_CATEGORIES, getPublicMenuOptionOverrides, getPublicOptions, getPublishedMenus, getVisibleDailyCategories, getVisibleDailyOptions, submitDailyReservation, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type SharedDailyCategory } from "../lib/dailyMeals";
 
 const categoryKey: Record<DailyCategory, "dailySoup" | "dailyMain" | "dailyAddition" | "dailySalad"> = {
   soup: "dailySoup", main: "dailyMain", addition: "dailyAddition", salad: "dailySalad",
 };
 const categoryIcons: Record<DailyCategory, React.ComponentProps<typeof Ionicons>["name"]> = {
   soup: "water-outline", main: "restaurant-outline", addition: "add-circle-outline", salad: "leaf-outline",
+};
+const skipKey: Record<SharedDailyCategory, "dailySkipSoup" | "dailySkipAddition" | "dailySkipSalad"> = {
+  soup: "dailySkipSoup", addition: "dailySkipAddition", salad: "dailySkipSalad",
 };
 const initialDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
 
@@ -21,6 +24,7 @@ export default function DailyMeal() {
   const s = sheet(styles);
   const [menus, setMenus] = useState<DailyMenu[]>([]);
   const [options, setOptions] = useState<DailyOption[]>([]);
+  const [optionOverrides, setOptionOverrides] = useState<DailyMenuOptionOverride[]>([]);
   const [restaurantNames, setRestaurantNames] = useState<Record<string, string>>({});
   const [menuId, setMenuId] = useState<number | null>(null);
   const [step, setStep] = useState(0);
@@ -37,8 +41,11 @@ export default function DailyMeal() {
     try {
       const rows = await getPublishedMenus(initialDate());
       setMenus(rows);
-      const optionRows = await getPublicOptions(rows.map((m) => m.id));
-      setOptions(optionRows);
+      const [optionRows, overrideRows] = await Promise.all([
+        getPublicOptions(rows.map((m) => m.id)),
+        getPublicMenuOptionOverrides(rows.map((m) => m.id)),
+      ]);
+      setOptions(optionRows); setOptionOverrides(overrideRows);
       const ids = [...new Set(rows.map((m) => m.restaurant_id))];
       const pairs = await Promise.all(ids.map(async (id) => {
         try { const restaurant = await api.restaurant(id); return [String(id), localName(lang, restaurant)] as const; }
@@ -53,23 +60,26 @@ export default function DailyMeal() {
   useEffect(() => { void load(); }, [load]);
 
   const menu = menus.find((m) => m.id === menuId) || null;
-  const currentCategory = DAILY_CATEGORIES[step - 1];
-  const visibleOptions = useMemo(() => options.filter((o) => (o.menu_id === menuId || o.menu_id === null) && o.category === currentCategory), [options, menuId, currentCategory]);
+  const visibleCategories = menu ? getVisibleDailyCategories(options, menuId, optionOverrides) : [];
+  const detailStep = visibleCategories.length + 1;
+  const currentCategory = visibleCategories[step - 1];
+  const currentOverride = optionOverrides.find((row) => row.menu_id === menuId && row.category === currentCategory);
+  const visibleOptions = currentCategory ? getVisibleDailyOptions(options, menuId, currentCategory, currentOverride) : [];
   const chosenOptions = DAILY_CATEGORIES.map((category) => options.find((o) => o.id === selected[category])).filter(Boolean) as DailyOption[];
   const dateLabel = (date: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
-  const stepNames = ["dailyDate", ...DAILY_CATEGORIES.map((x) => categoryKey[x]), "dailyYourDetails"] as const;
+  const stepNames = ["dailyDate", ...visibleCategories.map((category) => categoryKey[category]), "dailyYourDetails"] as const;
 
   const next = () => {
     setError("");
     if (step === 0 && !menu) { setError(t("dailyChooseDate")); return; }
-    if (step > 0 && step <= DAILY_CATEGORIES.length && currentCategory !== "soup" && !selected[currentCategory]) { setError(t("dailyChooseOption")); return; }
-    setStep((n) => Math.min(n + 1, 5));
+    if (currentCategory === "main" && !selected.main) { setError(t("dailyChooseOption")); return; }
+    setStep((n) => Math.min(n + 1, detailStep));
   };
   const submit = async () => {
     const cleanPhone = phone.replace(/[\s()-]/g, "");
     if (!name.trim()) { setError(t("errName")); return; }
     if (cleanPhone.replace(/\D/g, "").length < 8) { setError(t("errPhone")); return; }
-    if (!menu || DAILY_CATEGORIES.some((c) => c !== "soup" && !selected[c])) { setError(t("dailyFinishChoices")); return; }
+    if (!menu || !selected.main) { setError(t("dailyFinishChoices")); return; }
     setSending(true); setError("");
     try {
       await submitDailyReservation({ menu_id: menu.id, customer_name: name.trim(), phone: cleanPhone, quantity, selected_options: selected, unit_price: Number(menu.price) });
@@ -128,7 +138,7 @@ export default function DailyMeal() {
             </View>
           ) : null}
 
-          {!loading && step >= 1 && step <= 4 && menu ? (
+          {!loading && step >= 1 && step <= visibleCategories.length && menu && currentCategory ? (
             <View style={s.section}>
               <Text style={s.sectionTitle}>{t(categoryKey[currentCategory])}</Text>
               <Text style={s.body}>{dateLabel(menu.service_date)} · {Number(menu.price)} ₪</Text>
@@ -148,11 +158,11 @@ export default function DailyMeal() {
                 );
               })}
               {!visibleOptions.length ? <Text style={s.body}>{t("dailyNoOptions")}</Text> : null}
-              {currentCategory === "soup" ? <Text style={s.body}>{t("dailySoupOptional")}</Text> : null}
+              {currentCategory !== "main" ? <Text style={s.body}>{t("dailyStageOptional")}</Text> : null}
             </View>
           ) : null}
 
-          {step === 5 && menu ? (
+          {step === detailStep && menu ? (
             <View style={s.section}>
               <Text style={s.sectionTitle}>{t("dailyYourDetails")}</Text>
               <View style={s.card}>
@@ -179,8 +189,8 @@ export default function DailyMeal() {
           {!loading && menus.length ? (
             <View style={s.actions}>
               {step > 0 ? <Button label={t("dailyBack")} onPress={() => { setError(""); setStep((n) => n - 1); }} tone="ghost" /> : null}
-              {step === 1 ? <Button label={t("dailySkipSoup")} onPress={() => { setSelected((old) => { const nextSelected = { ...old }; delete nextSelected.soup; return nextSelected; }); setError(""); setStep(2); }} tone="ghost" /> : null}
-              {step < 5 ? <Button label={t("dailyContinue")} onPress={next} disabled={step > 1 && step <= 4 && !visibleOptions.length} /> : <Button label={sending ? t("sending") : `${t("dailyReserve")} · ${menu ? Number(menu.price) * quantity : 0} ₪`} onPress={() => void submit()} disabled={sending} />}
+              {currentCategory && currentCategory !== "main" ? <Button label={t(skipKey[currentCategory])} onPress={() => { setSelected((old) => { const nextSelected = { ...old }; delete nextSelected[currentCategory]; return nextSelected; }); setError(""); setStep((n) => Math.min(n + 1, detailStep)); }} tone="ghost" /> : null}
+              {step < detailStep ? <Button label={t("dailyContinue")} onPress={next} disabled={currentCategory === "main" && !visibleOptions.length} /> : <Button label={sending ? t("sending") : `${t("dailyReserve")} · ${menu ? Number(menu.price) * quantity : 0} ₪`} onPress={() => void submit()} disabled={sending} />}
             </View>
           ) : null}
         </>
