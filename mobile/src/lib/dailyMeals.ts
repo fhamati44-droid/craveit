@@ -75,7 +75,7 @@ export async function submitDailyReservation(input: {
   customer_name: string;
   phone: string;
   quantity: number;
-  selected_options: Record<DailyCategory, number>;
+  selected_options: Partial<Record<DailyCategory, number>>;
   unit_price: number;
 }) {
   await request<null>("daily_meal_reservations", {

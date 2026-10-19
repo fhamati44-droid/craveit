@@ -201,6 +201,8 @@ const dict = d({
   dailyPickDate: { ar: "اختار اليوم المناسب", he: "בחרו את היום המתאים", en: "Choose a date" },
   dailyNoMenus: { ar: "ما في وجبات منشورة للحجز حالياً.", he: "אין כרגע ארוחות שפורסמו להזמנה.", en: "No published meals are available right now." },
   dailyNoOptions: { ar: "ما في خيارات منشورة بهالقسم.", he: "אין אפשרויות שפורסמו בקטגוריה הזו.", en: "No published options in this category." },
+  dailySoupOptional: { ar: "الشوربة اختيارية، فيك تكمّل بدون ما تختار شوربة.", he: "המרק הוא לבחירה, אפשר להמשיך גם בלי לבחור מרק.", en: "Soup is optional. You can continue without choosing one." },
+  dailySkipSoup: { ar: "بدون شوربة", he: "בלי מרק", en: "Skip soup" },
   dailyChooseDate: { ar: "اختار تاريخ الوجبة أولاً.", he: "בחרו קודם תאריך לארוחה.", en: "Choose a meal date first." },
   dailyChooseOption: { ar: "اختار خيار قبل ما تكمّل.", he: "בחרו אפשרות לפני שממשיכים.", en: "Choose an option before continuing." },
   dailyFinishChoices: { ar: "كمّل اختيار الأقسام الأربعة.", he: "השלימו בחירה בכל ארבע הקטגוריות.", en: "Choose an item in all four categories." },

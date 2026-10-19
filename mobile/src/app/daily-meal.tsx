@@ -62,17 +62,17 @@ export default function DailyMeal() {
   const next = () => {
     setError("");
     if (step === 0 && !menu) { setError(t("dailyChooseDate")); return; }
-    if (step > 0 && step <= DAILY_CATEGORIES.length && !selected[currentCategory]) { setError(t("dailyChooseOption")); return; }
+    if (step > 0 && step <= DAILY_CATEGORIES.length && currentCategory !== "soup" && !selected[currentCategory]) { setError(t("dailyChooseOption")); return; }
     setStep((n) => Math.min(n + 1, 5));
   };
   const submit = async () => {
     const cleanPhone = phone.replace(/[\s()-]/g, "");
     if (!name.trim()) { setError(t("errName")); return; }
     if (cleanPhone.replace(/\D/g, "").length < 8) { setError(t("errPhone")); return; }
-    if (!menu || DAILY_CATEGORIES.some((c) => !selected[c])) { setError(t("dailyFinishChoices")); return; }
+    if (!menu || DAILY_CATEGORIES.some((c) => c !== "soup" && !selected[c])) { setError(t("dailyFinishChoices")); return; }
     setSending(true); setError("");
     try {
-      await submitDailyReservation({ menu_id: menu.id, customer_name: name.trim(), phone: cleanPhone, quantity, selected_options: selected as Record<DailyCategory, number>, unit_price: Number(menu.price) });
+      await submitDailyReservation({ menu_id: menu.id, customer_name: name.trim(), phone: cleanPhone, quantity, selected_options: selected, unit_price: Number(menu.price) });
       saveCustomer({ ...customer, name: name.trim(), phone: cleanPhone });
       setSuccess(true);
     } catch (e) { setError(e instanceof Error ? e.message : t("errServer")); }
@@ -148,6 +148,7 @@ export default function DailyMeal() {
                 );
               })}
               {!visibleOptions.length ? <Text style={s.body}>{t("dailyNoOptions")}</Text> : null}
+              {currentCategory === "soup" ? <Text style={s.body}>{t("dailySoupOptional")}</Text> : null}
             </View>
           ) : null}
 
@@ -178,7 +179,8 @@ export default function DailyMeal() {
           {!loading && menus.length ? (
             <View style={s.actions}>
               {step > 0 ? <Button label={t("dailyBack")} onPress={() => { setError(""); setStep((n) => n - 1); }} tone="ghost" /> : null}
-              {step < 5 ? <Button label={t("dailyContinue")} onPress={next} disabled={step > 0 && step <= 4 && !visibleOptions.length} /> : <Button label={sending ? t("sending") : `${t("dailyReserve")} · ${menu ? Number(menu.price) * quantity : 0} ₪`} onPress={() => void submit()} disabled={sending} />}
+              {step === 1 ? <Button label={t("dailySkipSoup")} onPress={() => { setSelected((old) => { const nextSelected = { ...old }; delete nextSelected.soup; return nextSelected; }); setError(""); setStep(2); }} tone="ghost" /> : null}
+              {step < 5 ? <Button label={t("dailyContinue")} onPress={next} disabled={step > 1 && step <= 4 && !visibleOptions.length} /> : <Button label={sending ? t("sending") : `${t("dailyReserve")} · ${menu ? Number(menu.price) * quantity : 0} ₪`} onPress={() => void submit()} disabled={sending} />}
             </View>
           ) : null}
         </>
