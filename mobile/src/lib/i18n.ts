@@ -235,6 +235,7 @@ const dict = d({
   adminPrice: { ar: "السعر", he: "מחיר", en: "Price" },
   adminPublish: { ar: "نشر القائمة", he: "פרסום התפריט", en: "Publish menu" },
   adminAddMenu: { ar: "حفظ القائمة", he: "שמירת התפריט", en: "Save menu" },
+  adminDuplicateMenu: { ar: "في قائمة موجودة لهذا المطعم بهذا التاريخ. اختارها من قائمة الوجبات الموجودة وأضف الأصناف عليها بدل إنشاء قائمة ثانية.", he: "כבר קיים תפריט למסעדה הזו בתאריך הזה. בחרו אותו מרשימת התפריטים והוסיפו אליו את המנות במקום ליצור תפריט נוסף.", en: "A menu already exists for this restaurant on this date. Select it from the existing menus and add items to it instead of creating another menu." },
   adminAddOption: { ar: "إضافة خيار", he: "הוספת אפשרות", en: "Add option" },
   adminEditOption: { ar: "تعديل الخيار", he: "עריכת אפשרות", en: "Edit option" },
   adminOptionName: { ar: "اسم الخيار بالعربي", he: "שם האפשרות", en: "Option name" },

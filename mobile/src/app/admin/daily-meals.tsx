@@ -118,6 +118,8 @@ export default function DailyMealsAdmin() {
     if (!Number.isInteger(rid) || rid <= 0 || !menuDate || !menuTitle.trim() || !Number.isFinite(price) || price < 0) {
       setError(t("adminLoadError")); return;
     }
+    const duplicateMenu = menus.find((menu) => menu.restaurant_id === rid && menu.service_date === menuDate && menu.id !== editingMenuId);
+    if (duplicateMenu) { setError(t("adminDuplicateMenu")); return; }
     if (menuImageUrl) {
       try {
         const url = new URL(menuImageUrl.trim());
@@ -129,7 +131,10 @@ export default function DailyMealsAdmin() {
       const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, ...(menuImageUrl.trim() ? { image_url: menuImageUrl.trim() } : {}), published });
       if (saved[0]) { setMenuId(saved[0].id); setEditingMenuId(saved[0].id); }
       setNotice(t("adminSaved")); await refresh(session);
-    } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      setError(message.includes("daily_menus_restaurant_id_service_date_key") ? t("adminDuplicateMenu") : message || t("adminLoadError"));
+    }
     finally { setBusy(false); }
   };
   const saveOption = async () => {
