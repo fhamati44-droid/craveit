@@ -191,7 +191,7 @@ const dict = d({
   dailyHomeSub: { ar: "اختار التاريخ والوجبة الأساسية، وأضف شوربة أو إضافة أو سلطة إذا بتحب.", he: "בוחרים תאריך ומנה עיקרית, ואפשר להוסיף מרק, תוספת או סלט.", en: "Choose a date and main dish, then add soup, an addition, or a salad if you like." },
   dailyEyebrow: { ar: "TAMAM · وجبتك على ذوقك", he: "TAMAM · הארוחה שלך בדרך שלך", en: "TAMAM · your meal, your way" },
   dailyTitle: { ar: "اختار وجبة اليوم", he: "בוחרים את ארוחת היום", en: "Choose today's meal" },
-  dailySub: { ar: "اختار التاريخ والوجبة الأساسية. المراحل الثانية بتظهر حسب الخيارات المتاحة.", he: "בחרו תאריך ומנה עיקרית. שאר הקטגוריות יופיעו לפי האפשרויות הזמינות.", en: "Choose a date and main dish. Other categories appear only when options are available." },
+  dailySub: { ar: "شوف مكوّنات كل وجبة وخياراتها قبل ما تختار. الشوربة والإضافة والسلطة حسب المتاح.", he: "ראו מה כוללת כל ארוחה ואילו אפשרויות זמינות לפני הבחירה. מרק, תוספת וסלט לפי הזמינות.", en: "See each meal's contents and choices before selecting. Soup, additions, and salads depend on availability." },
   dailyDate: { ar: "التاريخ", he: "תאריך", en: "Date" },
   dailySoup: { ar: "الشوربة", he: "מרק", en: "Soup" },
   dailyMain: { ar: "الأساسي", he: "מנה עיקרית", en: "Main" },
