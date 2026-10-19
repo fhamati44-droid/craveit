@@ -5,7 +5,7 @@ import { Button, colors, font, Page } from "../../components/ui";
 import { useStore } from "../../lib/state";
 import { useT, localName } from "../../lib/i18n";
 import {
-  DAILY_CATEGORIES, deleteAdminOption, getAdminMenus, getAdminOptions, getAdminReservations,
+  DAILY_CATEGORIES, getAdminMenus, getAdminOptions, getAdminReservations,
   saveAdminMenu, saveAdminOption, sendAdminPasswordRecovery, setAdminPassword, signInAdmin, updateAdminReservation, uploadDailyMealImage,
   type AdminSession, type DailyCategory, type DailyMenu, type DailyOption, type DailyReservation,
 } from "../../lib/dailyMeals";
@@ -133,7 +133,7 @@ export default function DailyMealsAdmin() {
     finally { setBusy(false); }
   };
   const saveOption = async () => {
-    if (!session || !menuId || !optionName.trim()) { setError(t("dailyChooseDate")); return; }
+    if (!session || (optionCategory === "main" && !menuId) || !optionName.trim()) { setError(t(optionCategory === "main" ? "adminChooseMenuForMain" : "adminLoadError")); return; }
     if (optionImageUrl.trim()) {
       try {
         const url = new URL(optionImageUrl.trim());
@@ -142,13 +142,13 @@ export default function DailyMealsAdmin() {
     }
     setBusy(true); setError(""); setNotice("");
     try {
-      await saveAdminOption(session.access_token, { ...(editingOptionId ? { id: editingOptionId } : {}), menu_id: menuId, category: optionCategory, name: optionName.trim(), name_ar: optionName.trim(), description: optionDescription.trim() || null, image_url: optionImageUrl.trim() || null, active: true });
+      await saveAdminOption(session.access_token, { ...(editingOptionId ? { id: editingOptionId } : {}), menu_id: optionCategory === "main" ? menuId : null, category: optionCategory, name: optionName.trim(), name_ar: optionName.trim(), description: optionDescription.trim() || null, image_url: optionImageUrl.trim() || null, active: true });
       setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setNotice(t("adminSaved")); await refresh(session);
     } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
     finally { setBusy(false); }
   };
   const chooseOptionImage = () => {
-    if (typeof document === "undefined" || !menuId || !session) return;
+    if (typeof document === "undefined" || !session || (optionCategory === "main" && !menuId)) return;
     const picker = document.createElement("input");
     picker.type = "file";
     picker.accept = "image/*";
@@ -157,7 +157,7 @@ export default function DailyMealsAdmin() {
       if (!file) return;
       setBusy(true); setError(""); setNotice("");
       try {
-        const url = await uploadDailyMealImage(session.access_token, menuId, file);
+        const url = await uploadDailyMealImage(session.access_token, menuId || 0, file);
         setOptionImageUrl(url);
       } catch (e) { setError(e instanceof Error ? e.message : t("adminImageUploadError")); }
       finally { setBusy(false); }
@@ -183,6 +183,7 @@ export default function DailyMealsAdmin() {
     picker.click();
   };
   const chooseMenu = (menu: DailyMenu) => {
+    setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl("");
     setMenuId(menu.id); setEditingMenuId(menu.id); setMenuDate(menu.service_date); setRestaurantId(String(menu.restaurant_id));
     setMenuTitle(menu.title); setMenuPrice(String(menu.price)); setMenuImageUrl(menu.image_url || ""); setPublished(menu.published);
   };
@@ -225,7 +226,7 @@ export default function DailyMealsAdmin() {
     </Page>
   );
 
-  const visibleOptions = options.filter((option) => option.menu_id === menuId);
+  const visibleOptions = options.filter((option) => option.category === optionCategory && (optionCategory === "main" ? option.menu_id === menuId : option.menu_id === null));
   const optionLabel = (option: DailyOption) => localName(lang, option) || option.name;
   return (
     <Page>
@@ -249,7 +250,7 @@ export default function DailyMealsAdmin() {
       {tab === "menus" ? (
         <>
           <View style={s.section}>
-            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setMenuId(null); setEditingMenuId(null); setMenuDate(today()); setRestaurantId(""); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
+            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setMenuId(null); setEditingMenuId(null); setMenuDate(today()); setRestaurantId(""); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
             <View style={s.form}>
               <Text style={s.label}>{t("adminRestaurantId")}</Text>
               <TextInput value={restaurantId} onChangeText={setRestaurantId} style={s.input} keyboardType="number-pad" />
@@ -279,9 +280,10 @@ export default function DailyMealsAdmin() {
             </Pressable>)}
             {!menus.length && !loading ? <Text style={s.muted}>{t("dailyNoMenus")}</Text> : null}
           </View>
-          {menuId ? <View style={s.section}>
+          <View style={s.section}>
             <Text style={s.sectionTitle}>{t("adminAddOption")}</Text>
-            <View style={s.chips}>{DAILY_CATEGORIES.map((category) => <Pressable key={category} onPress={() => setOptionCategory(category)} style={[s.chip, optionCategory === category && s.chipOn]}><Text style={[s.chipText, optionCategory === category && s.chipTextOn]}>{t(categoryKey[category])}</Text></Pressable>)}</View>
+            <View style={s.chips}>{DAILY_CATEGORIES.map((category) => <Pressable key={category} onPress={() => { setOptionCategory(category); setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); }} style={[s.chip, optionCategory === category && s.chipOn]}><Text style={[s.chipText, optionCategory === category && s.chipTextOn]}>{t(categoryKey[category])}</Text></Pressable>)}</View>
+            <Text style={s.muted}>{t(optionCategory === "main" ? (menuId ? "adminMainOptionsHint" : "adminChooseMenuForMain") : "adminSharedOptionsHint")}</Text>
             <TextInput value={optionName} onChangeText={setOptionName} style={s.input} placeholder={t("adminOptionName")} />
             <TextInput value={optionDescription} onChangeText={setOptionDescription} style={s.input} placeholder={t("adminDescription")} />
             <Text style={s.label}>{t("adminOptionImage")}</Text>
@@ -292,14 +294,14 @@ export default function DailyMealsAdmin() {
             </Pressable>
             <TextInput value={optionImageUrl} onChangeText={setOptionImageUrl} style={s.input} placeholder={t("adminPasteImageUrl")} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
             <View style={s.rowBetween}><Text style={s.muted}>{editingOptionId ? t("adminEditOption") : t("adminAddOption")}</Text>{editingOptionId ? <Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); }}><Text style={s.link}>{t("close")}</Text></Pressable> : null}</View>
-            <Button label={t(editingOptionId ? "adminSave" : "adminAddOption")} onPress={() => void saveOption()} disabled={busy || !optionName.trim()} />
+            <Button label={t(editingOptionId ? "adminSave" : "adminAddOption")} onPress={() => void saveOption()} disabled={busy || !optionName.trim() || (optionCategory === "main" && !menuId)} />
             {visibleOptions.map((option) => <View key={option.id} style={s.rowCard}>
               {option.image_url ? <Image source={{ uri: option.image_url }} style={s.optionListImage} accessibilityLabel={t("image")} /> : null}
-              <View style={{ flex: 1 }}><Text style={s.cardTitle}>{t(categoryKey[option.category])}: {optionLabel(option)}</Text>{option.description ? <Text style={s.muted}>{option.description}</Text> : null}</View>
+              <View style={{ flex: 1 }}><Text style={s.cardTitle}>{t(categoryKey[option.category])}: {optionLabel(option)}</Text>{option.description ? <Text style={s.muted}>{option.description}</Text> : null}<Text style={s.muted}>{t(option.active ? "adminOptionActive" : "adminOptionInactive")}</Text></View>
               <Pressable accessibilityRole="button" accessibilityLabel={t("adminEditOption")} onPress={() => { setEditingOptionId(option.id); setOptionCategory(option.category); setOptionName(option.name_ar || option.name); setOptionDescription(option.description || ""); setOptionImageUrl(option.image_url || ""); }} style={s.iconButton}><Ionicons name="create-outline" size={18} color={colors.teal} /></Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel={t("remove")} onPress={async () => { try { await deleteAdminOption(session.access_token, option.id); await refresh(session); } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); } }} style={s.iconButton}><Ionicons name="trash-outline" size={18} color={colors.error} /></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={t(option.active ? "adminDeactivateOption" : "adminActivateOption")} onPress={async () => { try { await saveAdminOption(session.access_token, { ...option, active: !option.active }); await refresh(session); } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); } }} style={s.iconButton}><Ionicons name={option.active ? "eye-off-outline" : "eye-outline"} size={18} color={option.active ? colors.error : colors.green} /></Pressable>
             </View>)}
-          </View> : null}
+          </View>
         </>
       ) : (
         <View style={s.section}>

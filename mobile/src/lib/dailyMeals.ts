@@ -16,7 +16,7 @@ export interface DailyMenu {
 }
 export interface DailyOption {
   id: number;
-  menu_id: number;
+  menu_id: number | null;
   category: DailyCategory;
   name: string;
   name_ar?: string | null;
@@ -66,7 +66,8 @@ export const getPublishedMenus = (fromDate: string) =>
 export const getPublicOptions = (menuIds: number[]) => {
   if (!menuIds.length) return Promise.resolve([] as DailyOption[]);
   const ids = menuIds.map(String).join(",");
-  return request<DailyOption[]>(`daily_menu_options?select=*&active=eq.true&menu_id=in.(${encodeURIComponent(ids)})&order=sort_order.asc`);
+  const menuOrShared = encodeURIComponent(`(menu_id.in.(${ids}),menu_id.is.null)`);
+  return request<DailyOption[]>(`daily_menu_options?select=*&active=eq.true&or=${menuOrShared}&order=sort_order.asc`);
 };
 
 export async function submitDailyReservation(input: {
@@ -166,7 +167,7 @@ export const saveAdminMenu = (token: string, menu: Partial<DailyMenu> & Pick<Dai
     body: JSON.stringify(menu),
   }, token);
 
-export const saveAdminOption = (token: string, option: Partial<DailyOption> & Pick<DailyOption, "menu_id" | "category" | "name">) =>
+export const saveAdminOption = (token: string, option: Partial<DailyOption> & Pick<DailyOption, "category" | "name"> & { menu_id: number | null }) =>
   request<DailyOption[]>(`daily_menu_options?select=*${option.id ? `&id=eq.${encodeURIComponent(String(option.id))}` : ""}`, {
     method: option.id ? "PATCH" : "POST",
     headers: { Prefer: "return=representation" },

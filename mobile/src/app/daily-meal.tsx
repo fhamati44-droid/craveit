@@ -54,7 +54,7 @@ export default function DailyMeal() {
 
   const menu = menus.find((m) => m.id === menuId) || null;
   const currentCategory = DAILY_CATEGORIES[step - 1];
-  const visibleOptions = useMemo(() => options.filter((o) => o.menu_id === menuId && o.category === currentCategory), [options, menuId, currentCategory]);
+  const visibleOptions = useMemo(() => options.filter((o) => (o.menu_id === menuId || o.menu_id === null) && o.category === currentCategory), [options, menuId, currentCategory]);
   const chosenOptions = DAILY_CATEGORIES.map((category) => options.find((o) => o.id === selected[category])).filter(Boolean) as DailyOption[];
   const dateLabel = (date: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
   const stepNames = ["dailyDate", ...DAILY_CATEGORIES.map((x) => categoryKey[x]), "dailyYourDetails"] as const;
