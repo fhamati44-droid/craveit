@@ -88,12 +88,6 @@ export default function DailyMeal() {
   const total = cart.reduce((sum, line) => sum + line.unit_price * line.quantity, 0);
   const cartRestaurantNames = [...new Set(cart.map((line) => restaurantNames[String(menus.find((m) => m.id === line.menu_id)?.restaurant_id)] || "TAMAM"))];
 
-  const next = () => {
-    setError("");
-    if (step === 0 && !menu) { setError(t("dailyChooseDate")); return; }
-    if (currentCategory === "main" && !selected.main) { setError(t("dailyChooseOption")); return; }
-    setStep((n) => Math.min(n + 1, detailStep));
-  };
   const addToCart = () => {
     if (!menu || !selected.main) { setError(t("dailyFinishChoices")); return; }
     setCart((old) => [...old, { menu_id: menu.id, quantity, selected_options: selected, unit_price: Number(menu.price) }]);
@@ -197,7 +191,7 @@ export default function DailyMeal() {
               {!dayMenus.length ? <View style={s.card}><Text style={s.body}>{t("dailyNoMenusThisDay")}</Text></View> : null}
               <View style={s.menuGrid}>
               {dayMenus.map((item) => (
-                <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: menuId === item.id }} onPress={() => { setMenuId(item.id); setSelected({}); }} style={[s.menuCard, { width: menuCardWidth }, menuId === item.id && s.selectedCard]}>
+                <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title} · ${t("dailyChooseMeal")}`} onPress={() => { setMenuId(item.id); setSelected({}); setQuantity(1); setStep(1); setError(""); }} style={[s.menuCard, { width: menuCardWidth }, menuId === item.id && s.selectedCard]}>
                   {item.image_url
                     ? <Image source={{ uri: item.image_url }} style={s.menuPhoto} resizeMode="cover" accessibilityLabel={t("image")} />
                     : <View style={s.menuPhotoPlaceholder}><Ionicons name="restaurant" size={34} color={colors.teal} /></View>}
@@ -242,7 +236,7 @@ export default function DailyMeal() {
               {visibleOptions.map((option) => {
                 const active = selected[currentCategory] === option.id;
                 return (
-                  <Pressable key={option.id} onPress={() => setSelected((old) => ({ ...old, [currentCategory]: option.id }))} style={[s.option, active && s.selectedCard]}>
+                  <Pressable key={option.id} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => { setSelected((old) => ({ ...old, [currentCategory]: option.id })); setError(""); setStep((n) => Math.min(n + 1, detailStep)); }} style={[s.option, active && s.selectedCard]}>
                     {option.image_url
                       ? <Image source={{ uri: option.image_url }} style={s.optionPhoto} accessibilityLabel={t("image")} />
                       : <View style={s.optionIcon}><Ionicons name={categoryIcons[currentCategory]} size={18} color={active ? colors.white : colors.teal} /></View>}
@@ -326,7 +320,7 @@ export default function DailyMeal() {
               {checkout ? <Button label={t("dailyBackToMeals")} onPress={() => { setCheckout(false); setError(""); }} tone="ghost" /> : null}
               {!checkout && step > 0 ? <Button label={t("dailyBack")} onPress={() => { setError(""); setStep((n) => n - 1); }} tone="ghost" /> : null}
               {!checkout && currentCategory && currentCategory !== "main" ? <Button label={t(skipKey[currentCategory])} onPress={() => { setSelected((old) => { const nextSelected = { ...old }; delete nextSelected[currentCategory]; return nextSelected; }); setError(""); setStep((n) => Math.min(n + 1, detailStep)); }} tone="ghost" /> : null}
-              {checkout ? <Button label={sending ? t("sending") : t("dailyConfirmOrder", { p: total })} onPress={() => void submit()} disabled={sending || !cart.length} /> : step === detailStep && menu ? <Button label={t("dailyAddMealToCart")} onPress={addToCart} /> : <Button label={t("dailyContinue")} onPress={next} disabled={(step === 0 && !menu) || (currentCategory === "main" && !visibleOptions.length)} />}
+              {checkout ? <Button label={sending ? t("sending") : t("dailyConfirmOrder", { p: total })} onPress={() => void submit()} disabled={sending || !cart.length} /> : step === detailStep && menu ? <Button label={t("dailyAddMealToCart")} onPress={addToCart} /> : null}
             </View>
           ) : null}
         </>
