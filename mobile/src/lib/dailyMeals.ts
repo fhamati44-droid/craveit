@@ -12,7 +12,6 @@ export interface DailyMenu {
   title: string;
   price: number;
   image_url?: string | null;
-  included_note?: string | null;
   published: boolean;
   created_at?: string;
 }
