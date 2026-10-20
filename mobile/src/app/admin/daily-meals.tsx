@@ -5,7 +5,7 @@ import { Button, colors, font, Page } from "../../components/ui";
 import { useStore } from "../../lib/state";
 import { useT, localName } from "../../lib/i18n";
 import {
-  DAILY_CATEGORIES, SHARED_DAILY_CATEGORIES, deleteAdminMenuOptionOverride, getAdminMenuOptionOverrides, getAdminMenus, getAdminOptions, getAdminReservations, groupDailyReservations,
+  DAILY_CATEGORIES, SHARED_DAILY_CATEGORIES, deleteAdminMenuOptionOverride, getAdminMenuOptionOverrides, getAdminMenus, getAdminOptions, getAdminReservations, getDailyOrderDetails, groupDailyReservations,
   saveAdminMenu, saveAdminMenuOptionOverride, saveAdminOption, sendAdminPasswordRecovery, setAdminPassword, signInAdmin, updateAdminReservationGroup, uploadDailyMealImage,
   type AdminSession, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type DailyReservation, type SharedDailyCategory,
 } from "../../lib/dailyMeals";
@@ -38,6 +38,7 @@ export default function DailyMealsAdmin() {
   const [menuId, setMenuId] = useState<number | null>(null);
   const [editingMenuId, setEditingMenuId] = useState<number | null>(null);
   const [menuDate, setMenuDate] = useState(today());
+  const [dailyRepeat, setDailyRepeat] = useState(false);
   const [restaurantId, setRestaurantId] = useState("");
   const [restaurantPickerOpen, setRestaurantPickerOpen] = useState(false);
   const [menuTitle, setMenuTitle] = useState("وجبة اليوم");
@@ -136,7 +137,7 @@ export default function DailyMealsAdmin() {
     setBusy(true); setError(""); setNotice("");
     try {
       const creatingMenu = !editingMenuId;
-      const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, ...(menuImageUrl.trim() ? { image_url: menuImageUrl.trim() } : {}), published });
+      const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, ...(menuImageUrl.trim() ? { image_url: menuImageUrl.trim() } : {}), published, is_daily: dailyRepeat });
       if (saved[0]) {
         setMenuId(saved[0].id); setEditingMenuId(saved[0].id);
         if (creatingMenu) setMenuOptionDrafts(Object.fromEntries(SHARED_DAILY_CATEGORIES.map((category) => [category, null])));
@@ -144,14 +145,14 @@ export default function DailyMealsAdmin() {
       setNotice(t("adminSaved")); await refresh(session);
     } catch (e) {
       const message = e instanceof Error ? e.message : "";
-      setError(message.includes("daily_menus_restaurant_id_service_date_key") ? t("adminDuplicateMenu") : message || t("adminLoadError"));
+      setError(message.includes("is_daily") && dailyRepeat ? t("adminRepeatMigration") : message.includes("daily_menus_restaurant_id_service_date_key") ? t("adminDuplicateMenu") : message || t("adminLoadError"));
     }
     finally { setBusy(false); }
   };
   const chooseMenuForEditing = (menu: DailyMenu) => {
     setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl("");
     setMenuId(menu.id); setEditingMenuId(menu.id); setMenuDate(menu.service_date); setRestaurantId(String(menu.restaurant_id));
-    setMenuTitle(menu.title); setMenuPrice(String(menu.price)); setMenuImageUrl(menu.image_url || ""); setPublished(menu.published);
+    setMenuTitle(menu.title); setMenuPrice(String(menu.price)); setMenuImageUrl(menu.image_url || ""); setPublished(menu.published); setDailyRepeat(menu.is_daily === true);
     setMenuOptionDrafts(Object.fromEntries(SHARED_DAILY_CATEGORIES.map((category) => {
       const override = menuOptionOverrides.find((row) => row.menu_id === menu.id && row.category === category);
       return [category, override ? override.option_ids.map(Number) : null];
@@ -284,7 +285,7 @@ export default function DailyMealsAdmin() {
       {tab === "menus" ? (
         <>
           <View style={s.section}>
-            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setMenuId(null); setEditingMenuId(null); setMenuOptionDrafts({}); setMenuDate(today()); setRestaurantId(""); setRestaurantPickerOpen(false); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
+            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setMenuId(null); setEditingMenuId(null); setMenuOptionDrafts({}); setMenuDate(today()); setDailyRepeat(false); setRestaurantId(""); setRestaurantPickerOpen(false); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
             <View style={s.form}>
               <Text style={s.label}>{t("adminRestaurantId")}</Text>
               <Pressable accessibilityRole="button" onPress={() => setRestaurantPickerOpen((open) => !open)} style={s.pickerButton}>
@@ -305,8 +306,13 @@ export default function DailyMealsAdmin() {
                   {!restaurants.length ? <Text style={s.muted}>{t("adminNoRestaurants")}</Text> : null}
                 </View>
               ) : null}
-              <Text style={s.label}>{t("adminDate")}</Text>
+              <Text style={s.label}>{t(dailyRepeat ? "adminStartDate" : "adminDate")}</Text>
               <TextInput value={menuDate} onChangeText={setMenuDate} style={s.input} placeholder="YYYY-MM-DD" />
+              <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: dailyRepeat }} onPress={() => setDailyRepeat((value) => !value)} style={s.switchRow}>
+                <Text style={s.label}>{t("adminRepeatDaily")}</Text>
+                <Ionicons name={dailyRepeat ? "checkbox" : "square-outline"} size={23} color={dailyRepeat ? colors.green : colors.muted} />
+              </Pressable>
+              <Text style={s.muted}>{t("adminRepeatDailyHint")}</Text>
               <Text style={s.label}>{t("adminTitle")}</Text>
               <TextInput value={menuTitle} onChangeText={setMenuTitle} style={s.input} />
               <Text style={s.label}>{t("adminPrice")}</Text>
@@ -326,7 +332,7 @@ export default function DailyMealsAdmin() {
           <View style={s.section}>
             <Text style={s.sectionTitle}>{t("adminMenus")}</Text>
             {menus.map((menu) => <Pressable key={menu.id} onPress={() => chooseMenuForEditing(menu)} style={[s.rowCard, menuId === menu.id && s.rowCardOn]}>
-              <View style={{ flex: 1 }}><Text style={s.cardTitle}>{menu.title} · {menu.service_date}</Text><Text style={s.muted}>{localName(lang, restaurants.find((restaurant) => String(restaurant.id) === String(menu.restaurant_id)) || { name: `#${menu.restaurant_id}` })} · {Number(menu.price)} ₪ · {menu.published ? t("adminPublished") : t("adminUnpublished")}</Text></View>
+              <View style={{ flex: 1 }}><Text style={s.cardTitle}>{menu.title} · {menu.service_date}{menu.is_daily ? ` · ${t("adminRepeatDaily")}` : ""}</Text><Text style={s.muted}>{localName(lang, restaurants.find((restaurant) => String(restaurant.id) === String(menu.restaurant_id)) || { name: `#${menu.restaurant_id}` })} · {Number(menu.price)} ₪ · {menu.published ? t("adminPublished") : t("adminUnpublished")}</Text></View>
               <Ionicons name={menuId === menu.id ? "checkmark-circle" : "chevron-back"} size={20} color={menuId === menu.id ? colors.green : colors.muted} />
             </Pressable>)}
             {!menus.length && !loading ? <Text style={s.muted}>{t("dailyNoMenus")}</Text> : null}
@@ -407,7 +413,7 @@ export default function DailyMealsAdmin() {
               {group.order ? <Text style={s.muted}>{group.order.delivery_method === "delivery" ? `${t("dailyDelivery")}: ${group.order.delivery_address}` : t("dailyPickup")}{group.order.customer_notes ? ` · ${group.order.customer_notes}` : ""}</Text> : null}
               <Text style={s.muted}>{new Date(first.created_at).toLocaleString(lang === "ar" ? "ar" : lang === "he" ? "he" : "en")}</Text>
               {group.rows.map((row) => <View key={row.id} style={s.cartLine}>
-                <Text style={s.choice}>{menus.find((m) => m.id === row.menu_id)?.title || `${t("adminMenuId")} ${row.menu_id}`} · {row.quantity} × {Number(row.unit_price)} ₪</Text>
+                <Text style={s.choice}>{menus.find((m) => m.id === row.menu_id)?.title || `${t("adminMenuId")} ${row.menu_id}`}{getDailyOrderDetails(row)?.service_date ? ` · ${getDailyOrderDetails(row)?.service_date}` : ""} · {row.quantity} × {Number(row.unit_price)} ₪</Text>
                 {DAILY_CATEGORIES.map((category) => {
                   const optionId = row.selected_options?.[category];
                   const chosen = options.find((option) => String(option.id) === String(optionId));

@@ -3,6 +3,10 @@ export type SharedDailyCategory = Exclude<DailyCategory, "main">;
 export const DAILY_CATEGORIES: DailyCategory[] = ["soup", "main", "addition", "salad"];
 export const SHARED_DAILY_CATEGORIES: SharedDailyCategory[] = ["soup", "addition", "salad"];
 
+export function isDailyMenuAvailableOnDate(menu: { service_date: string; is_daily?: boolean | null }, date: string) {
+  return menu.service_date === date || (menu.is_daily === true && menu.service_date <= date);
+}
+
 type OptionRow = { id: number; menu_id: number | null; category: DailyCategory };
 type MenuOverride = { menu_id: number; category: SharedDailyCategory; option_ids: number[] };
 

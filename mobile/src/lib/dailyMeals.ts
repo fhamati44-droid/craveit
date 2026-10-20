@@ -3,9 +3,9 @@ import type { Id } from "./types";
 import type { DailyCategory, SharedDailyCategory } from "./dailyMealOptionRules";
 import { buildDailyOrderRows } from "./dailyMealOrderGrouping";
 import type { DailyOrderDetails } from "./dailyMealOrderGrouping";
-export { DAILY_CATEGORIES, SHARED_DAILY_CATEGORIES, getVisibleDailyCategories, getVisibleDailyOptions } from "./dailyMealOptionRules";
+export { DAILY_CATEGORIES, SHARED_DAILY_CATEGORIES, getVisibleDailyCategories, getVisibleDailyOptions, isDailyMenuAvailableOnDate } from "./dailyMealOptionRules";
 export type { DailyCategory, SharedDailyCategory } from "./dailyMealOptionRules";
-export { groupDailyReservations } from "./dailyMealOrderGrouping";
+export { getDailyOrderDetails, groupDailyReservations } from "./dailyMealOrderGrouping";
 export type { DailyOrderDetails } from "./dailyMealOrderGrouping";
 
 
@@ -17,6 +17,7 @@ export interface DailyMenu {
   price: number;
   image_url?: string | null;
   published: boolean;
+  is_daily?: boolean;
   created_at?: string;
 }
 export interface DailyOption {
@@ -49,6 +50,7 @@ export interface DailyReservation {
 }
 export interface DailyCartLine {
   menu_id: number;
+  service_date?: string;
   quantity: number;
   selected_options: Partial<Record<DailyCategory, number>>;
   unit_price: number;
@@ -77,8 +79,16 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   return body as T;
 }
 
-export const getPublishedMenus = (fromDate: string, toDate: string) =>
-  request<DailyMenu[]>(`daily_menus?select=*&published=eq.true&service_date=gte.${encodeURIComponent(fromDate)}&service_date=lte.${encodeURIComponent(toDate)}&order=service_date.asc`);
+export async function getPublishedMenus(fromDate: string, toDate: string) {
+  const recurringFilter = encodeURIComponent(`(and(service_date.gte.${fromDate},service_date.lte.${toDate}),and(is_daily.eq.true,service_date.lte.${toDate}))`);
+  try {
+    return await request<DailyMenu[]>(`daily_menus?select=*&published=eq.true&or=${recurringFilter}&order=service_date.asc`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (!message.includes("is_daily")) throw error;
+    return request<DailyMenu[]>(`daily_menus?select=*&published=eq.true&service_date=gte.${encodeURIComponent(fromDate)}&service_date=lte.${encodeURIComponent(toDate)}&order=service_date.asc`);
+  }
+}
 
 export const getPublicOptions = (menuIds: number[]) => {
   if (!menuIds.length) return Promise.resolve([] as DailyOption[]);
@@ -217,12 +227,22 @@ export const getAdminMenuOptionOverrides = (token: string) =>
 export const getAdminReservations = (token: string) =>
   request<DailyReservation[]>("daily_meal_reservations?select=*&order=created_at.desc&limit=100", {}, token);
 
-export const saveAdminMenu = (token: string, menu: Partial<DailyMenu> & Pick<DailyMenu, "restaurant_id" | "service_date" | "title" | "price">) =>
-  request<DailyMenu[]>(`daily_menus?select=*${menu.id ? `&id=eq.${encodeURIComponent(String(menu.id))}` : ""}`, {
+export async function saveAdminMenu(token: string, menu: Partial<DailyMenu> & Pick<DailyMenu, "restaurant_id" | "service_date" | "title" | "price">) {
+  const path = `daily_menus?select=*${menu.id ? `&id=eq.${encodeURIComponent(String(menu.id))}` : ""}`;
+  const options: RequestInit = {
     method: menu.id ? "PATCH" : "POST",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify(menu),
-  }, token);
+  };
+  try { return await request<DailyMenu[]>(path, options, token); }
+  catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (!message.includes("is_daily") || menu.is_daily) throw error;
+    const legacyMenu = { ...menu };
+    delete legacyMenu.is_daily;
+    return request<DailyMenu[]>(path, { ...options, body: JSON.stringify(legacyMenu) }, token);
+  }
+}
 
 export const saveAdminOption = (token: string, option: Partial<DailyOption> & Pick<DailyOption, "category" | "name"> & { menu_id: number | null }) =>
   request<DailyOption[]>(`daily_menu_options?select=*${option.id ? `&id=eq.${encodeURIComponent(String(option.id))}` : ""}`, {

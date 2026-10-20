@@ -5,7 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, Page } from "../components/ui";
 import { useStore } from "../lib/state";
 import { useT, localName } from "../lib/i18n";
-import { DAILY_CATEGORIES, getPublicMenuOptionOverrides, getPublicOptions, getPublishedMenus, getVisibleDailyCategories, getVisibleDailyOptions, submitDailyOrder, type DailyCartLine, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type SharedDailyCategory } from "../lib/dailyMeals";
+import { DAILY_CATEGORIES, getPublicMenuOptionOverrides, getPublicOptions, getPublishedMenus, getVisibleDailyCategories, getVisibleDailyOptions, isDailyMenuAvailableOnDate, submitDailyOrder, type DailyCartLine, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type SharedDailyCategory } from "../lib/dailyMeals";
 
 const categoryKey: Record<DailyCategory, "dailySoup" | "dailyMain" | "dailyAddition" | "dailySalad"> = {
   soup: "dailySoup", main: "dailyMain", addition: "dailyAddition", salad: "dailySalad",
@@ -74,7 +74,7 @@ export default function DailyMeal() {
   useEffect(() => { void load(); }, [load]);
 
   const menu = menus.find((m) => m.id === menuId) || null;
-  const dayMenus = menus.filter((item) => item.service_date === selectedDate);
+  const dayMenus = menus.filter((item) => isDailyMenuAvailableOnDate(item, selectedDate));
   const visibleCategories = menu ? getVisibleDailyCategories(options, menuId, optionOverrides) : [];
   const detailStep = visibleCategories.length + 1;
   const currentCategory = visibleCategories[step - 1];
@@ -90,7 +90,7 @@ export default function DailyMeal() {
 
   const addToCart = () => {
     if (!menu || !selected.main) { setError(t("dailyFinishChoices")); return; }
-    setCart((old) => [...old, { menu_id: menu.id, quantity, selected_options: selected, unit_price: Number(menu.price) }]);
+    setCart((old) => [...old, { menu_id: menu.id, service_date: selectedDate, quantity, selected_options: selected, unit_price: Number(menu.price) }]);
     setStep(0); setMenuId(null); setSelected({}); setQuantity(1); setError("");
   };
   const submit = async () => {
@@ -255,7 +255,7 @@ export default function DailyMeal() {
             <View style={s.section}>
               <Text style={s.sectionTitle}>{t("dailyMealSummary")}</Text>
               <View style={s.card}>
-                <Text style={s.body}>{dateLabel(menu.service_date)} · {Number(menu.price)} ₪ / {t("dailyMeal")}</Text>
+                <Text style={s.body}>{dateLabel(selectedDate)} · {Number(menu.price)} ₪ / {t("dailyMeal")}</Text>
                 {chosenOptions.map((option) => <Text key={option.id} style={s.summaryLine}>• {t(categoryKey[option.category])}: {localName(lang, option) || option.name}</Text>)}
               </View>
               <View style={s.quantityRow}>
@@ -281,7 +281,7 @@ export default function DailyMeal() {
                 }).filter(Boolean);
                 return <View key={`${line.menu_id}-${index}`} style={s.cartLine}>
                   <View style={s.rowBetween}><Text style={s.menuTitle}>{meal?.title || t("dailyMeal")}</Text><Text style={s.price}>{line.unit_price * line.quantity} ₪</Text></View>
-                  <Text style={s.muted}>{meal ? restaurantNames[String(meal.restaurant_id)] || "TAMAM" : ""} · {meal ? dateLabel(meal.service_date) : ""}</Text>
+                  <Text style={s.muted}>{meal ? restaurantNames[String(meal.restaurant_id)] || "TAMAM" : ""} · {dateLabel(line.service_date || meal?.service_date || selectedDate)}</Text>
                   {mealOptions.map((label) => <Text key={label} style={s.summaryLine}>{label}</Text>)}
                   <View style={s.quantityRow}>
                     <Text style={s.body}>{t("dailyQuantity")}</Text>

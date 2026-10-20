@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getVisibleDailyCategories, getVisibleDailyOptions } from "../src/lib/dailyMealOptionRules.ts";
+import { getVisibleDailyCategories, getVisibleDailyOptions, isDailyMenuAvailableOnDate } from "../src/lib/dailyMealOptionRules.ts";
 import { buildDailyOrderRows, groupDailyReservations } from "../src/lib/dailyMealOrderGrouping.ts";
 
 const options = [
@@ -10,6 +10,14 @@ const options = [
   { id: 4, menu_id: null, category: "salad", name: "Hummus", active: true },
   { id: 5, menu_id: 20, category: "main", name: "Steak", active: true },
 ];
+
+test("recurring meals appear from their start date and not before it", () => {
+  const recurring = { service_date: "2026-10-22", is_daily: true };
+  assert.equal(isDailyMenuAvailableOnDate(recurring, "2026-10-21"), false);
+  assert.equal(isDailyMenuAvailableOnDate(recurring, "2026-10-22"), true);
+  assert.equal(isDailyMenuAvailableOnDate(recurring, "2026-10-27"), true);
+  assert.equal(isDailyMenuAvailableOnDate({ service_date: "2026-10-22", is_daily: false }, "2026-10-23"), false);
+});
 
 test("a menu without overrides inherits the saved shared option library", () => {
   assert.deepEqual(getVisibleDailyCategories(options, 20, []), ["soup", "main", "addition", "salad"]);
@@ -47,7 +55,7 @@ test("admin groups every meal line from one cart while keeping old reservations 
 test("one checkout creates meal rows carrying the same order and delivery details", () => {
   const [first, second] = buildDailyOrderRows({
     lines: [
-      { menu_id: 20, quantity: 2, selected_options: { main: 5, soup: 1 }, unit_price: 45 },
+      { menu_id: 20, service_date: "2026-10-20", quantity: 2, selected_options: { main: 5, soup: 1 }, unit_price: 45 },
       { menu_id: 21, quantity: 1, selected_options: { main: 8 }, unit_price: 60 },
     ],
     customer_name: " Nadia ", phone: "0501234567", delivery_method: "delivery", delivery_address: "Nazareth", customer_notes: "Ring the bell",
@@ -56,6 +64,7 @@ test("one checkout creates meal rows carrying the same order and delivery detail
   assert.equal(first.quantity, 2);
   assert.equal(first.selected_options.__order.order_id, second.selected_options.__order.order_id);
   assert.equal(first.selected_options.__order.line_count, 2);
+  assert.equal(first.selected_options.__order.service_date, "2026-10-20");
   assert.equal(second.selected_options.__order.line_index, 2);
   assert.equal(second.selected_options.__order.delivery_address, "Nazareth");
   assert.deepEqual(second.selected_options.main, 8);

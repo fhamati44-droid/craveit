@@ -5,12 +5,14 @@ export interface DailyOrderDetails {
   customer_notes: string;
   line_index: number;
   line_count: number;
+  service_date?: string;
 }
 
 type ReservationLine = { id: number | string; selected_options: Record<string, unknown> };
 
 type CartLine = {
   menu_id: number;
+  service_date?: string;
   quantity: number;
   selected_options: Record<string, unknown>;
   unit_price: number;
@@ -44,6 +46,7 @@ export function buildDailyOrderRows(input: DailyOrderInput, orderId: string) {
         customer_notes: input.customer_notes?.trim() || "",
         line_index: index + 1,
         line_count: lineCount,
+        ...(line.service_date ? { service_date: line.service_date } : {}),
       } satisfies DailyOrderDetails,
     },
   }));
