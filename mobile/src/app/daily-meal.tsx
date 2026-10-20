@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, Page } from "../components/ui";
 import { useStore } from "../lib/state";
@@ -18,11 +18,18 @@ const skipKey: Record<SharedDailyCategory, "dailySkipSoup" | "dailySkipAddition"
   soup: "dailySkipSoup", addition: "dailySkipAddition", salad: "dailySkipSalad",
 };
 const initialDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
+const addDays = (date: string, offset: number) => {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + offset)).toISOString().slice(0, 10);
+};
 
 export default function DailyMeal() {
   const { api, customer, saveCustomer, lang } = useStore();
   const { t, sheet } = useT();
   const s = sheet(styles);
+  const [weekStart] = useState(initialDate);
+  const [selectedDate, setSelectedDate] = useState(weekStart);
+  const weekDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const [menus, setMenus] = useState<DailyMenu[]>([]);
   const [options, setOptions] = useState<DailyOption[]>([]);
   const [optionOverrides, setOptionOverrides] = useState<DailyMenuOptionOverride[]>([]);
@@ -40,7 +47,7 @@ export default function DailyMeal() {
 
   const load = useCallback(async () => {
     try {
-      const rows = await getPublishedMenus(initialDate());
+      const rows = await getPublishedMenus(weekStart, addDays(weekStart, 6));
       setMenus(rows);
       const [optionRows, overrideRows] = await Promise.all([
         getPublicOptions(rows.map((m) => m.id)),
@@ -55,12 +62,13 @@ export default function DailyMeal() {
       setRestaurantNames(Object.fromEntries(pairs));
     } catch (e) { setError(e instanceof Error ? e.message : t("errServer")); }
     finally { setLoading(false); }
-  }, [api, lang, t]);
+  }, [api, lang, t, weekStart]);
   // Fetching is a mount effect; `load` updates state only after its requests settle.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
   const menu = menus.find((m) => m.id === menuId) || null;
+  const dayMenus = menus.filter((item) => item.service_date === selectedDate);
   const visibleCategories = menu ? getVisibleDailyCategories(options, menuId, optionOverrides) : [];
   const detailStep = visibleCategories.length + 1;
   const currentCategory = visibleCategories[step - 1];
@@ -68,6 +76,7 @@ export default function DailyMeal() {
   const visibleOptions = currentCategory ? getVisibleDailyOptions(options, menuId, currentCategory, currentOverride) : [];
   const chosenOptions = DAILY_CATEGORIES.map((category) => options.find((o) => o.id === selected[category])).filter(Boolean) as DailyOption[];
   const dateLabel = (date: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
+  const weekdayLabel = (date: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", weekday: "short" }).format(new Date(`${date}T12:00:00`)).replace(/\.$/, "");
   const stepNames = ["dailyDate", ...visibleCategories.map((category) => categoryKey[category]), "dailyYourDetails"] as const;
 
   const next = () => {
@@ -122,16 +131,41 @@ export default function DailyMeal() {
 
           {!loading && menus.length > 0 && step === 0 ? (
             <View style={s.section}>
-              <Text style={s.sectionTitle}>{t("dailyPickDate")}</Text>
-              {menus.map((item) => (
+              <Text style={s.sectionTitle}>{t("dailyWeekTitle")}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.weekStrip}>
+                {weekDates.map((date) => {
+                  const count = menus.filter((item) => item.service_date === date).length;
+                  const active = selectedDate === date;
+                  return (
+                    <Pressable
+                      key={date}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={`${dateLabel(date)} · ${count ? t("dailyDayMealsCount", { n: count }) : t("dailyNoMenusShort")}`}
+                      onPress={() => { setSelectedDate(date); setMenuId(null); setSelected({}); setError(""); }}
+                      style={[s.dayChip, active && s.dayChipActive]}
+                    >
+                      <Text style={[s.dayName, active && s.dayNameActive]}>{date === weekStart ? t("dailyTodayShort") : weekdayLabel(date)}</Text>
+                      <Text style={[s.dayNumber, active && s.dayNameActive]}>{new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", day: "numeric" }).format(new Date(`${date}T12:00:00`))}</Text>
+                      <Text style={[s.dayCount, active && s.dayNameActive]}>{count ? t("dailyDayMealsCount", { n: count }) : t("dailyNoMenusShort")}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <View style={s.rowBetween}>
+                <Text style={s.sectionTitle}>{dateLabel(selectedDate)}</Text>
+                <Text style={s.body}>{dayMenus.length ? t("dailyDayMealsCount", { n: dayMenus.length }) : t("dailyNoMenusShort")}</Text>
+              </View>
+              {!dayMenus.length ? <View style={s.card}><Text style={s.body}>{t("dailyNoMenusThisDay")}</Text></View> : null}
+              {dayMenus.map((item) => (
                 <Pressable key={item.id} onPress={() => { setMenuId(item.id); setSelected({}); }} style={[s.menuCard, menuId === item.id && s.selectedCard]}>
                   <View style={s.menuCardTop}>
                     {item.image_url
                       ? <Image source={{ uri: item.image_url }} style={s.menuPhoto} accessibilityLabel={t("image")} />
                       : <View style={s.menuMark}><Ionicons name="restaurant" size={20} color={colors.teal} /></View>}
                     <View style={{ flex: 1 }}>
-                      <Text style={s.menuTitle}>{dateLabel(item.service_date)}</Text>
-                      <Text style={s.body}>{item.title} · {restaurantNames[String(item.restaurant_id)] || "TAMAM"}</Text>
+                      <Text style={s.menuTitle}>{item.title}</Text>
+                      <Text style={s.body}>{restaurantNames[String(item.restaurant_id)] || "TAMAM"}</Text>
                     </View>
                     <Text style={s.price}>{Number(item.price)} ₪</Text>
                     {menuId === item.id ? <Ionicons name="checkmark-circle" size={22} color={colors.green} /> : null}
@@ -211,7 +245,7 @@ export default function DailyMeal() {
             <View style={s.actions}>
               {step > 0 ? <Button label={t("dailyBack")} onPress={() => { setError(""); setStep((n) => n - 1); }} tone="ghost" /> : null}
               {currentCategory && currentCategory !== "main" ? <Button label={t(skipKey[currentCategory])} onPress={() => { setSelected((old) => { const nextSelected = { ...old }; delete nextSelected[currentCategory]; return nextSelected; }); setError(""); setStep((n) => Math.min(n + 1, detailStep)); }} tone="ghost" /> : null}
-              {step < detailStep ? <Button label={t("dailyContinue")} onPress={next} disabled={currentCategory === "main" && !visibleOptions.length} /> : <Button label={sending ? t("sending") : `${t("dailyReserve")} · ${menu ? Number(menu.price) * quantity : 0} ₪`} onPress={() => void submit()} disabled={sending} />}
+              {step < detailStep ? <Button label={t("dailyContinue")} onPress={next} disabled={(step === 0 && !menu) || (currentCategory === "main" && !visibleOptions.length)} /> : <Button label={sending ? t("sending") : `${t("dailyReserve")} · ${menu ? Number(menu.price) * quantity : 0} ₪`} onPress={() => void submit()} disabled={sending} />}
             </View>
           ) : null}
         </>
@@ -236,6 +270,14 @@ const styles = StyleSheet.create({
   progressActive: { color: colors.teal, fontFamily: font.bold },
   section: { gap: 11 },
   sectionTitle: { color: colors.teal, fontFamily: font.black, fontSize: 18, textAlign: "right" },
+  rowBetween: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  weekStrip: { flexDirection: "row-reverse", gap: 8, paddingVertical: 2 },
+  dayChip: { minWidth: 68, alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.surface },
+  dayChipActive: { backgroundColor: colors.teal, borderColor: colors.teal },
+  dayName: { color: colors.muted, fontFamily: font.bold, fontSize: 10 },
+  dayNumber: { color: colors.ink, fontFamily: font.black, fontSize: 16 },
+  dayCount: { color: colors.muted, fontFamily: font.regular, fontSize: 9 },
+  dayNameActive: { color: colors.white },
   menuCard: { gap: 9, backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.outline, padding: 13 },
   menuCardTop: { flexDirection: "row-reverse", alignItems: "center", gap: 10 },
   menuPreview: { borderTopWidth: 1, borderTopColor: colors.outline, paddingTop: 8, gap: 4 },
