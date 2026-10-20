@@ -5,8 +5,8 @@ import { Button, colors, font, Page } from "../../components/ui";
 import { useStore } from "../../lib/state";
 import { useT, localName } from "../../lib/i18n";
 import {
-  DAILY_CATEGORIES, SHARED_DAILY_CATEGORIES, deleteAdminMenuOptionOverride, getAdminMenuOptionOverrides, getAdminMenus, getAdminOptions, getAdminReservations,
-  saveAdminMenu, saveAdminMenuOptionOverride, saveAdminOption, sendAdminPasswordRecovery, setAdminPassword, signInAdmin, updateAdminReservation, uploadDailyMealImage,
+  DAILY_CATEGORIES, SHARED_DAILY_CATEGORIES, deleteAdminMenuOptionOverride, getAdminMenuOptionOverrides, getAdminMenus, getAdminOptions, getAdminReservations, groupDailyReservations,
+  saveAdminMenu, saveAdminMenuOptionOverride, saveAdminOption, sendAdminPasswordRecovery, setAdminPassword, signInAdmin, updateAdminReservationGroup, uploadDailyMealImage,
   type AdminSession, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type DailyReservation, type SharedDailyCategory,
 } from "../../lib/dailyMeals";
 
@@ -221,9 +221,9 @@ export default function DailyMealsAdmin() {
     };
     picker.click();
   };
-  const changeStatus = async (row: DailyReservation, status: DailyReservation["status"]) => {
+  const changeStatus = async (rows: DailyReservation[], status: DailyReservation["status"]) => {
     if (!session) return;
-    try { await updateAdminReservation(session.access_token, row.id, status); await refresh(session); }
+    try { await updateAdminReservationGroup(session.access_token, rows.map((row) => row.id), status); await refresh(session); }
     catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
   };
 
@@ -396,17 +396,27 @@ export default function DailyMealsAdmin() {
       ) : (
         <View style={s.section}>
           <Text style={s.sectionTitle}>{t("adminReservations")}</Text>
-          {reservations.map((row) => <View key={row.id} style={s.reservation}>
-            <View style={s.reservationTop}><Text style={s.cardTitle}>{row.customer_name} · {row.quantity} {t("adminQty")}</Text><Text style={s.price}>{Number(row.unit_price) * row.quantity} ₪</Text></View>
-            <Text style={s.muted}>{t("adminPhone")}: {row.phone} · {menus.find((m) => m.id === row.menu_id)?.service_date || `${t("adminMenuId")} ${row.menu_id}`}</Text>
-            <Text style={s.muted}>{new Date(row.created_at).toLocaleString(lang === "ar" ? "ar" : lang === "he" ? "he" : "en")}</Text>
-            {DAILY_CATEGORIES.map((category) => {
-              const optionId = row.selected_options?.[category];
-              const chosen = options.find((option) => String(option.id) === String(optionId));
-              return chosen ? <Text key={category} style={s.choice}>{t(categoryKey[category])}: {optionLabel(chosen)}</Text> : null;
-            })}
-            <View style={s.chips}>{(["new", "confirmed", "completed", "cancelled"] as const).map((status) => <Pressable key={status} onPress={() => void changeStatus(row, status)} style={[s.chip, row.status === status && s.chipOn]}><Text style={[s.chipText, row.status === status && s.chipTextOn]}>{t(statusKey[status])}</Text></Pressable>)}</View>
-          </View>)}
+          {groupDailyReservations(reservations).map((group) => {
+            const first = group.rows[0];
+            const count = group.rows.reduce((sum, row) => sum + row.quantity, 0);
+            const amount = group.rows.reduce((sum, row) => sum + Number(row.unit_price) * row.quantity, 0);
+            const uniformStatus = group.rows.every((row) => row.status === first.status);
+            return <View key={group.id} style={s.reservation}>
+              <View style={s.reservationTop}><Text style={s.cardTitle}>{first.customer_name} · {count} {t("adminQty")}</Text><Text style={s.price}>{amount} ₪</Text></View>
+              <Text style={s.muted}>{t("adminPhone")}: {first.phone} · {group.rows.length} {t("dailyCartLines")}</Text>
+              {group.order ? <Text style={s.muted}>{group.order.delivery_method === "delivery" ? `${t("dailyDelivery")}: ${group.order.delivery_address}` : t("dailyPickup")}{group.order.customer_notes ? ` · ${group.order.customer_notes}` : ""}</Text> : null}
+              <Text style={s.muted}>{new Date(first.created_at).toLocaleString(lang === "ar" ? "ar" : lang === "he" ? "he" : "en")}</Text>
+              {group.rows.map((row) => <View key={row.id} style={s.cartLine}>
+                <Text style={s.choice}>{menus.find((m) => m.id === row.menu_id)?.title || `${t("adminMenuId")} ${row.menu_id}`} · {row.quantity} × {Number(row.unit_price)} ₪</Text>
+                {DAILY_CATEGORIES.map((category) => {
+                  const optionId = row.selected_options?.[category];
+                  const chosen = options.find((option) => String(option.id) === String(optionId));
+                  return chosen ? <Text key={category} style={s.choice}>· {t(categoryKey[category])}: {optionLabel(chosen)}</Text> : null;
+                })}
+              </View>)}
+              <View style={s.chips}>{(["new", "confirmed", "completed", "cancelled"] as const).map((status) => <Pressable key={status} onPress={() => void changeStatus(group.rows, status)} style={[s.chip, uniformStatus && first.status === status && s.chipOn]}><Text style={[s.chipText, uniformStatus && first.status === status && s.chipTextOn]}>{t(statusKey[status])}</Text></Pressable>)}</View>
+            </View>;
+          })}
           {!reservations.length && !loading ? <Text style={s.muted}>{t("adminEmptyReservations")}</Text> : null}
         </View>
       )}
@@ -454,6 +464,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row-reverse", justifyContent: "flex-start" },
   iconButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.high, alignItems: "center", justifyContent: "center" },
   reservation: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 17, padding: 13, gap: 7 },
+  cartLine: { borderBottomWidth: 1, borderBottomColor: colors.outline, paddingVertical: 6, gap: 3 },
   reservationTop: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
   choice: { color: colors.ink, fontFamily: font.medium, fontSize: 11, textAlign: "right" },
   notice: { color: colors.green, fontFamily: font.bold, fontSize: 12, textAlign: "right" },
