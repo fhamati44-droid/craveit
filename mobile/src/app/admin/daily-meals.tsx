@@ -43,7 +43,6 @@ export default function DailyMealsAdmin() {
   const [menuTitle, setMenuTitle] = useState("وجبة اليوم");
   const [menuPrice, setMenuPrice] = useState("");
   const [menuImageUrl, setMenuImageUrl] = useState("");
-  const [menuIncludedNote, setMenuIncludedNote] = useState("");
   const [published, setPublished] = useState(false);
   const [optionCategory, setOptionCategory] = useState<DailyCategory>("soup");
   const [editingOptionId, setEditingOptionId] = useState<number | null>(null);
@@ -137,7 +136,7 @@ export default function DailyMealsAdmin() {
     setBusy(true); setError(""); setNotice("");
     try {
       const creatingMenu = !editingMenuId;
-      const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, ...(menuImageUrl.trim() ? { image_url: menuImageUrl.trim() } : {}), ...(menuIncludedNote.trim() ? { included_note: menuIncludedNote.trim() } : {}), published });
+      const saved = await saveAdminMenu(session.access_token, { ...(editingMenuId ? { id: editingMenuId } : {}), restaurant_id: rid, service_date: menuDate, title: menuTitle.trim(), price, ...(menuImageUrl.trim() ? { image_url: menuImageUrl.trim() } : {}), published });
       if (saved[0]) {
         setMenuId(saved[0].id); setEditingMenuId(saved[0].id);
         if (creatingMenu) setMenuOptionDrafts(Object.fromEntries(SHARED_DAILY_CATEGORIES.map((category) => [category, null])));
@@ -152,7 +151,7 @@ export default function DailyMealsAdmin() {
   const chooseMenuForEditing = (menu: DailyMenu) => {
     setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl("");
     setMenuId(menu.id); setEditingMenuId(menu.id); setMenuDate(menu.service_date); setRestaurantId(String(menu.restaurant_id));
-    setMenuTitle(menu.title); setMenuPrice(String(menu.price)); setMenuImageUrl(menu.image_url || ""); setMenuIncludedNote(menu.included_note || ""); setPublished(menu.published);
+    setMenuTitle(menu.title); setMenuPrice(String(menu.price)); setMenuImageUrl(menu.image_url || ""); setPublished(menu.published);
     setMenuOptionDrafts(Object.fromEntries(SHARED_DAILY_CATEGORIES.map((category) => {
       const override = menuOptionOverrides.find((row) => row.menu_id === menu.id && row.category === category);
       return [category, override ? override.option_ids.map(Number) : null];
@@ -285,7 +284,7 @@ export default function DailyMealsAdmin() {
       {tab === "menus" ? (
         <>
           <View style={s.section}>
-            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setMenuId(null); setEditingMenuId(null); setMenuOptionDrafts({}); setMenuDate(today()); setRestaurantId(""); setRestaurantPickerOpen(false); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setMenuIncludedNote(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
+            <View style={s.rowBetween}><Text style={s.sectionTitle}>{editingMenuId ? t("adminTitle") : t("adminNewMenu")}</Text><Pressable onPress={() => { setEditingOptionId(null); setOptionName(""); setOptionDescription(""); setOptionImageUrl(""); setMenuId(null); setEditingMenuId(null); setMenuOptionDrafts({}); setMenuDate(today()); setRestaurantId(""); setRestaurantPickerOpen(false); setMenuTitle("وجبة اليوم"); setMenuPrice(""); setMenuImageUrl(""); setPublished(false); }}><Text style={s.link}>{t("adminNewMenu")}</Text></Pressable></View>
             <View style={s.form}>
               <Text style={s.label}>{t("adminRestaurantId")}</Text>
               <Pressable accessibilityRole="button" onPress={() => setRestaurantPickerOpen((open) => !open)} style={s.pickerButton}>
@@ -312,8 +311,6 @@ export default function DailyMealsAdmin() {
               <TextInput value={menuTitle} onChangeText={setMenuTitle} style={s.input} />
               <Text style={s.label}>{t("adminPrice")}</Text>
               <TextInput value={menuPrice} onChangeText={setMenuPrice} style={s.input} keyboardType="decimal-pad" />
-              <Text style={s.label}>{t("adminIncludedNote")}</Text>
-              <TextInput value={menuIncludedNote} onChangeText={setMenuIncludedNote} style={[s.input, { minHeight: 72, textAlignVertical: "top" }]} placeholder={t("adminIncludedNotePlaceholder")} multiline maxLength={220} />
               <Text style={s.label}>{t("adminMenuImage")}</Text>
               {menuImageUrl ? <Image source={{ uri: menuImageUrl }} style={s.menuImagePreview} accessibilityLabel={t("image")} /> : null}
               <Pressable accessibilityRole="button" onPress={chooseMenuImage} disabled={busy || !editingMenuId} style={[s.imageUpload, (!editingMenuId || busy) && { opacity: 0.55 }]}>
