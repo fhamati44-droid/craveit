@@ -67,8 +67,8 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   return body as T;
 }
 
-export const getPublishedMenus = (fromDate: string) =>
-  request<DailyMenu[]>(`daily_menus?select=*&published=eq.true&service_date=gte.${encodeURIComponent(fromDate)}&order=service_date.asc`);
+export const getPublishedMenus = (fromDate: string, toDate: string) =>
+  request<DailyMenu[]>(`daily_menus?select=*&published=eq.true&service_date=gte.${encodeURIComponent(fromDate)}&service_date=lte.${encodeURIComponent(toDate)}&order=service_date.asc`);
 
 export const getPublicOptions = (menuIds: number[]) => {
   if (!menuIds.length) return Promise.resolve([] as DailyOption[]);
