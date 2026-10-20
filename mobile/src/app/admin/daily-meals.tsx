@@ -126,8 +126,6 @@ export default function DailyMealsAdmin() {
     if (!Number.isInteger(rid) || rid <= 0 || !menuDate || !menuTitle.trim() || !Number.isFinite(price) || price < 0) {
       setError(t("adminLoadError")); return;
     }
-    const duplicateMenu = menus.find((menu) => menu.restaurant_id === rid && menu.service_date === menuDate && menu.id !== editingMenuId);
-    if (duplicateMenu) { setError(t("adminDuplicateMenu")); return; }
     if (menuImageUrl) {
       try {
         const url = new URL(menuImageUrl.trim());
