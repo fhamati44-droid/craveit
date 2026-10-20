@@ -187,6 +187,7 @@ const dict = d({
 
   // daily meal reservation and admin
   dailyMeal: { ar: "وجبة", he: "ארוחה", en: "Meal" },
+  dailyChooseMeal: { ar: "اختيار الوجبة", he: "בחירת ארוחה", en: "Choose meal" },
   dailyHomeCard: { ar: "ركّب وجبة اليوم", he: "מרכיבים את ארוחת היום", en: "Build today's meal" },
   dailyHomeSub: { ar: "اختار التاريخ والوجبة الأساسية، وأضف شوربة أو إضافة أو سلطة إذا بتحب.", he: "בוחרים תאריך ומנה עיקרית, ואפשר להוסיף מרק, תוספת או סלט.", en: "Choose a date and main dish, then add soup, an addition, or a salad if you like." },
   dailyEyebrow: { ar: "TAMAM · وجبتك على ذوقك", he: "TAMAM · הארוחה שלך בדרך שלך", en: "TAMAM · your meal, your way" },
