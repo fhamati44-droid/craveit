@@ -5,7 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, Page } from "../components/ui";
 import { useStore } from "../lib/state";
 import { useT, localName } from "../lib/i18n";
-import { DAILY_CATEGORIES, getPublicMenuOptionOverrides, getPublicOptions, getPublishedMenus, getVisibleDailyCategories, getVisibleDailyOptions, submitDailyReservation, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type SharedDailyCategory } from "../lib/dailyMeals";
+import { DAILY_CATEGORIES, getPublicMenuOptionOverrides, getPublicOptions, getPublishedMenus, getVisibleDailyCategories, getVisibleDailyOptions, submitDailyOrder, type DailyCartLine, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type SharedDailyCategory } from "../lib/dailyMeals";
 
 const categoryKey: Record<DailyCategory, "dailySoup" | "dailyMain" | "dailyAddition" | "dailySalad"> = {
   soup: "dailySoup", main: "dailyMain", addition: "dailyAddition", salad: "dailySalad",
@@ -38,6 +38,11 @@ export default function DailyMeal() {
   const [menuId, setMenuId] = useState<number | null>(null);
   const [step, setStep] = useState(0);
   const [selected, setSelected] = useState<Partial<Record<DailyCategory, number>>>({});
+  const [cart, setCart] = useState<DailyCartLine[]>([]);
+  const [checkout, setCheckout] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">("delivery");
+  const [address, setAddress] = useState("");
+  const [notes, setNotes] = useState("");
   const [name, setName] = useState(customer.name);
   const [phone, setPhone] = useState(customer.phone);
   const [quantity, setQuantity] = useState(1);
@@ -80,6 +85,8 @@ export default function DailyMeal() {
   const weekdayLabel = (date: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", weekday: "short" }).format(new Date(`${date}T12:00:00`)).replace(/\.$/, "");
   const stepNames = ["dailyDate", ...visibleCategories.map((category) => categoryKey[category]), "dailyYourDetails"] as const;
   const menuCardWidth = viewportWidth >= 720 ? "32%" : "48%";
+  const total = cart.reduce((sum, line) => sum + line.unit_price * line.quantity, 0);
+  const cartRestaurantNames = [...new Set(cart.map((line) => restaurantNames[String(menus.find((m) => m.id === line.menu_id)?.restaurant_id)] || "TAMAM"))];
 
   const next = () => {
     setError("");
@@ -87,14 +94,20 @@ export default function DailyMeal() {
     if (currentCategory === "main" && !selected.main) { setError(t("dailyChooseOption")); return; }
     setStep((n) => Math.min(n + 1, detailStep));
   };
+  const addToCart = () => {
+    if (!menu || !selected.main) { setError(t("dailyFinishChoices")); return; }
+    setCart((old) => [...old, { menu_id: menu.id, quantity, selected_options: selected, unit_price: Number(menu.price) }]);
+    setStep(0); setMenuId(null); setSelected({}); setQuantity(1); setError("");
+  };
   const submit = async () => {
     const cleanPhone = phone.replace(/[\s()-]/g, "");
     if (!name.trim()) { setError(t("errName")); return; }
     if (cleanPhone.replace(/\D/g, "").length < 8) { setError(t("errPhone")); return; }
-    if (!menu || !selected.main) { setError(t("dailyFinishChoices")); return; }
+    if (!cart.length) { setError(t("dailyCartEmpty")); return; }
+    if (deliveryMethod === "delivery" && !address.trim()) { setError(t("errAddress")); return; }
     setSending(true); setError("");
     try {
-      await submitDailyReservation({ menu_id: menu.id, customer_name: name.trim(), phone: cleanPhone, quantity, selected_options: selected, unit_price: Number(menu.price) });
+      await submitDailyOrder({ lines: cart, customer_name: name.trim(), phone: cleanPhone, delivery_method: deliveryMethod, delivery_address: address, customer_notes: notes });
       saveCustomer({ ...customer, name: name.trim(), phone: cleanPhone });
       setSuccess(true);
     } catch (e) { setError(e instanceof Error ? e.message : t("errServer")); }
@@ -114,7 +127,7 @@ export default function DailyMeal() {
           <Ionicons name="checkmark-circle" size={48} color={colors.green} />
           <Text style={s.title}>{t("dailyThanks")}</Text>
           <Text style={s.body}>{t("dailyReservationReceived")}</Text>
-          <Text style={s.body}>{menu ? `${dateLabel(menu.service_date)} · ${quantity} · ${Number(menu.price) * quantity} ₪` : ""}</Text>
+          <Text style={s.body}>{t("dailyOrderSummary", { n: cart.reduce((sum, line) => sum + line.quantity, 0), p: total })}</Text>
           <Button label={t("backHome")} onPress={() => router.replace("/")} tone="ghost" />
         </View>
       ) : (
@@ -131,7 +144,7 @@ export default function DailyMeal() {
           {!loading && error && !menus.length ? <View style={s.card}><Text style={s.error}>{error}</Text><Button label={t("retry")} onPress={() => { setLoading(true); setError(""); void load(); }} /></View> : null}
           {!loading && !menus.length && !error ? <View style={s.card}><Text style={s.body}>{t("dailyNoMenus")}</Text></View> : null}
 
-          {!loading && menus.length > 0 && step === 0 ? (
+          {!loading && menus.length > 0 && step === 0 && !checkout ? (
             <View style={s.browseSection}>
               <View style={s.rowBetween}>
                 <Text style={s.sectionTitle}>{selectedDate === weekStart ? t("dailyTodayMeals") : dateLabel(selectedDate)}</Text>
@@ -176,6 +189,11 @@ export default function DailyMeal() {
                 })}
                 </ScrollView>
               </View>
+              {cart.length ? <View style={s.cartCard}>
+                <View style={s.rowBetween}><Text style={s.sectionTitle}>{t("dailyCart", { n: cart.length })}</Text><Text style={s.total}>{total} ₪</Text></View>
+                <Text style={s.body}>{cartRestaurantNames.join(" · ")}</Text>
+                <Button label={t("dailyCheckout", { n: cart.reduce((sum, line) => sum + line.quantity, 0) })} onPress={() => { setCheckout(true); setError(""); }} />
+              </View> : null}
               {!dayMenus.length ? <View style={s.card}><Text style={s.body}>{t("dailyNoMenusThisDay")}</Text></View> : null}
               <View style={s.menuGrid}>
               {dayMenus.map((item) => (
@@ -217,7 +235,7 @@ export default function DailyMeal() {
             </View>
           ) : null}
 
-          {!loading && step >= 1 && step <= visibleCategories.length && menu && currentCategory ? (
+          {!loading && !checkout && step >= 1 && step <= visibleCategories.length && menu && currentCategory ? (
             <View style={s.section}>
               <Text style={s.sectionTitle}>{t(categoryKey[currentCategory])}</Text>
               <Text style={s.body}>{dateLabel(menu.service_date)} · {Number(menu.price)} ₪</Text>
@@ -241,17 +259,13 @@ export default function DailyMeal() {
             </View>
           ) : null}
 
-          {step === detailStep && menu ? (
+          {!checkout && step === detailStep && menu ? (
             <View style={s.section}>
-              <Text style={s.sectionTitle}>{t("dailyYourDetails")}</Text>
+              <Text style={s.sectionTitle}>{t("dailyMealSummary")}</Text>
               <View style={s.card}>
                 <Text style={s.body}>{dateLabel(menu.service_date)} · {Number(menu.price)} ₪ / {t("dailyMeal")}</Text>
                 {chosenOptions.map((option) => <Text key={option.id} style={s.summaryLine}>• {t(categoryKey[option.category])}: {localName(lang, option) || option.name}</Text>)}
               </View>
-              <Text style={s.label}>{t("name")}</Text>
-              <TextInput value={name} onChangeText={setName} style={s.input} placeholder={t("name")} autoComplete="name" />
-              <Text style={s.label}>{t("phone")}</Text>
-              <TextInput value={phone} onChangeText={setPhone} style={s.input} placeholder="05…" keyboardType="phone-pad" autoComplete="tel" />
               <View style={s.quantityRow}>
                 <Text style={s.label}>{t("dailyQuantity")}</Text>
                 <View style={s.quantityControls}>
@@ -264,12 +278,55 @@ export default function DailyMeal() {
             </View>
           ) : null}
 
+          {checkout ? <View style={s.section}>
+            <Text style={s.sectionTitle}>{t("dailyCheckoutTitle")}</Text>
+            <View style={s.cartCard}>
+              {cart.map((line, index) => {
+                const meal = menus.find((item) => item.id === line.menu_id);
+                const mealOptions = DAILY_CATEGORIES.map((category) => {
+                  const option = options.find((row) => row.id === line.selected_options[category]);
+                  return option ? `${t(categoryKey[category])}: ${localName(lang, option) || option.name}` : "";
+                }).filter(Boolean);
+                return <View key={`${line.menu_id}-${index}`} style={s.cartLine}>
+                  <View style={s.rowBetween}><Text style={s.menuTitle}>{meal?.title || t("dailyMeal")}</Text><Text style={s.price}>{line.unit_price * line.quantity} ₪</Text></View>
+                  <Text style={s.muted}>{meal ? restaurantNames[String(meal.restaurant_id)] || "TAMAM" : ""} · {meal ? dateLabel(meal.service_date) : ""}</Text>
+                  {mealOptions.map((label) => <Text key={label} style={s.summaryLine}>{label}</Text>)}
+                  <View style={s.quantityRow}>
+                    <Text style={s.body}>{t("dailyQuantity")}</Text>
+                    <View style={s.quantityControls}>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t("decrease")} onPress={() => setCart((old) => old.map((row, i) => i === index ? { ...row, quantity: Math.max(1, row.quantity - 1) } : row))} style={s.qtyButton}><Ionicons name="remove" size={18} color={colors.teal} /></Pressable>
+                      <Text style={s.quantity}>{line.quantity}</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t("increase")} onPress={() => setCart((old) => old.map((row, i) => i === index ? { ...row, quantity: Math.min(20, row.quantity + 1) } : row))} style={s.qtyButton}><Ionicons name="add" size={18} color={colors.teal} /></Pressable>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t("remove")} onPress={() => setCart((old) => old.filter((_, i) => i !== index))} style={s.qtyButton}><Ionicons name="trash-outline" size={17} color={colors.error} /></Pressable>
+                    </View>
+                  </View>
+                </View>;
+              })}
+              <Text style={s.total}>{t("total")}: {total} ₪</Text>
+              {deliveryMethod === "pickup" && cartRestaurantNames.length > 1 ? <Text style={s.body}>{t("dailyPickupMulti", { names: cartRestaurantNames.join("، ") })}</Text> : null}
+            </View>
+            <Text style={s.label}>{t("dailyReceiveMethod")}</Text>
+            <View style={s.receiveRow}>
+              {([["delivery", "dailyDelivery", "bicycle-outline"], ["pickup", "dailyPickup", "storefront-outline"]] as const).map(([value, label, icon]) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: deliveryMethod === value }} onPress={() => setDeliveryMethod(value)} style={[s.receiveButton, deliveryMethod === value && s.receiveButtonActive]}>
+                <Ionicons name={icon} size={18} color={deliveryMethod === value ? colors.white : colors.teal} /><Text style={[s.receiveText, deliveryMethod === value && s.receiveTextActive]}>{t(label)}</Text>
+              </Pressable>)}
+            </View>
+            {deliveryMethod === "delivery" ? <><Text style={s.label}>{t("deliveryAddress")}</Text><TextInput value={address} onChangeText={setAddress} style={s.input} placeholder={t("addressPh")} /></> : <Text style={s.body}>{t("dailyPickupHint")}</Text>}
+            <Text style={s.label}>{t("name")}</Text>
+            <TextInput value={name} onChangeText={setName} style={s.input} placeholder={t("name")} autoComplete="name" />
+            <Text style={s.label}>{t("phone")}</Text>
+            <TextInput value={phone} onChangeText={setPhone} style={s.input} placeholder="05…" keyboardType="phone-pad" autoComplete="tel" />
+            <Text style={s.label}>{t("dailyNotesLabel")}</Text>
+            <TextInput value={notes} onChangeText={setNotes} style={[s.input, { minHeight: 74 }]} placeholder={t("dailyNotesPlaceholder")} multiline />
+          </View> : null}
+
           {error && menus.length ? <Text style={s.error}>{error}</Text> : null}
           {!loading && menus.length ? (
             <View style={s.actions}>
-              {step > 0 ? <Button label={t("dailyBack")} onPress={() => { setError(""); setStep((n) => n - 1); }} tone="ghost" /> : null}
-              {currentCategory && currentCategory !== "main" ? <Button label={t(skipKey[currentCategory])} onPress={() => { setSelected((old) => { const nextSelected = { ...old }; delete nextSelected[currentCategory]; return nextSelected; }); setError(""); setStep((n) => Math.min(n + 1, detailStep)); }} tone="ghost" /> : null}
-              {step < detailStep ? <Button label={t("dailyContinue")} onPress={next} disabled={(step === 0 && !menu) || (currentCategory === "main" && !visibleOptions.length)} /> : <Button label={sending ? t("sending") : `${t("dailyReserve")} · ${menu ? Number(menu.price) * quantity : 0} ₪`} onPress={() => void submit()} disabled={sending} />}
+              {checkout ? <Button label={t("dailyBackToMeals")} onPress={() => { setCheckout(false); setError(""); }} tone="ghost" /> : null}
+              {!checkout && step > 0 ? <Button label={t("dailyBack")} onPress={() => { setError(""); setStep((n) => n - 1); }} tone="ghost" /> : null}
+              {!checkout && currentCategory && currentCategory !== "main" ? <Button label={t(skipKey[currentCategory])} onPress={() => { setSelected((old) => { const nextSelected = { ...old }; delete nextSelected[currentCategory]; return nextSelected; }); setError(""); setStep((n) => Math.min(n + 1, detailStep)); }} tone="ghost" /> : null}
+              {checkout ? <Button label={sending ? t("sending") : t("dailyConfirmOrder", { p: total })} onPress={() => void submit()} disabled={sending || !cart.length} /> : step === detailStep && menu ? <Button label={t("dailyAddMealToCart")} onPress={addToCart} /> : <Button label={t("dailyContinue")} onPress={next} disabled={(step === 0 && !menu) || (currentCategory === "main" && !visibleOptions.length)} />}
             </View>
           ) : null}
         </>
@@ -334,7 +391,15 @@ const styles = StyleSheet.create({
   optionPhoto: { width: 54, height: 54, borderRadius: 12, backgroundColor: colors.high },
   optionTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 14, textAlign: "right" },
   body: { color: colors.muted, fontFamily: font.regular, fontSize: 12, lineHeight: 19, textAlign: "right" },
+  muted: { color: colors.muted, fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right" },
   card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 18, padding: 14, gap: 7 },
+  cartCard: { backgroundColor: colors.mint, borderWidth: 1, borderColor: colors.green, borderRadius: 18, padding: 13, gap: 8 },
+  cartLine: { borderBottomWidth: 1, borderBottomColor: colors.outline, paddingVertical: 7, gap: 4 },
+  receiveRow: { flexDirection: "row-reverse", gap: 9 },
+  receiveButton: { flex: 1, minHeight: 48, borderWidth: 1, borderColor: colors.outline, borderRadius: 13, backgroundColor: colors.surface, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 7 },
+  receiveButtonActive: { backgroundColor: colors.teal, borderColor: colors.teal },
+  receiveText: { color: colors.teal, fontFamily: font.bold, fontSize: 12 },
+  receiveTextActive: { color: colors.white },
   input: { color: colors.text, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 14, padding: 13, minHeight: 48, textAlign: "right", fontSize: 14, fontFamily: font.regular },
   label: { color: colors.ink, fontFamily: font.bold, fontSize: 13, textAlign: "right" },
   summaryLine: { color: colors.ink, fontFamily: font.regular, fontSize: 12, textAlign: "right" },
