@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, Page } from "../components/ui";
 import { useStore } from "../lib/state";
@@ -25,6 +25,7 @@ const addDays = (date: string, offset: number) => {
 
 export default function DailyMeal() {
   const { api, customer, saveCustomer, lang } = useStore();
+  const { width: viewportWidth } = useWindowDimensions();
   const { t, sheet } = useT();
   const s = sheet(styles);
   const [weekStart] = useState(initialDate);
@@ -78,6 +79,7 @@ export default function DailyMeal() {
   const dateLabel = (date: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
   const weekdayLabel = (date: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", weekday: "short" }).format(new Date(`${date}T12:00:00`)).replace(/\.$/, "");
   const stepNames = ["dailyDate", ...visibleCategories.map((category) => categoryKey[category]), "dailyYourDetails"] as const;
+  const menuCardWidth = viewportWidth >= 720 ? "32%" : "48%";
 
   const next = () => {
     setError("");
@@ -175,31 +177,35 @@ export default function DailyMeal() {
                 </ScrollView>
               </View>
               {!dayMenus.length ? <View style={s.card}><Text style={s.body}>{t("dailyNoMenusThisDay")}</Text></View> : null}
+              <View style={s.menuGrid}>
               {dayMenus.map((item) => (
-                <Pressable key={item.id} onPress={() => { setMenuId(item.id); setSelected({}); }} style={[s.menuCard, menuId === item.id && s.selectedCard]}>
-                  <View style={s.menuCardTop}>
-                    {item.image_url
-                      ? <Image source={{ uri: item.image_url }} style={s.menuPhoto} accessibilityLabel={t("image")} />
-                      : <View style={s.menuMark}><Ionicons name="restaurant" size={20} color={colors.teal} /></View>}
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.menuTitle}>{item.title}</Text>
-                      <Text style={s.body}>{restaurantNames[String(item.restaurant_id)] || "TAMAM"}</Text>
+                <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: menuId === item.id }} onPress={() => { setMenuId(item.id); setSelected({}); }} style={[s.menuCard, { width: menuCardWidth }, menuId === item.id && s.selectedCard]}>
+                  {item.image_url
+                    ? <Image source={{ uri: item.image_url }} style={s.menuPhoto} resizeMode="cover" accessibilityLabel={t("image")} />
+                    : <View style={s.menuPhotoPlaceholder}><Ionicons name="restaurant" size={34} color={colors.teal} /></View>}
+                  <View style={s.menuHeadingRow}>
+                    <View style={s.menuNameBlock}>
+                      <Text numberOfLines={2} style={s.menuTitle}>{item.title}</Text>
+                      <Text numberOfLines={1} style={s.restaurantName}>{restaurantNames[String(item.restaurant_id)] || "TAMAM"}</Text>
                     </View>
-                    <Text style={s.price}>{Number(item.price)} ₪</Text>
-                    {menuId === item.id ? <Ionicons name="checkmark-circle" size={22} color={colors.green} /> : null}
+                    <View style={s.menuPriceBlock}>
+                      <Text style={s.price}>{Number(item.price)} ₪</Text>
+                      {menuId === item.id ? <Ionicons name="checkmark-circle" size={18} color={colors.green} /> : null}
+                    </View>
                   </View>
                   <View style={s.menuPreview}>
-                    {previewCategoryOrder.map((category) => {
+                    {previewCategoryOrder.filter((category) => category !== "main").map((category) => {
                       const override = optionOverrides.find((row) => row.menu_id === item.id && row.category === category);
                       const allowed = getVisibleDailyOptions(options, item.id, category, override);
                       const missingKey = category === "soup" ? "dailyPreviewWithoutSoup" : category === "addition" ? "dailyPreviewWithoutAddition" : "dailyPreviewWithoutSalad";
                       return (
                         <View key={`${item.id}-${category}`} style={s.previewLine}>
-                          <Text style={s.previewCategory}>{t(categoryKey[category])}:</Text>
-                          <Text style={s.previewText}>
+                          <Ionicons name={categoryIcons[category]} size={12} color={colors.green} />
+                          <Text style={s.previewCategory}>{t(categoryKey[category])}</Text>
+                          <Text numberOfLines={2} style={s.previewText}>
                             {allowed.length
-                              ? `${allowed.map((option) => localName(lang, option) || option.name).join("، ")} · ${t(category === "main" ? "dailyPreviewChooseOneRequired" : "dailyPreviewChooseOneOptional")}`
-                              : t(category === "main" ? "dailyPreviewNoMain" : missingKey)}
+                              ? allowed.map((option) => localName(lang, option) || option.name).join("، ")
+                              : t(missingKey)}
                           </Text>
                         </View>
                       );
@@ -207,6 +213,7 @@ export default function DailyMeal() {
                   </View>
                 </Pressable>
               ))}
+              </View>
             </View>
           ) : null}
 
@@ -290,6 +297,7 @@ const styles = StyleSheet.create({
   progressActive: { color: colors.teal, fontFamily: font.bold },
   section: { gap: 11 },
   browseSection: { gap: 7 },
+  menuGrid: { flexDirection: "row-reverse", flexWrap: "wrap", justifyContent: "space-between", rowGap: 9 },
   sectionTitle: { color: colors.teal, fontFamily: font.black, fontSize: 18, textAlign: "right" },
   weekLabel: { color: colors.muted, fontFamily: font.bold, fontSize: 10, textAlign: "right" },
   rowBetween: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8 },
@@ -308,16 +316,18 @@ const styles = StyleSheet.create({
   dayCount: { color: colors.muted, fontFamily: font.regular, fontSize: 8, lineHeight: 9 },
   dayNameActive: { color: colors.white },
   menuCard: { gap: 6, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.outline, padding: 10 },
-  menuCardTop: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
-  menuPreview: { borderTopWidth: 1, borderTopColor: colors.outline, paddingTop: 6, gap: 2 },
-  previewHeading: { color: colors.teal, fontFamily: font.bold, fontSize: 11, textAlign: "right" },
-  previewLine: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 4 },
-  previewCategory: { color: colors.ink, fontFamily: font.bold, fontSize: 11, textAlign: "right" },
-  previewText: { flex: 1, color: colors.muted, fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right" },
+  menuPhoto: { width: "100%", aspectRatio: 1.15, borderRadius: 11, backgroundColor: colors.high },
+  menuPhotoPlaceholder: { width: "100%", aspectRatio: 1.15, borderRadius: 11, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" },
+  menuHeadingRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 5 },
+  menuNameBlock: { flex: 1, gap: 2, alignItems: "flex-end" },
+  menuPriceBlock: { alignItems: "center", gap: 2 },
+  restaurantName: { color: colors.muted, fontFamily: font.regular, fontSize: 9, textAlign: "right" },
+  menuPreview: { borderTopWidth: 1, borderTopColor: colors.outline, paddingTop: 5, gap: 3 },
+  previewLine: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 3 },
+  previewCategory: { color: colors.ink, fontFamily: font.bold, fontSize: 10, textAlign: "right" },
+  previewText: { flex: 1, color: colors.muted, fontFamily: font.regular, fontSize: 10, lineHeight: 14, textAlign: "right" },
   selectedCard: { borderColor: colors.green, borderWidth: 2, backgroundColor: colors.mint },
-  menuMark: { width: 38, height: 38, backgroundColor: colors.high, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  menuPhoto: { width: 48, height: 48, borderRadius: 12, backgroundColor: colors.high },
-  menuTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 14, textAlign: "right" },
+  menuTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 13, lineHeight: 18, textAlign: "right" },
   price: { color: colors.teal, fontFamily: font.black, fontSize: 14 },
   option: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 16, padding: 12 },
   optionIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" },
