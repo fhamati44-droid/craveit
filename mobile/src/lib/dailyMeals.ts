@@ -1,6 +1,7 @@
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./api";
 import type { Id } from "./types";
 import type { DailyCategory, SharedDailyCategory } from "./dailyMealOptionRules";
+import { buildDailyOrderRows } from "./dailyMealOrderGrouping";
 import type { DailyOrderDetails } from "./dailyMealOrderGrouping";
 export { DAILY_CATEGORIES, SHARED_DAILY_CATEGORIES, getVisibleDailyCategories, getVisibleDailyOptions } from "./dailyMealOptionRules";
 export type { DailyCategory, SharedDailyCategory } from "./dailyMealOptionRules";
@@ -124,25 +125,7 @@ export async function submitDailyOrder(input: {
   const orderId = typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `daily-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const rows = input.lines.map((line, index) => ({
-    menu_id: line.menu_id,
-    customer_name: input.customer_name.trim(),
-    phone: input.phone,
-    quantity: line.quantity,
-    selected_options: {
-      ...line.selected_options,
-      __order: {
-        order_id: orderId,
-        delivery_method: input.delivery_method,
-        delivery_address: input.delivery_method === "delivery" ? input.delivery_address?.trim() || "" : "",
-        customer_notes: input.customer_notes?.trim() || "",
-        line_index: index + 1,
-        line_count: input.lines.length,
-      } satisfies DailyOrderDetails,
-    },
-    unit_price: line.unit_price,
-    status: "new" as const,
-  }));
+  const rows = buildDailyOrderRows(input, orderId);
   // A single PostgREST bulk insert keeps every meal line in one atomic order.
   await request<null>("daily_meal_reservations", {
     method: "POST",
