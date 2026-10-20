@@ -5,6 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, Page } from "../components/ui";
 import { useStore } from "../lib/state";
 import { useT, localName } from "../lib/i18n";
+import { imageUrl } from "../lib/media";
 import { DAILY_CATEGORIES, getPublicMenuOptionOverrides, getPublicOptions, getPublishedMenus, getVisibleDailyCategories, getVisibleDailyOptions, isDailyMenuAvailableOnDate, submitDailyOrder, type DailyCartLine, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type SharedDailyCategory } from "../lib/dailyMeals";
 
 const categoryKey: Record<DailyCategory, "dailySoup" | "dailyMain" | "dailyAddition" | "dailySalad"> = {
@@ -34,7 +35,7 @@ export default function DailyMeal() {
   const [menus, setMenus] = useState<DailyMenu[]>([]);
   const [options, setOptions] = useState<DailyOption[]>([]);
   const [optionOverrides, setOptionOverrides] = useState<DailyMenuOptionOverride[]>([]);
-  const [restaurantNames, setRestaurantNames] = useState<Record<string, string>>({});
+  const [restaurants, setRestaurants] = useState<Record<string, { name: string; logo?: string }>>({});
   const [menuId, setMenuId] = useState<number | null>(null);
   const [step, setStep] = useState(0);
   const [selected, setSelected] = useState<Partial<Record<DailyCategory, number>>>({});
@@ -62,10 +63,10 @@ export default function DailyMeal() {
       setOptions(optionRows); setOptionOverrides(overrideRows);
       const ids = [...new Set(rows.map((m) => m.restaurant_id))];
       const pairs = await Promise.all(ids.map(async (id) => {
-        try { const restaurant = await api.restaurant(id); return [String(id), localName(lang, restaurant)] as const; }
-        catch { return [String(id), "TAMAM"] as const; }
+        try { const restaurant = await api.restaurant(id); return [String(id), { name: localName(lang, restaurant), logo: imageUrl(restaurant.logo_url || restaurant.image_url) }] as const; }
+        catch { return [String(id), { name: "TAMAM" }] as const; }
       }));
-      setRestaurantNames(Object.fromEntries(pairs));
+      setRestaurants(Object.fromEntries(pairs));
     } catch (e) { setError(e instanceof Error ? e.message : t("errServer")); }
     finally { setLoading(false); }
   }, [api, lang, t, weekStart]);
@@ -92,7 +93,7 @@ export default function DailyMeal() {
   const stepNames = ["dailyDate", ...visibleCategories.map((category) => categoryKey[category]), "dailyYourDetails"] as const;
   const menuCardWidth = viewportWidth >= 720 ? "32%" : "48%";
   const total = cart.reduce((sum, line) => sum + line.unit_price * line.quantity, 0);
-  const cartRestaurantNames = [...new Set(cart.map((line) => restaurantNames[String(menus.find((m) => m.id === line.menu_id)?.restaurant_id)] || "TAMAM"))];
+  const cartRestaurantNames = [...new Set(cart.map((line) => restaurants[String(menus.find((m) => m.id === line.menu_id)?.restaurant_id)]?.name || "TAMAM"))];
 
   const addToCart = () => {
     if (!menu || !selected.main) { setError(t("dailyFinishChoices")); return; }
@@ -199,8 +200,12 @@ export default function DailyMeal() {
                 <View key={restaurantId} style={s.restaurantGroup}>
                   <View style={s.restaurantHeader}>
                     <View style={s.restaurantTitleWrap}>
-                      <Ionicons name="storefront-outline" size={17} color={colors.teal} />
-                      <Text numberOfLines={1} style={s.restaurantHeading}>{restaurantNames[String(restaurantId)] || "TAMAM"}</Text>
+                      {restaurants[String(restaurantId)]?.logo ? (
+                        <Image source={{ uri: restaurants[String(restaurantId)].logo }} style={s.restaurantLogo} resizeMode="cover" accessibilityLabel={t("image")} />
+                      ) : (
+                        <View style={s.restaurantLogoPlaceholder}><Ionicons name="storefront-outline" size={13} color={colors.teal} /></View>
+                      )}
+                      <Text numberOfLines={1} style={s.restaurantHeading}>{restaurants[String(restaurantId)]?.name || "TAMAM"}</Text>
                     </View>
                     <Text style={s.restaurantCount}>{t("dailyDayMealsCount", { n: restaurantMenus.length })}</Text>
                   </View>
@@ -297,7 +302,7 @@ export default function DailyMeal() {
                 }).filter(Boolean);
                 return <View key={`${line.menu_id}-${index}`} style={s.cartLine}>
                   <View style={s.rowBetween}><Text style={s.menuTitle}>{meal?.title || t("dailyMeal")}</Text><Text style={s.price}>{line.unit_price * line.quantity} ₪</Text></View>
-                  <Text style={s.muted}>{meal ? restaurantNames[String(meal.restaurant_id)] || "TAMAM" : ""} · {dateLabel(line.service_date || meal?.service_date || selectedDate)}</Text>
+                  <Text style={s.muted}>{meal ? restaurants[String(meal.restaurant_id)]?.name || "TAMAM" : ""} · {dateLabel(line.service_date || meal?.service_date || selectedDate)}</Text>
                   {mealOptions.map((label) => <Text key={label} style={s.summaryLine}>{label}</Text>)}
                   <View style={s.quantityRow}>
                     <Text style={s.body}>{t("dailyQuantity")}</Text>
@@ -389,7 +394,9 @@ const styles = StyleSheet.create({
   restaurantGroup: { gap: 8 },
   restaurantHeader: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: colors.mint, borderRadius: 13, borderWidth: 1, borderColor: colors.outline },
   restaurantTitleWrap: { flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: 6 },
-  restaurantHeading: { color: colors.teal, fontFamily: font.black, fontSize: 14, textAlign: "right" },
+  restaurantHeading: { color: colors.teal, fontFamily: font.bold, fontSize: 12, textAlign: "right" },
+  restaurantLogo: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.high, borderWidth: 1, borderColor: colors.outline },
+  restaurantLogoPlaceholder: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, alignItems: "center", justifyContent: "center" },
   restaurantCount: { color: colors.muted, fontFamily: font.regular, fontSize: 9, textAlign: "right" },
   menuPreview: { borderTopWidth: 1, borderTopColor: colors.outline, paddingTop: 5, gap: 3 },
   previewLine: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 3 },
