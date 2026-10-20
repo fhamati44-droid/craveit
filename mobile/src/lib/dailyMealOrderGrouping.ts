@@ -9,6 +9,46 @@ export interface DailyOrderDetails {
 
 type ReservationLine = { id: number | string; selected_options: Record<string, unknown> };
 
+type CartLine = {
+  menu_id: number;
+  quantity: number;
+  selected_options: Record<string, unknown>;
+  unit_price: number;
+};
+
+type DailyOrderInput = {
+  lines: CartLine[];
+  customer_name: string;
+  phone: string;
+  delivery_method: "delivery" | "pickup";
+  delivery_address?: string;
+  customer_notes?: string;
+};
+
+export function buildDailyOrderRows(input: DailyOrderInput, orderId: string) {
+  const customerName = input.customer_name.trim();
+  const lineCount = input.lines.length;
+  return input.lines.map((line, index) => ({
+    menu_id: line.menu_id,
+    customer_name: customerName,
+    phone: input.phone,
+    quantity: line.quantity,
+    unit_price: line.unit_price,
+    status: "new" as const,
+    selected_options: {
+      ...line.selected_options,
+      __order: {
+        order_id: orderId,
+        delivery_method: input.delivery_method,
+        delivery_address: input.delivery_address?.trim() || "",
+        customer_notes: input.customer_notes?.trim() || "",
+        line_index: index + 1,
+        line_count: lineCount,
+      } satisfies DailyOrderDetails,
+    },
+  }));
+}
+
 export function getDailyOrderDetails(row: ReservationLine): DailyOrderDetails | null {
   const value = row.selected_options?.__order;
   if (!value || typeof value !== "object" || typeof (value as DailyOrderDetails).order_id !== "string") return null;

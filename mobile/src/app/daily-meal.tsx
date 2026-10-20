@@ -209,15 +209,13 @@ export default function DailyMeal() {
                     {previewCategoryOrder.filter((category) => category !== "main").map((category) => {
                       const override = optionOverrides.find((row) => row.menu_id === item.id && row.category === category);
                       const allowed = getVisibleDailyOptions(options, item.id, category, override);
-                      const missingKey = category === "soup" ? "dailyPreviewWithoutSoup" : category === "addition" ? "dailyPreviewWithoutAddition" : "dailyPreviewWithoutSalad";
+                      if (!allowed.length) return null;
                       return (
                         <View key={`${item.id}-${category}`} style={s.previewLine}>
                           <Ionicons name={categoryIcons[category]} size={12} color={colors.green} />
                           <Text style={s.previewCategory}>{t(categoryKey[category])}</Text>
                           <Text numberOfLines={2} style={s.previewText}>
-                            {allowed.length
-                              ? allowed.map((option) => localName(lang, option) || option.name).join("، ")
-                              : t(missingKey)}
+                            {allowed.map((option) => localName(lang, option) || option.name).join("، ")}
                           </Text>
                         </View>
                       );
