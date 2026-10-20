@@ -131,9 +131,34 @@ export default function DailyMeal() {
 
           {!loading && menus.length > 0 && step === 0 ? (
             <View style={s.section}>
-              <Text style={s.sectionTitle}>{t("dailyWeekTitle")}</Text>
+              <Text style={s.sectionTitle}>{t("dailyTodayMeals")}</Text>
+              {(() => {
+                const todayCount = menus.filter((item) => item.service_date === weekStart).length;
+                const todayActive = selectedDate === weekStart;
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: todayActive }}
+                    accessibilityLabel={`${t("dailyTodayShort")} · ${dateLabel(weekStart)} · ${todayCount ? t("dailyDayMealsCount", { n: todayCount }) : t("dailyNoMenusShort")}`}
+                    onPress={() => { setSelectedDate(weekStart); setMenuId(null); setSelected({}); setError(""); }}
+                    style={[s.todayCard, todayActive && s.todayCardActive]}
+                  >
+                    <View style={[s.todayIcon, todayActive && s.todayIconActive]}>
+                      <Ionicons name="today-outline" size={21} color={todayActive ? colors.white : colors.green} />
+                    </View>
+                    <View style={s.todayCopy}>
+                      <Text style={[s.todayTitle, todayActive && s.todayTextActive]}>{t("dailyTodayShort")}</Text>
+                      <Text style={[s.todayDate, todayActive && s.todayTextActive]}>{dateLabel(weekStart)}</Text>
+                    </View>
+                    <View style={[s.todayCount, todayActive && s.todayCountActive]}>
+                      <Text style={[s.todayCountText, todayActive && s.todayTextActive]}>{todayCount ? t("dailyDayMealsCount", { n: todayCount }) : t("dailyNoMenusShort")}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })()}
+              <Text style={s.weekLabel}>{t("dailyWeekTitle")}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.weekStrip}>
-                {weekDates.map((date) => {
+                {weekDates.slice(1).map((date) => {
                   const count = menus.filter((item) => item.service_date === date).length;
                   const active = selectedDate === date;
                   return (
@@ -145,7 +170,7 @@ export default function DailyMeal() {
                       onPress={() => { setSelectedDate(date); setMenuId(null); setSelected({}); setError(""); }}
                       style={[s.dayChip, active && s.dayChipActive]}
                     >
-                      <Text style={[s.dayName, active && s.dayNameActive]}>{date === weekStart ? t("dailyTodayShort") : weekdayLabel(date)}</Text>
+                      <Text style={[s.dayName, active && s.dayNameActive]}>{weekdayLabel(date)}</Text>
                       <Text style={[s.dayNumber, active && s.dayNameActive]}>{new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", day: "numeric" }).format(new Date(`${date}T12:00:00`))}</Text>
                       <Text style={[s.dayCount, active && s.dayNameActive]}>{count ? t("dailyDayMealsCount", { n: count }) : t("dailyNoMenusShort")}</Text>
                     </Pressable>
@@ -270,6 +295,18 @@ const styles = StyleSheet.create({
   progressActive: { color: colors.teal, fontFamily: font.bold },
   section: { gap: 11 },
   sectionTitle: { color: colors.teal, fontFamily: font.black, fontSize: 18, textAlign: "right" },
+  todayCard: { minHeight: 76, flexDirection: "row-reverse", alignItems: "center", gap: 12, padding: 13, borderRadius: 18, borderWidth: 1, borderColor: colors.green, backgroundColor: colors.mint },
+  todayCardActive: { backgroundColor: colors.teal, borderColor: colors.teal },
+  todayIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
+  todayIconActive: { backgroundColor: "#ffffff30" },
+  todayCopy: { flex: 1, gap: 3, alignItems: "flex-end" },
+  todayTitle: { color: colors.teal, fontFamily: font.black, fontSize: 16, textAlign: "right" },
+  todayDate: { color: colors.muted, fontFamily: font.regular, fontSize: 11, textAlign: "right" },
+  todayTextActive: { color: colors.white },
+  todayCount: { backgroundColor: colors.white, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7 },
+  todayCountActive: { backgroundColor: "#ffffff30" },
+  todayCountText: { color: colors.teal, fontFamily: font.bold, fontSize: 11 },
+  weekLabel: { color: colors.muted, fontFamily: font.bold, fontSize: 12, textAlign: "right", marginTop: 3 },
   rowBetween: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8 },
   weekStrip: { flexDirection: "row-reverse", gap: 8, paddingVertical: 2 },
   dayChip: { minWidth: 68, alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.surface },
