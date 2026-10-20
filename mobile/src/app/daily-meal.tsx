@@ -153,7 +153,6 @@ export default function DailyMeal() {
                         </View>
                       );
                     })}
-                    <Text style={s.previewNote}>{item.included_note?.trim() || t("dailyDrinkNoteMissing")}</Text>
                   </View>
                 </Pressable>
               ))}
@@ -244,7 +243,6 @@ const styles = StyleSheet.create({
   previewLine: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 4 },
   previewCategory: { color: colors.ink, fontFamily: font.bold, fontSize: 11, textAlign: "right" },
   previewText: { flex: 1, color: colors.muted, fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right" },
-  previewNote: { color: colors.teal, fontFamily: font.medium, fontSize: 11, lineHeight: 17, textAlign: "right" },
   selectedCard: { borderColor: colors.green, borderWidth: 2, backgroundColor: colors.mint },
   menuMark: { width: 38, height: 38, backgroundColor: colors.high, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   menuPhoto: { width: 58, height: 58, borderRadius: 13, backgroundColor: colors.high },
