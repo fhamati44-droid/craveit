@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { getVisibleDailyCategories, getVisibleDailyOptions } from "../src/lib/dailyMealOptionRules.ts";
-import { groupDailyReservations } from "../src/lib/dailyMealOrderGrouping.ts";
+import { buildDailyOrderRows, groupDailyReservations } from "../src/lib/dailyMealOrderGrouping.ts";
 
 const options = [
   { id: 1, menu_id: null, category: "soup", name: "Lentil", active: true },
@@ -42,4 +42,21 @@ test("admin groups every meal line from one cart while keeping old reservations 
   assert.equal(groups[0].order.delivery_address, "Nazareth");
   assert.deepEqual(groups[1].rows.map((row) => row.id), [3]);
   assert.equal(groups[1].order, null);
+});
+
+test("one checkout creates meal rows carrying the same order and delivery details", () => {
+  const [first, second] = buildDailyOrderRows({
+    lines: [
+      { menu_id: 20, quantity: 2, selected_options: { main: 5, soup: 1 }, unit_price: 45 },
+      { menu_id: 21, quantity: 1, selected_options: { main: 8 }, unit_price: 60 },
+    ],
+    customer_name: " Nadia ", phone: "0501234567", delivery_method: "delivery", delivery_address: "Nazareth", customer_notes: "Ring the bell",
+  }, "cart-xyz");
+  assert.equal(first.customer_name, "Nadia");
+  assert.equal(first.quantity, 2);
+  assert.equal(first.selected_options.__order.order_id, second.selected_options.__order.order_id);
+  assert.equal(first.selected_options.__order.line_count, 2);
+  assert.equal(second.selected_options.__order.line_index, 2);
+  assert.equal(second.selected_options.__order.delivery_address, "Nazareth");
+  assert.deepEqual(second.selected_options.main, 8);
 });
