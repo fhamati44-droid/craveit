@@ -1,8 +1,11 @@
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./api";
 import type { Id } from "./types";
 import type { DailyCategory, SharedDailyCategory } from "./dailyMealOptionRules";
+import type { DailyOrderDetails } from "./dailyMealOrderGrouping";
 export { DAILY_CATEGORIES, SHARED_DAILY_CATEGORIES, getVisibleDailyCategories, getVisibleDailyOptions } from "./dailyMealOptionRules";
 export type { DailyCategory, SharedDailyCategory } from "./dailyMealOptionRules";
+export { groupDailyReservations } from "./dailyMealOrderGrouping";
+export type { DailyOrderDetails } from "./dailyMealOrderGrouping";
 
 
 export interface DailyMenu {
@@ -42,6 +45,12 @@ export interface DailyReservation {
   unit_price: number;
   status: "new" | "confirmed" | "cancelled" | "completed";
   created_at: string;
+}
+export interface DailyCartLine {
+  menu_id: number;
+  quantity: number;
+  selected_options: Partial<Record<DailyCategory, number>>;
+  unit_price: number;
 }
 export interface AdminSession {
   access_token: string;
@@ -100,6 +109,45 @@ export async function submitDailyReservation(input: {
     method: "POST",
     headers: { Prefer: "return=minimal" },
     body: JSON.stringify({ ...input, status: "new" }),
+  });
+}
+
+export async function submitDailyOrder(input: {
+  lines: DailyCartLine[];
+  customer_name: string;
+  phone: string;
+  delivery_method: DailyOrderDetails["delivery_method"];
+  delivery_address?: string;
+  customer_notes?: string;
+}) {
+  if (!input.lines.length) throw new Error("السلة فاضية.");
+  const orderId = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `daily-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const rows = input.lines.map((line, index) => ({
+    menu_id: line.menu_id,
+    customer_name: input.customer_name.trim(),
+    phone: input.phone,
+    quantity: line.quantity,
+    selected_options: {
+      ...line.selected_options,
+      __order: {
+        order_id: orderId,
+        delivery_method: input.delivery_method,
+        delivery_address: input.delivery_method === "delivery" ? input.delivery_address?.trim() || "" : "",
+        customer_notes: input.customer_notes?.trim() || "",
+        line_index: index + 1,
+        line_count: input.lines.length,
+      } satisfies DailyOrderDetails,
+    },
+    unit_price: line.unit_price,
+    status: "new" as const,
+  }));
+  // A single PostgREST bulk insert keeps every meal line in one atomic order.
+  await request<null>("daily_meal_reservations", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(rows),
   });
 }
 
@@ -212,6 +260,13 @@ export const deleteAdminMenuOptionOverride = (token: string, menuId: number, cat
 
 export const updateAdminReservation = (token: string, id: Id, status: DailyReservation["status"]) =>
   request<null>(`daily_meal_reservations?id=eq.${encodeURIComponent(String(id))}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ status }),
+  }, token);
+
+export const updateAdminReservationGroup = (token: string, ids: Id[], status: DailyReservation["status"]) =>
+  request<null>(`daily_meal_reservations?id=in.(${ids.map((id) => encodeURIComponent(String(id))).join(",")})`, {
     method: "PATCH",
     headers: { Prefer: "return=minimal" },
     body: JSON.stringify({ status }),
