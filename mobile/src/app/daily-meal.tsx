@@ -75,6 +75,12 @@ export default function DailyMeal() {
 
   const menu = menus.find((m) => m.id === menuId) || null;
   const dayMenus = menus.filter((item) => isDailyMenuAvailableOnDate(item, selectedDate));
+  const dayMenuGroups = Array.from(dayMenus.reduce((groups, item) => {
+    const group = groups.get(item.restaurant_id) || [];
+    group.push(item);
+    groups.set(item.restaurant_id, group);
+    return groups;
+  }, new Map<number, DailyMenu[]>()));
   const visibleCategories = menu ? getVisibleDailyCategories(options, menuId, optionOverrides) : [];
   const detailStep = visibleCategories.length + 1;
   const currentCategory = visibleCategories[step - 1];
@@ -189,41 +195,51 @@ export default function DailyMeal() {
                 <Button label={t("dailyCheckout", { n: cart.reduce((sum, line) => sum + line.quantity, 0) })} onPress={() => { setCheckout(true); setError(""); }} />
               </View> : null}
               {!dayMenus.length ? <View style={s.card}><Text style={s.body}>{t("dailyNoMenusThisDay")}</Text></View> : null}
-              <View style={s.menuGrid}>
-              {dayMenus.map((item) => (
-                <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title} · ${t("dailyChooseMeal")}`} onPress={() => { setMenuId(item.id); setSelected({}); setQuantity(1); setStep(1); setError(""); }} style={[s.menuCard, { width: menuCardWidth }, menuId === item.id && s.selectedCard]}>
-                  {item.image_url
-                    ? <Image source={{ uri: item.image_url }} style={s.menuPhoto} resizeMode="cover" accessibilityLabel={t("image")} />
-                    : <View style={s.menuPhotoPlaceholder}><Ionicons name="restaurant" size={34} color={colors.teal} /></View>}
-                  <View style={s.menuHeadingRow}>
-                    <View style={s.menuNameBlock}>
-                      <Text numberOfLines={2} style={s.menuTitle}>{item.title}</Text>
-                      <Text numberOfLines={1} style={s.restaurantName}>{restaurantNames[String(item.restaurant_id)] || "TAMAM"}</Text>
+              {dayMenuGroups.map(([restaurantId, restaurantMenus]) => (
+                <View key={restaurantId} style={s.restaurantGroup}>
+                  <View style={s.restaurantHeader}>
+                    <View style={s.restaurantTitleWrap}>
+                      <Ionicons name="storefront-outline" size={17} color={colors.teal} />
+                      <Text numberOfLines={1} style={s.restaurantHeading}>{restaurantNames[String(restaurantId)] || "TAMAM"}</Text>
                     </View>
-                    <View style={s.menuPriceBlock}>
-                      <Text style={s.price}>{Number(item.price)} ₪</Text>
-                      {menuId === item.id ? <Ionicons name="checkmark-circle" size={18} color={colors.green} /> : null}
-                    </View>
+                    <Text style={s.restaurantCount}>{t("dailyDayMealsCount", { n: restaurantMenus.length })}</Text>
                   </View>
-                  <View style={s.menuPreview}>
-                    {previewCategoryOrder.filter((category) => category !== "main").map((category) => {
-                      const override = optionOverrides.find((row) => row.menu_id === item.id && row.category === category);
-                      const allowed = getVisibleDailyOptions(options, item.id, category, override);
-                      if (!allowed.length) return null;
-                      return (
-                        <View key={`${item.id}-${category}`} style={s.previewLine}>
-                          <Ionicons name={categoryIcons[category]} size={12} color={colors.green} />
-                          <Text style={s.previewCategory}>{t(categoryKey[category])}</Text>
-                          <Text numberOfLines={2} style={s.previewText}>
-                            {allowed.map((option) => localName(lang, option) || option.name).join("، ")}
-                          </Text>
+                  <View style={s.menuGrid}>
+                    {restaurantMenus.map((item) => (
+                      <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title} · ${t("dailyChooseMeal")}`} onPress={() => { setMenuId(item.id); setSelected({}); setQuantity(1); setStep(1); setError(""); }} style={[s.menuCard, { width: menuCardWidth }, menuId === item.id && s.selectedCard]}>
+                        {item.image_url
+                          ? <Image source={{ uri: item.image_url }} style={s.menuPhoto} resizeMode="cover" accessibilityLabel={t("image")} />
+                          : <View style={s.menuPhotoPlaceholder}><Ionicons name="restaurant" size={34} color={colors.teal} /></View>}
+                        <View style={s.menuHeadingRow}>
+                          <View style={s.menuNameBlock}>
+                            <Text numberOfLines={2} style={s.menuTitle}>{item.title}</Text>
+                          </View>
+                          <View style={s.menuPriceBlock}>
+                            <Text style={s.price}>{Number(item.price)} ₪</Text>
+                            {menuId === item.id ? <Ionicons name="checkmark-circle" size={18} color={colors.green} /> : null}
+                          </View>
                         </View>
-                      );
-                    })}
+                        <View style={s.menuPreview}>
+                          {previewCategoryOrder.filter((category) => category !== "main").map((category) => {
+                            const override = optionOverrides.find((row) => row.menu_id === item.id && row.category === category);
+                            const allowed = getVisibleDailyOptions(options, item.id, category, override);
+                            if (!allowed.length) return null;
+                            return (
+                              <View key={`${item.id}-${category}`} style={s.previewLine}>
+                                <Ionicons name={categoryIcons[category]} size={12} color={colors.green} />
+                                <Text style={s.previewCategory}>{t(categoryKey[category])}</Text>
+                                <Text numberOfLines={2} style={s.previewText}>
+                                  {allowed.map((option) => localName(lang, option) || option.name).join("، ")}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </Pressable>
+                    ))}
                   </View>
-                </Pressable>
+                </View>
               ))}
-              </View>
             </View>
           ) : null}
 
@@ -370,7 +386,11 @@ const styles = StyleSheet.create({
   menuHeadingRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 5 },
   menuNameBlock: { flex: 1, gap: 2, alignItems: "flex-end" },
   menuPriceBlock: { alignItems: "center", gap: 2 },
-  restaurantName: { color: colors.muted, fontFamily: font.regular, fontSize: 9, textAlign: "right" },
+  restaurantGroup: { gap: 8 },
+  restaurantHeader: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: colors.mint, borderRadius: 13, borderWidth: 1, borderColor: colors.outline },
+  restaurantTitleWrap: { flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: 6 },
+  restaurantHeading: { color: colors.teal, fontFamily: font.black, fontSize: 14, textAlign: "right" },
+  restaurantCount: { color: colors.muted, fontFamily: font.regular, fontSize: 9, textAlign: "right" },
   menuPreview: { borderTopWidth: 1, borderTopColor: colors.outline, paddingTop: 5, gap: 3 },
   previewLine: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 3 },
   previewCategory: { color: colors.ink, fontFamily: font.bold, fontSize: 10, textAlign: "right" },
