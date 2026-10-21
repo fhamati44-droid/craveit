@@ -213,7 +213,7 @@ export default function DailyMeal() {
                     {restaurantMenus.map((item) => (
                       <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title} · ${t("dailyChooseMeal")}`} onPress={() => { setMenuId(item.id); setSelected({}); setQuantity(1); setStep(1); setError(""); }} style={[s.menuCard, { width: menuCardWidth }, menuId === item.id && s.selectedCard]}>
                         {item.image_url
-                          ? <Image source={{ uri: item.image_url }} style={s.menuPhoto} resizeMode="cover" accessibilityLabel={t("image")} />
+                          ? <Image nativeID={`daily-menu-photo-${item.id}`} source={{ uri: item.image_url }} style={s.menuPhoto} resizeMode="cover" accessibilityLabel={t("image")} />
                           : <View style={s.menuPhotoPlaceholder}><Ionicons name="restaurant" size={34} color={colors.teal} /></View>}
                         <View style={s.menuHeadingRow}>
                           <View style={s.menuNameBlock}>
@@ -257,7 +257,7 @@ export default function DailyMeal() {
                 return (
                   <Pressable key={option.id} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => { setSelected((old) => ({ ...old, [currentCategory]: option.id })); setError(""); setStep((n) => Math.min(n + 1, detailStep)); }} style={[s.option, active && s.selectedCard]}>
                     {option.image_url
-                      ? <Image source={{ uri: option.image_url }} style={s.optionPhoto} accessibilityLabel={t("image")} />
+                      ? <Image nativeID={`daily-option-photo-${option.id}`} source={{ uri: option.image_url }} style={s.optionPhoto} accessibilityLabel={t("image")} />
                       : <View style={s.optionIcon}><Ionicons name={categoryIcons[currentCategory]} size={18} color={active ? colors.white : colors.teal} /></View>}
                     <View style={{ flex: 1 }}>
                       <Text style={s.optionTitle}>{localName(lang, option) || option.name}</Text>
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   dayNameActive: { color: colors.white },
   menuCard: { gap: 6, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.outline, padding: 10 },
   // Keep customer meal photography lively and legible on mobile displays.
-  menuPhoto: { width: "100%", aspectRatio: 1.15, borderRadius: 11, backgroundColor: colors.white, filter: [{ brightness: 1.07 }, { contrast: 1.12 }, { saturate: 1.22 }] },
+  menuPhoto: { width: "100%", aspectRatio: 1.15, borderRadius: 11, backgroundColor: colors.white },
   menuPhotoPlaceholder: { width: "100%", aspectRatio: 1.15, borderRadius: 11, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" },
   menuHeadingRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 5 },
   menuNameBlock: { flex: 1, gap: 2, alignItems: "flex-end" },
