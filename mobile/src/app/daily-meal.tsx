@@ -386,7 +386,8 @@ const styles = StyleSheet.create({
   dayCount: { color: colors.muted, fontFamily: font.regular, fontSize: 8, lineHeight: 9 },
   dayNameActive: { color: colors.white },
   menuCard: { gap: 6, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.outline, padding: 10 },
-  menuPhoto: { width: "100%", aspectRatio: 1.15, borderRadius: 11, backgroundColor: colors.high },
+  // Keep customer meal photography lively and legible on mobile displays.
+  menuPhoto: { width: "100%", aspectRatio: 1.15, borderRadius: 11, backgroundColor: colors.white, filter: [{ brightness: 1.07 }, { contrast: 1.12 }, { saturate: 1.22 }] },
   menuPhotoPlaceholder: { width: "100%", aspectRatio: 1.15, borderRadius: 11, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" },
   menuHeadingRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 5 },
   menuNameBlock: { flex: 1, gap: 2, alignItems: "flex-end" },
@@ -407,7 +408,7 @@ const styles = StyleSheet.create({
   price: { color: colors.teal, fontFamily: font.black, fontSize: 14 },
   option: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 16, padding: 12 },
   optionIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" },
-  optionPhoto: { width: 54, height: 54, borderRadius: 12, backgroundColor: colors.high },
+  optionPhoto: { width: 54, height: 54, borderRadius: 12, backgroundColor: colors.white, filter: [{ brightness: 1.07 }, { contrast: 1.12 }, { saturate: 1.22 }] },
   optionTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 14, textAlign: "right" },
   body: { color: colors.muted, fontFamily: font.regular, fontSize: 12, lineHeight: 19, textAlign: "right" },
   muted: { color: colors.muted, fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right" },
