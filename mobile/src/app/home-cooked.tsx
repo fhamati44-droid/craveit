@@ -28,6 +28,15 @@ const homeKitchenAliases = new Set([
   "am shadi", "مشادي", "مطبخ مشادي",
 ].map(normalizeLabel));
 
+const excludedRestaurantLabels = [
+  "قائمة البيتزا",
+  "قائمة السندويشات والبرغر",
+  "اكل بيتي",
+  "سوبرماركت",
+  "تشرين 2",
+  "شاورما شعبي",
+].map(normalizeLabel);
+
 function normalizeLabel(value: string) {
   return value
     .normalize("NFKC")
@@ -44,6 +53,7 @@ function isHomeKitchen(restaurant: Restaurant) {
   const names = [restaurant.name_ar, restaurant.name, restaurant.slug]
     .filter((value): value is string => Boolean(value))
     .map(normalizeLabel);
+  if (names.some((name) => excludedRestaurantLabels.some((blocked) => name.includes(blocked)))) return false;
   return names.some((name) => homeKitchenAliases.has(name));
 }
 
@@ -53,7 +63,7 @@ function groupKey(meal: Meal) {
 
 export default function HomeCookedLanding() {
   const { api } = useStore();
-  const { t, name, desc } = useT();
+  const { t, name, restaurantName, desc } = useT();
   const pageScroll = useRef<ScrollView>(null);
   const productsOffset = useRef(0);
   const [selectedProduct, setSelectedProduct] = useState<ProductGroup | null>(null);
@@ -205,7 +215,7 @@ export default function HomeCookedLanding() {
                   >
                     {logo ? <Image source={{ uri: logo }} style={styles.sellerLogo} resizeMode="cover" accessibilityLabel={t("image")} /> : <View style={styles.sellerLogoFallback}><Ionicons name="storefront-outline" size={17} color={colors.teal} /></View>}
                     <View style={styles.sellerCopy}>
-                      <Text style={styles.sellerName}>{name(restaurant) || "TAMAM"}</Text>
+                      <Text style={styles.sellerName}>{restaurantName(restaurant) || "TAMAM"}</Text>
                       {!open ? <Text style={styles.sellerMeta}>{t("restaurantClosed")}</Text> : (
                         (restaurant.delivery_time != null || restaurant.delivery_fee != null) ? (
                           <Text style={styles.sellerMeta}>
