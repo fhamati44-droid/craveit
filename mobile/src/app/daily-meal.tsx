@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Image, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Button, colors, font, Page } from "../components/ui";
 import { useStore } from "../lib/state";
 import { useT, localName } from "../lib/i18n";
@@ -77,6 +78,7 @@ export default function DailyMeal() {
 
   const menu = menus.find((m) => m.id === menuId) || null;
   const dayMenus = menus.filter((item) => isDailyMenuAvailableOnDate(item, selectedDate));
+  const featuredMeal = dayMenus[0] || null;
   const dayMenuGroups = Array.from(dayMenus.reduce((groups, item) => {
     const group = groups.get(item.restaurant_id) || [];
     group.push(item);
@@ -118,12 +120,50 @@ export default function DailyMeal() {
 
   return (
     <Page>
-      <View style={[s.hero, step === 0 && s.heroBrowse]}>
-        {step > 0 ? <View style={s.heroIcon}><Ionicons name="calendar-outline" size={27} color={colors.green} /></View> : null}
-        {step > 0 ? <Text style={s.eyebrow}>{t("dailyEyebrow")}</Text> : null}
-        <Text style={[s.title, step === 0 && s.titleBrowse]}>{t("dailyTitle")}</Text>
-        <Text style={[s.subtitle, step === 0 && s.subtitleBrowse]}>{t("dailySub")}</Text>
-        {step === 0 && !checkout ? <View style={s.contactRow}>
+      {step === 0 && !checkout ? (
+        <View style={s.landingHero}>
+          {featuredMeal?.image_url ? (
+            <ImageBackground source={{ uri: featuredMeal.image_url }} style={s.landingPhoto} imageStyle={s.landingPhotoImage} resizeMode="cover" accessibilityLabel={t("image")}>
+              <LinearGradient colors={["rgba(5,20,18,0.08)", "rgba(5,20,18,0.2)", "rgba(5,20,18,0.94)"]} locations={[0, 0.42, 1]} style={s.landingGradient}>
+                <View style={s.heroTopRow}>
+                  <View style={s.todayBadge}><Ionicons name="calendar-outline" size={13} color={colors.white} /><Text style={s.todayBadgeText}>{t("dailyTodayShort")} · {dateLabel(selectedDate)}</Text></View>
+                  <Text style={s.heroKicker}>TAMAM · {t("dailyEyebrow")}</Text>
+                </View>
+                <View style={s.landingCopy}>
+                  <Text style={s.landingTitle}>{t("dailyTitle")}</Text>
+                  <Text style={s.landingSubtitle}>{t("dailySub")}</Text>
+                  <View style={s.featuredMealRow}>
+                    <View style={s.featuredMealCopy}>
+                      <Text numberOfLines={1} style={s.featuredRestaurant}>{restaurants[String(featuredMeal.restaurant_id)]?.name || "TAMAM"}</Text>
+                      <Text numberOfLines={1} style={s.featuredMealTitle}>{featuredMeal.title}</Text>
+                    </View>
+                    <Text style={s.featuredPrice}>{Number(featuredMeal.price)} ₪</Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t("dailyChooseMeal")} · ${featuredMeal.title}`}
+                    onPress={() => { setMenuId(featuredMeal.id); setSelected({}); setQuantity(1); setStep(1); setError(""); }}
+                    style={({ pressed }) => [s.featuredCta, pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] }]}
+                  >
+                    <Text style={s.featuredCtaText}>{t("dailyChooseMeal")}</Text>
+                    <Ionicons name="arrow-back" size={17} color={colors.tealDeep} />
+                  </Pressable>
+                </View>
+              </LinearGradient>
+            </ImageBackground>
+          ) : (
+            <View style={[s.landingPhoto, s.landingFallback]}>
+              <View style={s.heroTopRow}>
+                <View style={s.todayBadge}><Ionicons name="calendar-outline" size={13} color={colors.white} /><Text style={s.todayBadgeText}>{t("dailyTodayShort")} · {dateLabel(selectedDate)}</Text></View>
+                <Ionicons name="restaurant-outline" size={28} color={colors.bright} />
+              </View>
+              <View style={s.landingCopy}>
+                <Text style={s.landingTitle}>{t("dailyTitle")}</Text>
+                <Text style={s.landingSubtitle}>{t("dailySub")}</Text>
+              </View>
+            </View>
+          )}
+          <View style={s.contactRow}>
           <Pressable accessibilityRole="button" onPress={() => void Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(t("dailyHelpMessage"))}`).catch(() => {})} style={s.contactAction}>
             <Ionicons name="logo-whatsapp" size={15} color={colors.white} />
             <Text style={s.contactText}>{t("whatsappUs")}</Text>
@@ -133,8 +173,16 @@ export default function DailyMeal() {
             <Ionicons name="call-outline" size={15} color={colors.white} />
             <Text style={s.contactText}>{t("callUs")}</Text>
           </Pressable>
-        </View> : null}
-      </View>
+          </View>
+        </View>
+      ) : (
+        <View style={s.hero}>
+          <View style={s.heroIcon}><Ionicons name={step > 0 ? "restaurant-outline" : "bag-handle-outline"} size={25} color={colors.green} /></View>
+          {step > 0 ? <Text style={s.eyebrow}>{t("dailyEyebrow")}</Text> : null}
+          <Text style={s.title}>{checkout ? t("dailyCheckoutTitle") : t("dailyTitle")}</Text>
+          <Text style={s.subtitle}>{checkout ? t("dailyReceiveMethod") : t("dailySub")}</Text>
+        </View>
+      )}
       {success ? (
         <View style={s.success}>
           <Ionicons name="checkmark-circle" size={48} color={colors.green} />
@@ -361,6 +409,25 @@ export default function DailyMeal() {
 }
 
 const styles = StyleSheet.create({
+  landingHero: { backgroundColor: colors.tealDeep, borderRadius: 17, overflow: "hidden", borderWidth: 1, borderColor: "rgba(7,29,27,0.14)" },
+  landingPhoto: { minHeight: 254, justifyContent: "space-between", overflow: "hidden" },
+  landingPhotoImage: { borderRadius: 17 },
+  landingGradient: { flex: 1, minHeight: 254, justifyContent: "space-between", padding: 15 },
+  landingFallback: { backgroundColor: colors.tealDeep, padding: 16 },
+  heroTopRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  todayBadge: { flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 20, backgroundColor: "rgba(6,27,25,0.76)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
+  todayBadgeText: { color: colors.white, fontFamily: font.medium, fontSize: 10 },
+  heroKicker: { color: colors.white, fontFamily: font.bold, fontSize: 9, letterSpacing: 1.2, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6 },
+  landingCopy: { alignItems: "flex-end", gap: 5 },
+  landingTitle: { color: colors.white, fontFamily: font.black, fontSize: 24, lineHeight: 32, textAlign: "right", textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 8 },
+  landingSubtitle: { color: "#F1F2EC", fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6 },
+  featuredMealRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 10, marginTop: 3 },
+  featuredMealCopy: { flex: 1, alignItems: "flex-end", gap: 1 },
+  featuredRestaurant: { color: "#D8E8DC", fontFamily: font.medium, fontSize: 10, textAlign: "right" },
+  featuredMealTitle: { color: colors.white, fontFamily: font.bold, fontSize: 14, textAlign: "right" },
+  featuredPrice: { color: colors.white, fontFamily: font.black, fontSize: 18 },
+  featuredCta: { minHeight: 39, alignSelf: "flex-end", flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.bright, borderRadius: 9, paddingHorizontal: 15, marginTop: 3 },
+  featuredCtaText: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 11 },
   hero: { backgroundColor: colors.tealDeep, borderRadius: 14, padding: 20, gap: 5, alignItems: "flex-end" },
   heroBrowse: { borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, gap: 4 },
   heroIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center", marginBottom: 6 },
