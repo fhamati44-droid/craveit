@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { router } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
 import Head from "expo-router/head";
 import { ActivityIndicator, Image, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -28,6 +28,7 @@ const addDays = (date: string, offset: number) => {
 };
 
 export default function DailyMeal() {
+  const params = useLocalSearchParams<{ focusMenuId?: string; focusDate?: string; quickAddMenuId?: string; quickAddMainId?: string; quickAddDate?: string }>();
   const { api, customer, saveCustomer, lang } = useStore();
   const { t, sheet } = useT();
   const s = sheet(styles);
@@ -54,6 +55,45 @@ export default function DailyMeal() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [menuGridWidth, setMenuGridWidth] = useState(0);
+  const handledLandingAction = useRef(false);
+
+  const applyLandingAction = useCallback((rows: DailyMenu[], optionRows: DailyOption[]) => {
+    if (handledLandingAction.current) return;
+    const targetId = Number(params.quickAddMenuId || params.focusMenuId);
+    if (!Number.isFinite(targetId) || targetId <= 0) return;
+    handledLandingAction.current = true;
+    const target = rows.find((item) => item.id === targetId);
+    if (!target) {
+      router.replace("/daily-meal");
+      return;
+    }
+    const serviceDate = params.quickAddDate || params.focusDate || weekStart;
+    setSelectedDate(serviceDate);
+    if (params.quickAddMenuId && params.quickAddMainId) {
+      const mainOption = optionRows.find((option) => option.id === Number(params.quickAddMainId) && option.category === "main" && option.menu_id === target.id);
+      if (mainOption) {
+        setCart((old) => [...old, {
+          menu_id: target.id,
+          service_date: serviceDate,
+          quantity: 1,
+          selected_options: { main: mainOption.id },
+          unit_price: Number(target.price),
+        }]);
+        setStep(0);
+        setMenuId(null);
+        setSelected({});
+      } else {
+        setMenuId(target.id);
+        setSelected({});
+        setStep(1);
+      }
+    } else {
+      setMenuId(target.id);
+      setSelected({});
+      setStep(1);
+    }
+    router.replace("/daily-meal");
+  }, [params.focusDate, params.focusMenuId, params.quickAddDate, params.quickAddMainId, params.quickAddMenuId, weekStart]);
 
   const load = useCallback(async () => {
     try {
@@ -64,6 +104,7 @@ export default function DailyMeal() {
         getPublicMenuOptionOverrides(rows.map((m) => m.id)),
       ]);
       setOptions(optionRows); setOptionOverrides(overrideRows);
+      applyLandingAction(rows, optionRows);
       const ids = [...new Set(rows.map((m) => m.restaurant_id))];
       const pairs = await Promise.all(ids.map(async (id) => {
         try { const restaurant = await api.restaurant(id); return [String(id), { name: localRestaurantName(lang, restaurant), logo: imageUrl(restaurant.logo_url || restaurant.image_url) }] as const; }
@@ -72,7 +113,7 @@ export default function DailyMeal() {
       setRestaurants(Object.fromEntries(pairs));
     } catch (e) { setError(e instanceof Error ? e.message : t("errServer")); }
     finally { setLoading(false); }
-  }, [api, lang, t, weekStart]);
+  }, [api, applyLandingAction, lang, t, weekStart]);
   // Fetching is a mount effect; `load` updates state only after its requests settle.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
@@ -191,6 +232,11 @@ export default function DailyMeal() {
           <Text style={s.subtitle}>{checkout ? t("dailyReceiveMethod") : t("dailySub")}</Text>
         </View>
       )}
+      {cart.length && !checkout && !success ? <View style={s.cartCard}>
+        <View style={s.rowBetween}><Text style={s.sectionTitle}>{t("dailyCart", { n: cart.reduce((sum, line) => sum + line.quantity, 0) })}</Text><Text style={s.total}>{total} ₪</Text></View>
+        <Text style={s.body}>{cartRestaurantNames.join(" · ")}</Text>
+        <Button label={t("dailyCheckout", { n: cart.reduce((sum, line) => sum + line.quantity, 0) })} onPress={() => { setCheckout(true); setError(""); }} />
+      </View> : null}
       {success ? (
         <View style={s.success}>
           <Ionicons name="checkmark-circle" size={48} color={colors.green} />
@@ -258,11 +304,6 @@ export default function DailyMeal() {
                 })}
                 </ScrollView>
               </View>
-              {cart.length ? <View style={s.cartCard}>
-                <View style={s.rowBetween}><Text style={s.sectionTitle}>{t("dailyCart", { n: cart.length })}</Text><Text style={s.total}>{total} ₪</Text></View>
-                <Text style={s.body}>{cartRestaurantNames.join(" · ")}</Text>
-                <Button label={t("dailyCheckout", { n: cart.reduce((sum, line) => sum + line.quantity, 0) })} onPress={() => { setCheckout(true); setError(""); }} />
-              </View> : null}
               {!dayMenus.length ? <View style={s.card}><Text style={s.body}>{t("dailyNoMenusThisDay")}</Text></View> : null}
               {dayMenuGroups.map(([restaurantId, restaurantMenus]) => (
                 <View key={restaurantId} style={s.restaurantGroup}>

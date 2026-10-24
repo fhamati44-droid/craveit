@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { ImageBackground, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, font } from "./ui";
 import { useT } from "../lib/i18n";
 import { imageUrl } from "../lib/media";
@@ -11,38 +12,70 @@ export function CampaignHero({
   eyebrow,
   title,
   description,
+  actionLabel,
+  onAction,
+  secondaryLabel,
+  onSecondaryAction,
 }: {
   image?: string;
   eyebrow: string;
   title: string;
   description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  secondaryLabel?: string;
+  onSecondaryAction?: () => void;
 }) {
   const { t } = useT();
   const [failed, setFailed] = useState(false);
+  const content = (
+    <LinearGradient
+      colors={["rgba(5,20,18,0.04)", "rgba(5,20,18,0.13)", "rgba(5,20,18,0.88)"]}
+      locations={[0, 0.42, 1]}
+      style={hero.copy}
+    >
+      <View style={hero.kickerRow}>
+        <View style={hero.rule} />
+        <Text style={hero.eyebrow}>{eyebrow}</Text>
+      </View>
+      <Text style={hero.title}>{title}</Text>
+      <Text style={hero.description}>{description}</Text>
+      {actionLabel && onAction ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onAction}
+          style={({ pressed }) => [hero.action, pressed && hero.pressed]}
+        >
+          <Text style={hero.actionText}>{actionLabel}</Text>
+          <Ionicons name="arrow-back" size={17} color={colors.tealDeep} />
+        </Pressable>
+      ) : null}
+      {secondaryLabel && onSecondaryAction ? (
+        <Pressable accessibilityRole="button" onPress={onSecondaryAction} style={({ pressed }) => [hero.secondaryAction, pressed && hero.pressed]}>
+          <Text style={hero.secondaryText}>{secondaryLabel}</Text>
+        </Pressable>
+      ) : null}
+    </LinearGradient>
+  );
+
   return (
     <View style={hero.wrap}>
       {image && !failed ? (
-        <Image
+        <ImageBackground
           source={{ uri: imageUrl(image) }}
           style={hero.photo}
           resizeMode="cover"
           onError={() => setFailed(true)}
           accessibilityLabel={t("mealImage")}
-        />
+        >
+          {content}
+        </ImageBackground>
       ) : (
-        <View style={[hero.photo, hero.photoFallback]}>
-          <Ionicons name="restaurant-outline" size={48} color={colors.teal} />
-          <Text style={hero.fallbackBrand}>TAMAM</Text>
+        <View style={[hero.photo, hero.fallback]}>
+          <Ionicons name="restaurant-outline" size={31} color={colors.gold} />
+          {content}
         </View>
       )}
-      <View style={hero.copy}>
-        <View style={hero.kickerRow}>
-          <View style={hero.rule} />
-          <Text style={hero.eyebrow}>{eyebrow}</Text>
-        </View>
-        <Text style={hero.title}>{title}</Text>
-        <Text style={hero.description}>{description}</Text>
-      </View>
     </View>
   );
 }
@@ -58,7 +91,7 @@ export function CampaignContact({ message }: { message: string }) {
         onPress={() => open(whatsappUrl)}
         style={({ pressed }) => [contact.button, contact.whatsapp, pressed && contact.pressed]}
       >
-        <Ionicons name="logo-whatsapp" size={18} color={colors.white} />
+        <Ionicons name="logo-whatsapp" size={17} color={colors.white} />
         <Text style={contact.whatsappText}>{t("whatsappUs")}</Text>
       </Pressable>
       <Pressable
@@ -66,60 +99,36 @@ export function CampaignContact({ message }: { message: string }) {
         onPress={() => open(`tel:+${WHATSAPP_NUMBER}`)}
         style={({ pressed }) => [contact.button, contact.phone, pressed && contact.pressed]}
       >
-        <Ionicons name="call-outline" size={18} color={colors.teal} />
+        <Ionicons name="call-outline" size={17} color={colors.teal} />
         <Text style={contact.phoneText}>{t("callUs")}</Text>
       </Pressable>
     </View>
   );
 }
 
-export function CampaignTrust({
-  items,
-}: {
-  items: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; detail: string }[];
-}) {
-  return (
-    <View style={trust.wrap}>
-      {items.map((item) => (
-        <View key={item.title} style={trust.item}>
-          <Ionicons name={item.icon} size={20} color={colors.teal} />
-          <View style={trust.copy}>
-            <Text style={trust.title}>{item.title}</Text>
-            <Text style={trust.detail}>{item.detail}</Text>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 const hero = StyleSheet.create({
-  wrap: { overflow: "hidden", borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: "#D8CDBD" },
-  photo: { width: "100%", height: 214, backgroundColor: colors.high },
-  photoFallback: { alignItems: "center", justifyContent: "center", gap: 8 },
-  fallbackBrand: { color: colors.tealDeep, fontFamily: font.black, fontSize: 14, letterSpacing: 3 },
-  copy: { paddingHorizontal: 17, paddingVertical: 17, alignItems: "flex-end", gap: 7 },
+  wrap: { overflow: "hidden", borderRadius: 15, backgroundColor: colors.tealDeep, borderWidth: 1, borderColor: "#C7AD79" },
+  photo: { width: "100%", height: 294, justifyContent: "flex-end", backgroundColor: colors.tealDeep },
+  fallback: { alignItems: "stretch", justifyContent: "flex-end" },
+  copy: { minHeight: 205, paddingHorizontal: 17, paddingTop: 42, paddingBottom: 15, alignItems: "flex-end", justifyContent: "flex-end", gap: 7 },
   kickerRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
-  rule: { width: 28, height: 2, backgroundColor: colors.gold },
-  eyebrow: { color: colors.teal, fontFamily: font.bold, fontSize: 10, textAlign: "right" },
-  title: { color: colors.tealDeep, fontFamily: font.black, fontSize: 23, lineHeight: 33, textAlign: "right" },
-  description: { color: "#55524B", fontFamily: font.regular, fontSize: 12, lineHeight: 20, textAlign: "right" },
+  rule: { width: 31, height: 2, backgroundColor: colors.gold },
+  eyebrow: { color: "#F0D7A5", fontFamily: font.bold, fontSize: 10, textAlign: "right" },
+  title: { color: colors.white, fontFamily: font.black, fontSize: 23, lineHeight: 31, textAlign: "right" },
+  description: { color: "#F5F3EE", fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right", maxWidth: 310 },
+  action: { alignSelf: "stretch", minHeight: 44, marginTop: 3, borderRadius: 9, backgroundColor: "#E7D3A8", flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 7, paddingHorizontal: 12 },
+  actionText: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 12 },
+  secondaryAction: { alignSelf: "stretch", minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.48)", alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+  secondaryText: { color: colors.white, fontFamily: font.bold, fontSize: 10 },
+  pressed: { opacity: 0.84, transform: [{ scale: 0.99 }] },
 });
 
 const contact = StyleSheet.create({
-  wrap: { flexDirection: "row-reverse", gap: 9 },
-  button: { flex: 1, minHeight: 48, borderRadius: 10, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 7, paddingHorizontal: 10 },
+  wrap: { flexDirection: "row-reverse", gap: 8 },
+  button: { flex: 1, minHeight: 43, borderRadius: 9, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 7, paddingHorizontal: 8 },
   whatsapp: { backgroundColor: colors.tealDeep },
-  phone: { backgroundColor: colors.surface, borderWidth: 1, borderColor: "#D8CDBD" },
-  whatsappText: { color: colors.white, fontFamily: font.bold, fontSize: 12 },
-  phoneText: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 12 },
-  pressed: { opacity: 0.84, transform: [{ scale: 0.985 }] },
-});
-
-const trust = StyleSheet.create({
-  wrap: { gap: 8 },
-  item: { flexDirection: "row-reverse", alignItems: "center", gap: 10, paddingHorizontal: 13, paddingVertical: 12, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: "#E4DCCF" },
-  copy: { flex: 1, alignItems: "flex-end", gap: 2 },
-  title: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 12, textAlign: "right" },
-  detail: { color: colors.muted, fontFamily: font.regular, fontSize: 10, lineHeight: 16, textAlign: "right" },
+  phone: { backgroundColor: "transparent", borderWidth: 1, borderColor: "#CFC4B5" },
+  whatsappText: { color: colors.white, fontFamily: font.bold, fontSize: 11 },
+  phoneText: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 11 },
+  pressed: { opacity: 0.82 },
 });

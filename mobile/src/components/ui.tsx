@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useRef, type ReactNode } from "react";
+import { useRef, type ReactNode, type Ref } from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { imageUrl } from "../lib/media";
 import { useT } from "../lib/i18n";
@@ -170,10 +170,11 @@ export function Button({
     </Pressable>
   );
 }
-export function Page({ children }: { children: ReactNode }) {
+export function Page({ children, scrollRef }: { children: ReactNode; scrollRef?: Ref<ScrollView> }) {
   const s = useS();
   return (
     <ScrollView
+      ref={scrollRef}
       style={s.page}
       contentContainerStyle={s.content}
       keyboardShouldPersistTaps="handled"
