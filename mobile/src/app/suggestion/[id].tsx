@@ -13,7 +13,7 @@ import { lineTotal } from "../../lib/orders";
 export default function Suggestion() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, add } = useStore();
-  const { t, name, desc, badge, sheet } = useT();
+  const { t, name, restaurantName, desc, badge, sheet } = useT();
   const s = useS();
   const p = sheet(ps);
   const data = useLoad(
@@ -89,7 +89,7 @@ export default function Suggestion() {
               <Button
                 key={rid}
                 tone="ghost"
-                label={r ? t("changeAt", { name: name(r) }) : t("seeMenu")}
+                label={r ? t("changeAt", { name: restaurantName(r) }) : t("seeMenu")}
                 onPress={() => router.push({ pathname: "/restaurant/[id]", params: { id: rid } })}
               />
             );

@@ -387,6 +387,12 @@ export function localName(lang: Lang, x: Named) {
   const mood = ar ? MOOD_NAMES[ar]?.[lang] : undefined;
   return own || mood || (lang === "he" ? base || ar : base || ar) || "";
 }
+export function localRestaurantName(lang: Lang, restaurant: Named) {
+  const label = localName(lang, restaurant).trim();
+  if (!/^\d+$/.test(label)) return label;
+  const kitchen = lang === "ar" ? "مطبخ" : lang === "he" ? "מטבח" : "Kitchen";
+  return `${kitchen} ${label}`;
+}
 export function localDescription(
   lang: Lang,
   x: { description?: string | null; description_ar?: string | null; description_he?: string | null; description_en?: string | null },
@@ -475,6 +481,7 @@ export function useT() {
       t,
       /** Localized name/title of a restaurant, meal, mood or package. */
       name: (x: Named) => localName(lang, x),
+      restaurantName: (x: Named) => localRestaurantName(lang, x),
       desc: (x: Parameters<typeof localDescription>[1]) => localDescription(lang, x),
       /** Adapt an inline style: mirrored for English, Hebrew font for Hebrew. */
       f: <S>(style: S): S => adapt(style, lang),

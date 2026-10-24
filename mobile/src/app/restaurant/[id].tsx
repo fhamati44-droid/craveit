@@ -23,7 +23,7 @@ import { imageUrl } from "../../lib/media";
 export default function Restaurant() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, count } = useStore();
-  const { t, name, desc } = useT();
+  const { t, name, restaurantName, desc } = useT();
   const s = useS();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Meal>();
@@ -61,7 +61,7 @@ export default function Restaurant() {
             />
             <View style={landing.heroCopy}>
               <Text style={landing.eyebrow}>TAMAM · {t("nearby")}</Text>
-              <Text style={landing.title}>{name(restaurant)}</Text>
+              <Text style={landing.title}>{restaurantName(restaurant)}</Text>
               {desc(restaurant) ? <Text style={landing.description}>{desc(restaurant)}</Text> : null}
               <View style={landing.metaRow}>
                 {(restaurant.is_open ?? restaurant.active) === false ? (

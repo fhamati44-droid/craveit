@@ -87,7 +87,7 @@ export function RestaurantCard({
   width?: number | `${number}%`;
 }) {
   const closed = (restaurant.is_open ?? restaurant.active) === false;
-  const { t, name, sheet } = useT();
+  const { t, name, restaurantName, sheet } = useT();
   const c = sheet(cs);
   const logo = restaurant.logo_url || restaurant.image_url;
   return (
@@ -126,7 +126,7 @@ export function RestaurantCard({
             <View style={c.restaurantInlineLogoPlaceholder}><Ionicons name="storefront-outline" size={15} color={colors.teal} /></View>
           )}
           <Text style={[c.title, { flex: 1 }]} numberOfLines={1}>
-            {name(restaurant)}
+            {restaurantName(restaurant)}
           </Text>
         </View>
         <View style={c.metaRow}>

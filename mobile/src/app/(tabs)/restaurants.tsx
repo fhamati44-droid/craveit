@@ -7,7 +7,7 @@ import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
 import { useT } from "../../lib/i18n";
 export default function Restaurants() {
-  const { t, name, f } = useT();
+  const { t, restaurantName, f } = useT();
   const s = useS();
   const { api } = useStore();
   const [query, setQuery] = useState("");
@@ -17,7 +17,7 @@ export default function Restaurants() {
   const restaurants = data.value?.filter(
     (r) =>
       (!open || (r.is_open ?? r.active) !== false) &&
-      `${name(r)} ${r.name_ar || ""} ${r.name || ""} ${r.description_ar || r.description || ""}`
+      `${restaurantName(r)} ${r.name_ar || ""} ${r.name || ""} ${r.description_ar || r.description || ""}`
         .toLowerCase()
         .includes(query.trim().toLowerCase()),
   );

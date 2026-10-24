@@ -5,7 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Button, colors, font, Page } from "../components/ui";
 import { useStore } from "../lib/state";
-import { useT, localName } from "../lib/i18n";
+import { useT, localName, localRestaurantName } from "../lib/i18n";
 import { imageUrl } from "../lib/media";
 import { DAILY_CATEGORIES, getPublicMenuOptionOverrides, getPublicOptions, getPublishedMenus, getVisibleDailyCategories, getVisibleDailyOptions, isDailyMenuAvailableOnDate, submitDailyOrder, type DailyCartLine, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type SharedDailyCategory } from "../lib/dailyMeals";
 import { WHATSAPP_NUMBER } from "../lib/orders";
@@ -65,7 +65,7 @@ export default function DailyMeal() {
       setOptions(optionRows); setOptionOverrides(overrideRows);
       const ids = [...new Set(rows.map((m) => m.restaurant_id))];
       const pairs = await Promise.all(ids.map(async (id) => {
-        try { const restaurant = await api.restaurant(id); return [String(id), { name: localName(lang, restaurant), logo: imageUrl(restaurant.logo_url || restaurant.image_url) }] as const; }
+        try { const restaurant = await api.restaurant(id); return [String(id), { name: localRestaurantName(lang, restaurant), logo: imageUrl(restaurant.logo_url || restaurant.image_url) }] as const; }
         catch { return [String(id), { name: "TAMAM" }] as const; }
       }));
       setRestaurants(Object.fromEntries(pairs));
