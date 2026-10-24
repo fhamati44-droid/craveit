@@ -130,7 +130,7 @@ export default function DailyMeal() {
                   <Text style={s.heroKicker}>{t("dailyEyebrow")}</Text>
                 </View>
                 <View style={s.landingCopy}>
-                  <Text style={s.landingTitle}>{t("dailyTitle")}</Text>
+                  <Text style={s.landingTitle}>{t("dailyLandingHeadline")}</Text>
                   <Text style={s.landingSubtitle}>{t("dailySub")}</Text>
                   <View style={s.featuredMealRow}>
                     <View style={s.featuredMealCopy}>
@@ -158,7 +158,7 @@ export default function DailyMeal() {
                 <Ionicons name="restaurant-outline" size={28} color={colors.bright} />
               </View>
               <View style={s.landingCopy}>
-                <Text style={s.landingTitle}>{t("dailyTitle")}</Text>
+                <Text style={s.landingTitle}>{t("dailyLandingHeadline")}</Text>
                 <Text style={s.landingSubtitle}>{t("dailySub")}</Text>
               </View>
             </View>

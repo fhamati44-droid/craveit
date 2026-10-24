@@ -14,6 +14,7 @@ import { imageUrl } from "../../lib/media";
 import { moodIcon } from "../../lib/moods";
 import { useT } from "../../lib/i18n";
 import { WHATSAPP_NUMBER } from "../../lib/orders";
+import { getPublishedMenus } from "../../lib/dailyMeals";
 
 function SectionTitle({
   label,
@@ -55,16 +56,19 @@ export default function Home() {
   const restaurants = useLoad(useCallback(() => api.restaurants(), [api]));
   const suggestions = useLoad(useCallback(() => api.suggestions(), [api]));
   const moods = useLoad(useCallback(() => api.moods(), [api]));
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
+  const dailyMenus = useLoad(useCallback(() => getPublishedMenus(today, today), [today]));
   const sets =
     suggestions.value?.sets?.filter((x) => x.is_active !== false).slice(0, 6) ||
     [];
   const goSuggestions = () => router.push("/suggestions");
-  // Hero image: first image cover from site_settings (old site's admin),
-  // else the first restaurant's cover.
+  // Use today's actual meal photo so the home hero stays connected to the daily-meal landing page.
   const heroImage =
-    site.value?.covers?.find((c) => c.type !== "video" && c.url)?.url ||
-    site.value?.cover_url ||
-    restaurants.value?.[0]?.cover_url;
+    dailyMenus.value?.find((meal) => meal.image_url)?.image_url ||
+    sets.find((set) => set.hero_image_url)?.hero_image_url ||
+    restaurants.value?.find((restaurant) => restaurant.cover_url)?.cover_url ||
+    site.value?.covers?.find((cover) => cover.type !== "video" && cover.url)?.url ||
+    site.value?.cover_url;
   return (
     <Page>
       <View style={h.hero}>
@@ -78,7 +82,8 @@ export default function Home() {
           />
         ) : null}
           <LinearGradient
-            colors={["rgba(7,29,27,0.08)", "rgba(7,29,27,0.97)"]}
+            colors={["rgba(7,29,27,0.02)", "rgba(7,29,27,0.18)", "rgba(7,29,27,0.88)"]}
+            locations={[0, 0.46, 1]}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -125,21 +130,6 @@ export default function Home() {
           </View>
           {!heroImage ? <View style={h.heroMark}><TamamMark size={54} color={colors.white} /></View> : null}
       </View>
-
-      <Pressable
-        style={h.dailyBanner}
-        onPress={() => router.push("/daily-meal")}
-        accessibilityRole="button"
-      >
-        <View style={h.dailyIcon}>
-          <Ionicons name="calendar-outline" size={24} color={colors.teal} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={h.bannerTitle}>{t("dailyHomeCard")}</Text>
-          <Text style={h.muted}>{t("dailyHomeSub")}</Text>
-        </View>
-        <Ionicons name={fwd("chevron-back")} size={20} color={colors.teal} />
-      </Pressable>
 
       {moods.value?.length ? (
         <View style={h.section}>
@@ -263,7 +253,7 @@ const hs = StyleSheet.create({
   hero: {
     borderRadius: 14,
     overflow: "hidden",
-    minHeight: 390,
+    minHeight: 350,
     justifyContent: "flex-end",
     padding: 20,
     backgroundColor: colors.tealDeep,
@@ -277,7 +267,7 @@ const hs = StyleSheet.create({
     letterSpacing: 1,
   },
   heroTitle: {
-    fontFamily: font.black,
+    fontFamily: font.medium,
     fontSize: 30,
     lineHeight: 42,
     color: colors.white,
@@ -351,24 +341,6 @@ const hs = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: "#CFE8CB",
-  },
-  dailyBanner: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: colors.green,
-  },
-  dailyIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: colors.mint,
-    alignItems: "center",
-    justifyContent: "center",
   },
   bannerIcon: {
     width: 52,

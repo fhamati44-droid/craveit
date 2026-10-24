@@ -78,6 +78,8 @@ const dict = d({
   oneTap: { ar: "دوسة وحدة، والعجلة بتختارلك.", he: "לחיצה אחת, והגלגל בוחר בשבילך.", en: "One tap and the wheel picks for you." },
   nearby: { ar: "مطاعم قريبة منك", he: "מסעדות קרובות", en: "Restaurants near you" },
   trust: { ar: "مطاعم محلية · اختيارات حسب مودك", he: "מסעדות מקומיות · בחירות לפי מצב רוח", en: "Local restaurants · picks for your mood" },
+  restaurantLandingEyebrow: { ar: "مطاعم محلية · نكهات قريبة", he: "מסעדות מקומיות · טעמים קרובים", en: "Local restaurants · nearby flavors" },
+  restaurantLandingSub: { ar: "شوف المطاعم المفتوحة، وقارن وقت التوصيل والحد الأدنى قبل ما تختار.", he: "ראו מי פתוח והשוו זמן משלוח ומינימום הזמנה לפני הבחירה.", en: "See what's open and compare delivery time and minimum order before choosing." },
 
   // game
   gameTag: { ar: "لفّ العجلة · TAMAM بتختارلك الوجبة", he: "סובבו את הגלגל · TAMAM בוחרת לכם", en: "Spin the wheel · TAMAM picks your meal" },
@@ -119,6 +121,8 @@ const dict = d({
 
   // packages
   suggestionsTitle: { ar: "اقتراحات TAMAM", he: "ההצעות של TAMAM", en: "TAMAM picks" },
+  suggestionsLandingTitle: { ar: "اختار الباقة اللي بتناسبك", he: "בחרו את החבילה שמתאימה לכם", en: "Find the package that fits" },
+  suggestionsLandingSub: { ar: "فلتر حسب نوع الباقة، وشوف السعر والتفاصيل قبل ما تطلب.", he: "סננו לפי סוג החבילה וראו מחיר ופרטים לפני ההזמנה.", en: "Filter by package type and see the price and details before ordering." },
   noMoodSuggestions: { ar: "ما في اقتراحات منشورة لهالمود.", he: "אין הצעות למצב הרוח הזה.", en: "No picks for this mood." },
   inPackage: { ar: "شو في بالباقة", he: "מה יש בחבילה", en: "What's inside" },
   addPackage: { ar: "ضيف الباقة للسلة", he: "להוסיף את החבילה לסל", en: "Add package to cart" },
@@ -194,6 +198,7 @@ const dict = d({
   dailyHomeSub: { ar: "اختار التاريخ والوجبة الأساسية، وأضف شوربة أو إضافة أو سلطة إذا بتحب.", he: "בוחרים תאריך ומנה עיקרית, ואפשר להוסיף מרק, תוספת או סלט.", en: "Choose a date and main dish, then add soup, an addition, or a salad if you like." },
   dailyEyebrow: { ar: "TAMAM · وجبتك على ذوقك", he: "TAMAM · הארוחה שלך בדרך שלך", en: "TAMAM · your meal, your way" },
   dailyTitle: { ar: "اختار وجبة اليوم", he: "בוחרים את ארוחת היום", en: "Choose today's meal" },
+  dailyLandingHeadline: { ar: "اختار وجبتك على مزاجك", he: "בחרו ארוחה שמתאימה לכם", en: "Choose a meal your way" },
   dailySub: { ar: "مكوّنات كل وجبة وخياراتها ظاهرة قبل الاختيار.", he: "מרכיבי כל ארוחה והאפשרויות שלה מוצגים מראש.", en: "See every meal's ingredients and choices before you select." },
   dailyDate: { ar: "التاريخ", he: "תאריך", en: "Date" },
   dailySoup: { ar: "الشوربة", he: "מרק", en: "Soup" },

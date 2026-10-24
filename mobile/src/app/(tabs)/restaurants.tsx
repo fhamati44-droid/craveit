@@ -24,9 +24,10 @@ export default function Restaurants() {
   return (
     <Page>
       <View style={landing.hero}>
-        <Text style={landing.eyebrow}>TAMAM · {t("trust")}</Text>
+        <View style={landing.rule} />
+        <Text style={landing.eyebrow}>{t("restaurantLandingEyebrow")}</Text>
         <Text style={landing.title}>{t("craving")}</Text>
-        <Text style={landing.sub}>{t("trust")}</Text>
+        <Text style={landing.sub}>{t("restaurantLandingSub")}</Text>
       </View>
       <View style={{ justifyContent: "center" }}>
         <TextInput
@@ -82,6 +83,7 @@ export default function Restaurants() {
 
 const landing = StyleSheet.create({
   hero: { backgroundColor: colors.tealDeep, padding: 20, gap: 7, borderRadius: 14, alignItems: "flex-end" },
+  rule: { width: 42, height: 2, backgroundColor: colors.gold, marginBottom: 2 },
   eyebrow: { color: colors.bright, fontFamily: font.bold, fontSize: 10, letterSpacing: 1, textAlign: "right" },
   title: { color: colors.white, fontFamily: font.black, fontSize: 24, lineHeight: 34, textAlign: "right" },
   sub: { color: "#D6E2DD", fontFamily: font.regular, fontSize: 12, lineHeight: 20, textAlign: "right" },

@@ -20,9 +20,10 @@ export default function Suggestions() {
   return (
     <Page>
       <View style={landing.landingHero}>
-        <Text style={landing.landingEyebrow}>TAMAM · {tr("picksForYou")}</Text>
-        <Text style={landing.landingTitle}>{tr("suggestionsTitle")}</Text>
-        <Text style={landing.landingSub}>{tr("byMoodTime")}</Text>
+        <View style={landing.rule} />
+        <Text style={landing.landingEyebrow}>{tr("byMoodTime")}</Text>
+        <Text style={landing.landingTitle}>{tr("suggestionsLandingTitle")}</Text>
+        <Text style={landing.landingSub}>{tr("suggestionsLandingSub")}</Text>
       </View>
       <View style={[s.row, { flexWrap: "wrap", gap: 8 }]}>
         {["all", "classic", "mix", "plus"].map((t) => (
@@ -59,6 +60,7 @@ export default function Suggestions() {
 
 const landing = StyleSheet.create({
   landingHero: { backgroundColor: colors.tealDeep, padding: 20, gap: 7, borderRadius: 14, alignItems: "flex-end" },
+  rule: { width: 42, height: 2, backgroundColor: colors.gold, marginBottom: 2 },
   landingEyebrow: { color: colors.bright, fontFamily: font.bold, fontSize: 10, letterSpacing: 1, textAlign: "right" },
   landingTitle: { color: colors.white, fontFamily: font.black, fontSize: 24, lineHeight: 34, textAlign: "right" },
   landingSub: { color: "#D6E2DD", fontFamily: font.regular, fontSize: 12, lineHeight: 20, textAlign: "right" },
