@@ -39,6 +39,8 @@ function Screens() {
       <Stack.Screen name="suggestions" options={{ title: t("screenSuggestions") }} />
       <Stack.Screen name="suggestion/[id]" options={{ title: t("screenSuggestion") }} />
       <Stack.Screen name="daily-meal" options={{ title: t("dailyTitle") }} />
+      <Stack.Screen name="home-cooked" options={{ title: t("homeCookedNavTitle") }} />
+      <Stack.Screen name="family-meals" options={{ title: t("familyMealsNavTitle") }} />
       <Stack.Screen name="admin/daily-meals" options={{ title: t("adminDailyMeals") }} />
     </Stack>
   );
