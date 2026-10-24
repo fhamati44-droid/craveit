@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
-import { ActivityIndicator, Image, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Image, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Button, colors, font, Page } from "../components/ui";
@@ -28,7 +28,6 @@ const addDays = (date: string, offset: number) => {
 
 export default function DailyMeal() {
   const { api, customer, saveCustomer, lang } = useStore();
-  const { width: viewportWidth } = useWindowDimensions();
   const { t, sheet } = useT();
   const s = sheet(styles);
   const [weekStart] = useState(initialDate);
@@ -53,6 +52,7 @@ export default function DailyMeal() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [menuGridWidth, setMenuGridWidth] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -94,7 +94,8 @@ export default function DailyMeal() {
   const dateLabel = (date: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
   const weekdayLabel = (date: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", weekday: "short" }).format(new Date(`${date}T12:00:00`)).replace(/\.$/, "");
   const stepNames = ["dailyDate", ...visibleCategories.map((category) => categoryKey[category]), "dailyYourDetails"] as const;
-  const menuCardWidth = viewportWidth >= 720 ? "32%" : "48%";
+  // Measure actual grid width so the centered web shell does not use the full window width.
+  const menuCardWidth = menuGridWidth >= 680 ? "32%" : "48%";
   const total = cart.reduce((sum, line) => sum + line.unit_price * line.quantity, 0);
   const cartRestaurantNames = [...new Set(cart.map((line) => restaurants[String(menus.find((m) => m.id === line.menu_id)?.restaurant_id)]?.name || "TAMAM"))];
 
@@ -269,7 +270,10 @@ export default function DailyMeal() {
                     </View>
                     <Text style={s.restaurantCount}>{t("dailyDayMealsCount", { n: restaurantMenus.length })}</Text>
                   </View>
-                  <View style={s.menuGrid}>
+                  <View style={s.menuGrid} onLayout={(event) => {
+                    const nextWidth = Math.round(event.nativeEvent.layout.width);
+                    if (nextWidth !== menuGridWidth) setMenuGridWidth(nextWidth);
+                  }}>
                     {restaurantMenus.map((item) => (
                       <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title} · ${t("dailyChooseMeal")}`} onPress={() => { setMenuId(item.id); setSelected({}); setQuantity(1); setStep(1); setError(""); }} style={[s.menuCard, { width: menuCardWidth }, menuId === item.id && s.selectedCard]}>
                         {item.image_url
@@ -417,7 +421,7 @@ const styles = StyleSheet.create({
   heroTopRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8 },
   todayBadge: { flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 20, backgroundColor: "rgba(6,27,25,0.76)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
   todayBadgeText: { color: colors.white, fontFamily: font.medium, fontSize: 10 },
-  heroKicker: { color: colors.white, fontFamily: font.bold, fontSize: 9, letterSpacing: 1.2, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6 },
+  heroKicker: { color: colors.gold, fontFamily: font.bold, fontSize: 9, letterSpacing: 1.2, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6 },
   landingCopy: { alignItems: "flex-end", gap: 5 },
   landingTitle: { color: colors.white, fontFamily: font.black, fontSize: 24, lineHeight: 32, textAlign: "right", textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 8 },
   landingSubtitle: { color: "#F1F2EC", fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6 },
@@ -450,7 +454,7 @@ const styles = StyleSheet.create({
   progressActive: { color: colors.teal, fontFamily: font.bold },
   section: { gap: 11 },
   browseSection: { gap: 7 },
-  menuGrid: { flexDirection: "row-reverse", flexWrap: "wrap", justifyContent: "space-between", rowGap: 9 },
+  menuGrid: { flexDirection: "row-reverse", flexWrap: "wrap", justifyContent: "space-between", rowGap: 11 },
   sectionTitle: { color: colors.teal, fontFamily: font.black, fontSize: 18, textAlign: "right" },
   weekLabel: { color: colors.muted, fontFamily: font.bold, fontSize: 10, textAlign: "right" },
   rowBetween: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8 },
@@ -468,27 +472,27 @@ const styles = StyleSheet.create({
   dayNumber: { color: colors.ink, fontFamily: font.black, fontSize: 16 },
   dayCount: { color: colors.muted, fontFamily: font.regular, fontSize: 8, lineHeight: 9 },
   dayNameActive: { color: colors.white },
-  menuCard: { gap: 6, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.outline, padding: 10 },
-  // Keep customer meal photography lively and legible on mobile displays.
-  menuPhoto: { width: "100%", aspectRatio: 1.15, borderRadius: 11, backgroundColor: colors.white },
-  menuPhotoPlaceholder: { width: "100%", aspectRatio: 1.15, borderRadius: 11, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" },
-  menuHeadingRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 5 },
+  menuCard: { gap: 7, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: "#D8CDBD", padding: 8, shadowColor: "#1A1712", shadowOpacity: 0.045, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  // Let food photos lead, with their natural color and a calm editorial frame.
+  menuPhoto: { width: "100%", aspectRatio: 1.08, borderRadius: 8, backgroundColor: colors.white },
+  menuPhotoPlaceholder: { width: "100%", aspectRatio: 1.08, borderRadius: 8, backgroundColor: colors.high, alignItems: "center", justifyContent: "center" },
+  menuHeadingRow: { flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingBottom: 3 },
   menuNameBlock: { flex: 1, gap: 2, alignItems: "flex-end" },
   menuPriceBlock: { alignItems: "center", gap: 2 },
   restaurantGroup: { gap: 8 },
-  restaurantHeader: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: colors.mint, borderRadius: 13, borderWidth: 1, borderColor: colors.outline },
+  restaurantHeader: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8, paddingHorizontal: 3, paddingVertical: 8, backgroundColor: "transparent", borderBottomWidth: 1, borderBottomColor: colors.gold },
   restaurantTitleWrap: { flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: 6 },
-  restaurantHeading: { color: colors.teal, fontFamily: font.bold, fontSize: 12, textAlign: "right" },
-  restaurantLogo: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.high, borderWidth: 1, borderColor: colors.outline },
-  restaurantLogoPlaceholder: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, alignItems: "center", justifyContent: "center" },
+  restaurantHeading: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 13, textAlign: "right" },
+  restaurantLogo: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.high, borderWidth: 1, borderColor: "#D8CDBD" },
+  restaurantLogoPlaceholder: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: "#D8CDBD", alignItems: "center", justifyContent: "center" },
   restaurantCount: { color: colors.muted, fontFamily: font.regular, fontSize: 9, textAlign: "right" },
-  menuPreview: { borderTopWidth: 1, borderTopColor: colors.outline, paddingTop: 5, gap: 3 },
+  menuPreview: { borderTopWidth: 1, borderTopColor: "#E4DCCF", paddingTop: 6, gap: 4 },
   previewLine: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 3 },
-  previewCategory: { color: colors.ink, fontFamily: font.bold, fontSize: 10, textAlign: "right" },
-  previewText: { flex: 1, color: colors.muted, fontFamily: font.regular, fontSize: 10, lineHeight: 14, textAlign: "right" },
+  previewCategory: { color: colors.teal, fontFamily: font.bold, fontSize: 10, textAlign: "right" },
+  previewText: { flex: 1, color: "#55524B", fontFamily: font.regular, fontSize: 10, lineHeight: 15, textAlign: "right" },
   selectedCard: { borderColor: colors.green, borderWidth: 2, backgroundColor: colors.mint },
-  menuTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 13, lineHeight: 18, textAlign: "right" },
-  price: { color: colors.teal, fontFamily: font.black, fontSize: 14 },
+  menuTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 14, lineHeight: 20, textAlign: "right" },
+  price: { color: colors.teal, fontFamily: font.black, fontSize: 15 },
   option: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 16, padding: 12 },
   optionIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" },
   optionPhoto: { width: 54, height: 54, borderRadius: 12, backgroundColor: colors.white },
