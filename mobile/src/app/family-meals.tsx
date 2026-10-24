@@ -11,13 +11,24 @@ import { useLoad } from "../lib/useLoad";
 import { useT } from "../lib/i18n";
 import type { Suggestion } from "../lib/types";
 
+const familyIntent = /(family|sharing|share|عائلي|العيلة|العائلة|للمشاركة|مشاركة|للمّة|للّمة|لمة|للقعدة|قعدة|ضيافة|عزومة|وليمة|جلسات|للجلسات|لأكثر من شخص|أكثر من شخص)/i;
+const multipleMeals = /(بيتزتين|بيتزتان|ثلاث بيتزات|2\s*بيتزا|3\s*بيتزا|برغران|برغرين|دجاج مشوي كامل)/i;
+const isFamilyOffer = (offer: Suggestion) => {
+  const price = Number(offer.display_price_override ?? offer.display_price);
+  if (!Number.isFinite(price) || price <= 0) return false;
+  const content = [offer.title, offer.title_ar, offer.title_he, offer.title_en, offer.description_ar, offer.description_he, offer.description_en]
+    .filter(Boolean)
+    .join(" ");
+  return familyIntent.test(content) || multipleMeals.test(content);
+};
+
 export default function FamilyMealsLanding() {
   const { api, add } = useStore();
   const { t, name, desc, pkg } = useT();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const data = useLoad(useCallback(() => api.suggestions(), [api]));
-  const offers = data.value?.sets?.filter((item) => item.is_active !== false) ?? [];
+  const offers = (data.value?.sets?.filter((item) => item.is_active !== false && isFamilyOffer(item)) ?? []).slice(0, 6);
   const featured = offers[0];
 
   const addPackage = async (offer: Suggestion) => {

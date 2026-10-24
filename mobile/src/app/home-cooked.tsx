@@ -5,7 +5,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { CampaignContact, CampaignHero } from "../components/CampaignLanding";
 import { colors, font, money, Page, Status } from "../components/ui";
-import { useT, localName, localRestaurantName } from "../lib/i18n";
+import { useT, localRestaurantName } from "../lib/i18n";
 import { imageUrl } from "../lib/media";
 import { getPublishedMenus, getPublicOptions, getPublicMenuOptionOverrides, getVisibleDailyOptions, type DailyCategory } from "../lib/dailyMeals";
 import { useStore } from "../lib/state";
@@ -92,9 +92,11 @@ export default function HomeCookedLanding() {
             const restaurant = data.value?.restaurants[String(meal.restaurant_id)];
             const preview = categories.map((category) => {
               const override = data.value?.overrides.find((item) => item.menu_id === meal.id && item.category === category);
-              const available = getVisibleDailyOptions(data.value?.options ?? [], meal.id, category, override);
+              const available = getVisibleDailyOptions(data.value?.options ?? [], meal.id, category, override)
+                .map((option) => ({ option, label: lang === "ar" ? option.name_ar : lang === "he" ? option.name : "" }))
+                .filter((row) => row.label);
               if (!available.length) return null;
-              return { category, text: available.slice(0, 2).map((option) => localName(lang, option) || option.name).join("، ") };
+              return { category, text: available.slice(0, 2).map((row) => row.label).join("، ") };
             }).filter(Boolean) as { category: DailyAddonCategory; text: string }[];
             return (
               <View key={meal.id} style={styles.mealCard}>
