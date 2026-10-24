@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors, Page, Status, Txt, useS } from "../../components/ui";
+import { colors, font, Page, Status, Txt, useS } from "../../components/ui";
 import { RestaurantCard } from "../../components/cards";
 import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
@@ -23,7 +23,11 @@ export default function Restaurants() {
   );
   return (
     <Page>
-      <Text style={s.heading}>{t("craving")}</Text>
+      <View style={landing.hero}>
+        <Text style={landing.eyebrow}>TAMAM · {t("trust")}</Text>
+        <Text style={landing.title}>{t("craving")}</Text>
+        <Text style={landing.sub}>{t("trust")}</Text>
+      </View>
       <View style={{ justifyContent: "center" }}>
         <TextInput
           style={[s.input, f({ paddingRight: 44 })]}
@@ -75,3 +79,10 @@ export default function Restaurants() {
     </Page>
   );
 }
+
+const landing = StyleSheet.create({
+  hero: { backgroundColor: colors.tealDeep, padding: 20, gap: 7, borderRadius: 14, alignItems: "flex-end" },
+  eyebrow: { color: colors.bright, fontFamily: font.bold, fontSize: 10, letterSpacing: 1, textAlign: "right" },
+  title: { color: colors.white, fontFamily: font.black, fontSize: 24, lineHeight: 34, textAlign: "right" },
+  sub: { color: "#D6E2DD", fontFamily: font.regular, fontSize: 12, lineHeight: 20, textAlign: "right" },
+});

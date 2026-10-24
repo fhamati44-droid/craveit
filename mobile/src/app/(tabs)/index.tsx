@@ -1,17 +1,19 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
+import { Linking } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, font, Page, RtlRow, Status } from "../../components/ui";
-import { Brush, TamamMark, Tri, TrianglePattern } from "../../components/brand";
+import { TamamMark, Tri, TrianglePattern } from "../../components/brand";
 import { RestaurantCard, SuggestionCard } from "../../components/cards";
 import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
 import { imageUrl } from "../../lib/media";
 import { moodIcon } from "../../lib/moods";
 import { useT } from "../../lib/i18n";
+import { WHATSAPP_NUMBER } from "../../lib/orders";
 
 function SectionTitle({
   label,
@@ -65,60 +67,64 @@ export default function Home() {
     restaurants.value?.[0]?.cover_url;
   return (
     <Page>
-      {!site.loading ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push("/game")}
-          style={({ pressed }) => [
-            h.hero,
-            pressed && { transform: [{ scale: 0.99 }] },
-          ]}
-        >
+      <View style={h.hero}>
+        {heroImage ? (
+          <Image
+            nativeID="home-hero-photo"
+            source={{ uri: imageUrl(heroImage) }}
+            style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%" }}
+            resizeMode="cover"
+            accessibilityLabel={t("mealImage")}
+          />
+        ) : null}
           <LinearGradient
-            colors={[colors.tealMid, colors.teal, colors.tealDeep]}
-            start={{ x: 1, y: 0 }}
-            end={{ x: 0, y: 1 }}
+            colors={["rgba(7,29,27,0.08)", "rgba(7,29,27,0.97)"]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <TrianglePattern opacity={0.08} />
+          {!heroImage ? <TrianglePattern opacity={0.08} /> : null}
           <View style={h.heroCopy}>
             <Text style={h.eyebrow}>{t("homeEyebrow")}</Text>
             <Text style={h.heroTitle}>{t("homeTitle")}</Text>
             <Text style={h.heroSub}>{t("homeSub")}</Text>
-            <Brush
-              style={f({
-                alignSelf: "flex-end",
-                marginTop: 8,
-                paddingHorizontal: 22,
-                paddingVertical: 10,
-              })}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/daily-meal")}
+              style={h.heroCtaButton}
             >
               <View
                 style={f({
                   flexDirection: "row-reverse",
                   alignItems: "center",
-                  gap: 6,
+                  gap: 8,
                 })}
               >
-                <Text style={h.heroCta}>{t("go")}</Text>
-                <Ionicons name={fwd("arrow-back")} size={18} color={colors.white} />
+                <Text style={h.heroCta}>{t("dailyHomeCard")}</Text>
+                <Ionicons name={fwd("arrow-back")} size={18} color={colors.tealDeep} />
               </View>
-            </Brush>
+            </Pressable>
+            <View style={h.contactActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}`)}
+                style={h.contactButton}
+              >
+                <Ionicons name="logo-whatsapp" size={16} color={colors.white} />
+                <Text style={h.contactLabel}>{t("whatsappUs")}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void Linking.openURL(`tel:+${WHATSAPP_NUMBER}`)}
+                style={h.contactButton}
+              >
+                <Ionicons name="call-outline" size={15} color={colors.white} />
+                <Text style={h.contactLabel}>{t("callUs")}</Text>
+              </Pressable>
+            </View>
           </View>
-          <View style={h.heroArt}>
-            {heroImage ? (
-              <Image
-                source={{ uri: imageUrl(heroImage) }}
-                style={h.heroImage}
-              />
-            ) : (
-              <View style={[h.heroImage, h.heroMark]}>
-                <TamamMark size={64} color={colors.white} />
-              </View>
-            )}
-          </View>
-        </Pressable>
-      ) : null}
+          {!heroImage ? <View style={h.heroMark}><TamamMark size={54} color={colors.white} /></View> : null}
+      </View>
 
       <Pressable
         style={h.dailyBanner}
@@ -255,49 +261,69 @@ const hs = StyleSheet.create({
     minHeight: 44,
   },
   hero: {
-    borderRadius: 26,
+    borderRadius: 14,
     overflow: "hidden",
-    minHeight: 210,
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    padding: 18,
-    gap: 12,
+    minHeight: 390,
+    justifyContent: "flex-end",
+    padding: 20,
+    backgroundColor: colors.tealDeep,
   },
-  heroCopy: { flex: 1.25, gap: 4 },
+  heroCopy: { gap: 7, alignItems: "flex-end", zIndex: 1 },
   eyebrow: {
     fontFamily: font.bold,
     fontSize: 11,
     color: colors.bright,
     textAlign: "right",
+    letterSpacing: 1,
   },
   heroTitle: {
     fontFamily: font.black,
-    fontSize: 24,
-    lineHeight: 36,
+    fontSize: 30,
+    lineHeight: 42,
     color: colors.white,
     textAlign: "right",
   },
   heroSub: {
     fontFamily: font.regular,
-    fontSize: 12,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 22,
     color: "#CFE3DE",
     textAlign: "right",
   },
-  heroCta: { fontFamily: font.black, fontSize: 16, color: colors.white },
-  heroArt: { flex: 1, alignItems: "center" },
-  heroImage: {
-    width: "100%",
-    aspectRatio: 1,
-    borderRadius: 999,
-    borderWidth: 4,
-    borderColor: "rgba(255,255,255,0.9)",
+  heroCta: { fontFamily: font.black, fontSize: 14, color: colors.tealDeep },
+  heroCtaButton: {
+    alignSelf: "flex-end",
+    marginTop: 5,
+    paddingHorizontal: 17,
+    paddingVertical: 12,
+    borderRadius: 9,
+    backgroundColor: colors.bright,
   },
   heroMark: {
+    position: "absolute",
+    top: 22,
+    alignSelf: "center",
+    width: 82,
+    height: 82,
+    borderRadius: 41,
     backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
+  contactActions: {
+    flexDirection: "row-reverse",
+    alignSelf: "stretch",
+    alignItems: "center",
+    gap: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.28)",
+    paddingTop: 9,
+    marginTop: 1,
+  },
+  contactButton: { flexDirection: "row-reverse", alignItems: "center", gap: 6, minHeight: 34 },
+  contactLabel: { fontFamily: font.medium, fontSize: 11, color: colors.white },
   mood: { width: 76, alignItems: "center", gap: 6 },
   moodCircle: {
     width: 68,
@@ -321,7 +347,7 @@ const hs = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     backgroundColor: colors.mint,
-    borderRadius: 20,
+    borderRadius: 12,
     padding: 14,
     borderWidth: 1,
     borderColor: "#CFE8CB",
@@ -331,7 +357,7 @@ const hs = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: 12,
     padding: 14,
     borderWidth: 1.5,
     borderColor: colors.green,

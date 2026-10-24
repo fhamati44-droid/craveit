@@ -12,21 +12,21 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { imageUrl } from "../lib/media";
 import { useT } from "../lib/i18n";
 export const colors = {
-  // TAMAM campaign palette (sampled from the brand ads)
-  bg: "#F6F5F0", // warm paper
-  surface: "#FFFFFF",
-  high: "#EEECE4",
-  teal: "#06463F", // brand deep teal
-  tealDeep: "#03332E",
-  tealMid: "#0D5A51",
-  green: "#3FA34D", // brand green (triangles, price brush)
-  bright: "#5CC25E",
-  mint: "#E6F4E4",
-  ink: "#0F1A19",
+  // Warm editorial canvas with the TAMAM forest-green identity.
+  bg: "#F3F0EA",
+  surface: "#FBF9F5",
+  high: "#E7E0D5",
+  teal: "#073B35",
+  tealDeep: "#071D1B",
+  tealMid: "#0A4A42",
+  green: "#4FA45A",
+  bright: "#7BC77C",
+  mint: "#E4EEE2",
+  ink: "#171715",
   white: "#FFFFFF",
   text: "#0F1A19",
-  muted: "#5E6B68",
-  outline: "#E3E1D8",
+  muted: "#686861",
+  outline: "#DCD6CC",
   gold: "#E9B949",
   error: "#B3261E",
 };
@@ -73,8 +73,8 @@ const base = StyleSheet.create({
   row: { flexDirection: "row-reverse", alignItems: "center", gap: 12 },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 14,
+    padding: 15,
     gap: 8,
     borderWidth: 1,
     borderColor: colors.outline,
@@ -84,7 +84,7 @@ const base = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.outline,
-    borderRadius: 14,
+    borderRadius: 10,
     padding: 14,
     textAlign: "right",
     fontSize: 15,
@@ -93,8 +93,8 @@ const base = StyleSheet.create({
   },
   button: {
     backgroundColor: colors.teal,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 10,
+    padding: 15,
     minHeight: 50,
     alignItems: "center",
     justifyContent: "center",
@@ -104,7 +104,7 @@ const base = StyleSheet.create({
     fontFamily: font.bold,
     fontSize: 14,
   },
-  image: { width: "100%", height: 160, borderRadius: 16 },
+  image: { width: "100%", height: 180, borderRadius: 10 },
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -187,6 +187,7 @@ export function Picture({ uri }: { uri?: string }) {
   const { t } = useT();
   return uri ? (
     <Image
+      nativeID="tamam-picture-photo"
       source={{ uri: imageUrl(uri) }}
       style={s.image}
       accessibilityLabel={t("image")}

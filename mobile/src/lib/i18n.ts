@@ -62,6 +62,8 @@ const dict = d({
   minOrder: { ar: "حد أدنى {p}", he: "מינימום {p}", en: "Min. {p}" },
   meals: { ar: "{n} وجبات", he: "{n} מנות", en: "{n} items" },
   whatsappUs: { ar: "احكي معنا بالواتساب", he: "דברו איתנו בוואטסאפ", en: "Chat with us on WhatsApp" },
+  callUs: { ar: "اتصل بتمام", he: "התקשרו ל‑TAMAM", en: "Call TAMAM" },
+  dailyHelpMessage: { ar: "مرحبا، بدي أستفسر عن وجبات اليوم.", he: "היי, אשמח לשאול על ארוחות היום.", en: "Hi, I have a question about today's meals." },
 
   // home
   homeEyebrow: { ar: "TAMAM · حسب مودك", he: "TAMAM · לפי מצב הרוח", en: "TAMAM · for your mood" },

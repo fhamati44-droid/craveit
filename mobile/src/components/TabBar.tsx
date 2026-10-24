@@ -58,7 +58,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             <Ionicons
               name={focused ? on : off}
               size={23}
-              color={focused ? colors.teal : colors.muted}
+              color={focused ? colors.bright : "#B8C0BA"}
             />
             <Text style={[t.label, focused && t.labelOn]}>{label}</Text>
             {focused ? <View style={t.dot} /> : null}
@@ -118,19 +118,19 @@ function GameButton({
 const ts = StyleSheet.create({
   bar: {
     flexDirection: "row-reverse",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.tealDeep,
     borderTopWidth: 1,
-    borderTopColor: colors.outline,
+    borderTopColor: "rgba(255,255,255,0.12)",
     paddingTop: 8,
-    shadowColor: "#06463F",
+    shadowColor: "#071D1B",
     shadowOpacity: 0.08,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: -4 },
     elevation: 12,
   },
   item: { flex: 1, alignItems: "center", gap: 3, minHeight: 48 },
-  label: { fontFamily: font.medium, fontSize: 10, color: colors.muted },
-  labelOn: { fontFamily: font.bold, color: colors.teal },
+  label: { fontFamily: font.medium, fontSize: 10, color: "#B8C0BA" },
+  labelOn: { fontFamily: font.bold, color: colors.bright },
   dot: {
     width: 4,
     height: 4,
@@ -157,7 +157,7 @@ const ts = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: colors.teal,
     borderWidth: 4,
-    borderColor: colors.surface,
+    borderColor: colors.tealDeep,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#06463F",

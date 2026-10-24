@@ -20,6 +20,7 @@ export function FoodImage({
   const c = cs;
   return uri && !failed ? (
     <Image
+      nativeID="tamam-food-photo"
       source={{ uri: imageUrl(uri) }}
       style={{ height, width: "100%", backgroundColor: colors.high }}
       onError={() => setFailed(true)}

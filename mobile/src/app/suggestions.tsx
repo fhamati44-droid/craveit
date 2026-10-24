@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { Pressable, Text, View } from "react-native";
-import { colors, Page, Status, Txt, useS } from "../components/ui";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { colors, font, Page, Status, Txt, useS } from "../components/ui";
 import { useT } from "../lib/i18n";
 import { SuggestionCard } from "../components/cards";
 import { useStore } from "../lib/state";
@@ -19,7 +19,11 @@ export default function Suggestions() {
   );
   return (
     <Page>
-      <Text style={s.heading}>{tr("suggestionsTitle")}</Text>
+      <View style={landing.landingHero}>
+        <Text style={landing.landingEyebrow}>TAMAM · {tr("picksForYou")}</Text>
+        <Text style={landing.landingTitle}>{tr("suggestionsTitle")}</Text>
+        <Text style={landing.landingSub}>{tr("byMoodTime")}</Text>
+      </View>
       <View style={[s.row, { flexWrap: "wrap", gap: 8 }]}>
         {["all", "classic", "mix", "plus"].map((t) => (
           <Pressable
@@ -52,3 +56,10 @@ export default function Suggestions() {
     </Page>
   );
 }
+
+const landing = StyleSheet.create({
+  landingHero: { backgroundColor: colors.tealDeep, padding: 20, gap: 7, borderRadius: 14, alignItems: "flex-end" },
+  landingEyebrow: { color: colors.bright, fontFamily: font.bold, fontSize: 10, letterSpacing: 1, textAlign: "right" },
+  landingTitle: { color: colors.white, fontFamily: font.black, fontSize: 24, lineHeight: 34, textAlign: "right" },
+  landingSub: { color: "#D6E2DD", fontFamily: font.regular, fontSize: 12, lineHeight: 20, textAlign: "right" },
+});

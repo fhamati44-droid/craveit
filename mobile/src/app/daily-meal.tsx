@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, Page } from "../components/ui";
 import { useStore } from "../lib/state";
 import { useT, localName } from "../lib/i18n";
 import { imageUrl } from "../lib/media";
 import { DAILY_CATEGORIES, getPublicMenuOptionOverrides, getPublicOptions, getPublishedMenus, getVisibleDailyCategories, getVisibleDailyOptions, isDailyMenuAvailableOnDate, submitDailyOrder, type DailyCartLine, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type SharedDailyCategory } from "../lib/dailyMeals";
+import { WHATSAPP_NUMBER } from "../lib/orders";
 
 const categoryKey: Record<DailyCategory, "dailySoup" | "dailyMain" | "dailyAddition" | "dailySalad"> = {
   soup: "dailySoup", main: "dailyMain", addition: "dailyAddition", salad: "dailySalad",
@@ -122,6 +123,17 @@ export default function DailyMeal() {
         {step > 0 ? <Text style={s.eyebrow}>{t("dailyEyebrow")}</Text> : null}
         <Text style={[s.title, step === 0 && s.titleBrowse]}>{t("dailyTitle")}</Text>
         <Text style={[s.subtitle, step === 0 && s.subtitleBrowse]}>{t("dailySub")}</Text>
+        {step === 0 && !checkout ? <View style={s.contactRow}>
+          <Pressable accessibilityRole="button" onPress={() => void Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(t("dailyHelpMessage"))}`).catch(() => {})} style={s.contactAction}>
+            <Ionicons name="logo-whatsapp" size={15} color={colors.white} />
+            <Text style={s.contactText}>{t("whatsappUs")}</Text>
+          </Pressable>
+          <View style={s.contactDivider} />
+          <Pressable accessibilityRole="button" onPress={() => void Linking.openURL(`tel:+${WHATSAPP_NUMBER}`).catch(() => {})} style={s.contactAction}>
+            <Ionicons name="call-outline" size={15} color={colors.white} />
+            <Text style={s.contactText}>{t("callUs")}</Text>
+          </Pressable>
+        </View> : null}
       </View>
       {success ? (
         <View style={s.success}>
@@ -349,14 +361,18 @@ export default function DailyMeal() {
 }
 
 const styles = StyleSheet.create({
-  hero: { backgroundColor: colors.teal, borderRadius: 24, padding: 20, gap: 5, alignItems: "flex-end" },
-  heroBrowse: { borderRadius: 16, paddingVertical: 10, paddingHorizontal: 15, gap: 3 },
+  hero: { backgroundColor: colors.tealDeep, borderRadius: 14, padding: 20, gap: 5, alignItems: "flex-end" },
+  heroBrowse: { borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, gap: 4 },
   heroIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center", marginBottom: 6 },
   eyebrow: { color: colors.bright, fontFamily: font.bold, fontSize: 11, textAlign: "right" },
   title: { color: colors.white, fontFamily: font.black, fontSize: 21, textAlign: "right" },
-  titleBrowse: { fontSize: 18, lineHeight: 24 },
+  titleBrowse: { fontSize: 20, lineHeight: 28 },
   subtitle: { color: "#D5E8E4", fontFamily: font.regular, fontSize: 12, lineHeight: 20, textAlign: "right" },
-  subtitleBrowse: { fontSize: 11, lineHeight: 15 },
+  subtitleBrowse: { fontSize: 11, lineHeight: 17 },
+  contactRow: { flexDirection: "row-reverse", alignItems: "center", gap: 12, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.22)", marginTop: 6, paddingTop: 5 },
+  contactAction: { flexDirection: "row-reverse", alignItems: "center", gap: 5, minHeight: 30 },
+  contactText: { color: colors.white, fontFamily: font.medium, fontSize: 10 },
+  contactDivider: { width: 1, height: 17, backgroundColor: "rgba(255,255,255,0.25)" },
   progressRow: { flexDirection: "row-reverse", justifyContent: "space-between", marginVertical: 14, gap: 3 },
   progressItem: { alignItems: "center", flex: 1, gap: 5 },
   dot: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.high, alignItems: "center", justifyContent: "center" },
@@ -408,7 +424,7 @@ const styles = StyleSheet.create({
   price: { color: colors.teal, fontFamily: font.black, fontSize: 14 },
   option: { flexDirection: "row-reverse", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 16, padding: 12 },
   optionIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" },
-  optionPhoto: { width: 54, height: 54, borderRadius: 12, backgroundColor: colors.white, filter: [{ brightness: 1.07 }, { contrast: 1.12 }, { saturate: 1.22 }] },
+  optionPhoto: { width: 54, height: 54, borderRadius: 12, backgroundColor: colors.white },
   optionTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 14, textAlign: "right" },
   body: { color: colors.muted, fontFamily: font.regular, fontSize: 12, lineHeight: 19, textAlign: "right" },
   muted: { color: colors.muted, fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right" },

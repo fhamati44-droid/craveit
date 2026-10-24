@@ -21,9 +21,9 @@ export function BrandHeader() {
           onPress={() => router.push("/")}
           hitSlop={8}
         >
-          <TamamLogo height={20} />
+          <TamamLogo height={20} color={colors.white} />
         </Pressable>
-        <LangSwitch />
+        <LangSwitch dark />
         <View style={{ flexDirection: "row", gap: 8 }}>
           <Pressable
             accessibilityRole="button"
@@ -31,7 +31,7 @@ export function BrandHeader() {
             onPress={() => router.push("/restaurants")}
             style={h.icon}
           >
-            <Ionicons name="search" size={19} color={colors.teal} />
+            <Ionicons name="search" size={19} color={colors.white} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -39,7 +39,7 @@ export function BrandHeader() {
             onPress={() => router.push("/cart")}
             style={h.icon}
           >
-            <Ionicons name="bag-handle-outline" size={19} color={colors.teal} />
+            <Ionicons name="bag-handle-outline" size={19} color={colors.white} />
             {count > 0 ? (
               <View style={h.badge}>
                 <Text style={h.badgeText}>{count}</Text>
@@ -53,9 +53,9 @@ export function BrandHeader() {
 }
 const hs = StyleSheet.create({
   safe: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.tealDeep,
     borderBottomWidth: 1,
-    borderBottomColor: colors.outline,
+    borderBottomColor: "rgba(255,255,255,0.12)",
   },
   bar: {
     paddingHorizontal: 16,
@@ -68,7 +68,7 @@ const hs = StyleSheet.create({
     height: 40,
     width: 40,
     borderRadius: 20,
-    backgroundColor: colors.bg,
+    backgroundColor: "rgba(255,255,255,0.09)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -81,7 +81,7 @@ const hs = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderWidth: 2,
-    borderColor: colors.surface,
+    borderColor: colors.tealDeep,
     alignItems: "center",
     justifyContent: "center",
   },
