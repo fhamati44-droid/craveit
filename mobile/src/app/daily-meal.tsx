@@ -124,10 +124,10 @@ export default function DailyMeal() {
         <View style={s.landingHero}>
           {featuredMeal?.image_url ? (
             <ImageBackground source={{ uri: featuredMeal.image_url }} style={s.landingPhoto} imageStyle={s.landingPhotoImage} resizeMode="cover" accessibilityLabel={t("image")}>
-              <LinearGradient colors={["rgba(5,20,18,0.08)", "rgba(5,20,18,0.2)", "rgba(5,20,18,0.94)"]} locations={[0, 0.42, 1]} style={s.landingGradient}>
+              <LinearGradient colors={["rgba(5,20,18,0.04)", "rgba(5,20,18,0.16)", "rgba(5,20,18,0.88)"]} locations={[0, 0.42, 1]} style={s.landingGradient}>
                 <View style={s.heroTopRow}>
                   <View style={s.todayBadge}><Ionicons name="calendar-outline" size={13} color={colors.white} /><Text style={s.todayBadgeText}>{t("dailyTodayShort")} · {dateLabel(selectedDate)}</Text></View>
-                  <Text style={s.heroKicker}>TAMAM · {t("dailyEyebrow")}</Text>
+                  <Text style={s.heroKicker}>{t("dailyEyebrow")}</Text>
                 </View>
                 <View style={s.landingCopy}>
                   <Text style={s.landingTitle}>{t("dailyTitle")}</Text>
