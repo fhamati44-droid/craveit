@@ -108,33 +108,27 @@ export function RestaurantCard({
             <View style={[c.status, closed && { backgroundColor: colors.error }]}>
               <Text style={c.statusText}>{closed ? t("closed") : t("open")}</Text>
             </View>
-            {logo ? (
-              <View style={c.logo}>
-                <Image
-                  source={{ uri: imageUrl(logo) }}
-                  style={{ width: "100%", height: "100%" }}
-                  resizeMode="cover"
-                />
-              </View>
-            ) : null}
           </>
         ) : (
           <View style={c.restaurantBrandPanel}>
-            {logo ? (
-              <Image source={{ uri: imageUrl(logo) }} style={c.restaurantBrandLogo} resizeMode="contain" accessibilityLabel={t("image")} />
-            ) : (
-              <Ionicons name="storefront-outline" size={36} color={colors.teal} />
-            )}
+            <Ionicons name="storefront-outline" size={36} color={colors.teal} />
             <View style={[c.status, closed && { backgroundColor: colors.error }]}>
               <Text style={c.statusText}>{closed ? t("closed") : t("open")}</Text>
             </View>
           </View>
         )}
       </View>
-      <View style={[c.body, restaurant.cover_url && logo ? { paddingTop: 20 } : null]}>
-        <Text style={c.title} numberOfLines={1}>
-          {name(restaurant)}
-        </Text>
+      <View style={c.body}>
+        <View style={c.restaurantIdentity}>
+          {logo ? (
+            <Image source={{ uri: imageUrl(logo) }} style={c.restaurantInlineLogo} resizeMode="cover" accessibilityLabel={t("image")} />
+          ) : (
+            <View style={c.restaurantInlineLogoPlaceholder}><Ionicons name="storefront-outline" size={15} color={colors.teal} /></View>
+          )}
+          <Text style={[c.title, { flex: 1 }]} numberOfLines={1}>
+            {name(restaurant)}
+          </Text>
+        </View>
         <View style={c.metaRow}>
           {restaurant.delivery_time != null ? (
             <View style={c.metaItem}>
@@ -181,7 +175,9 @@ const cs = StyleSheet.create({
   },
   body: { padding: 14, gap: 6 },
   restaurantBrandPanel: { width: "100%", height: 140, alignItems: "center", justifyContent: "center", backgroundColor: colors.high, borderBottomWidth: 1, borderBottomColor: colors.outline },
-  restaurantBrandLogo: { width: 82, height: 82, borderRadius: 41, backgroundColor: colors.surface },
+  restaurantIdentity: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
+  restaurantInlineLogo: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.surface },
+  restaurantInlineLogoPlaceholder: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" },
   title: {
     fontFamily: font.bold,
     fontSize: 14,
@@ -222,16 +218,4 @@ const cs = StyleSheet.create({
     paddingVertical: 3,
   },
   statusText: { fontFamily: font.bold, fontSize: 10, color: colors.white },
-  logo: {
-    position: "absolute",
-    bottom: -22,
-    right: 14,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    overflow: "hidden",
-    borderWidth: 3,
-    borderColor: colors.surface,
-    backgroundColor: colors.surface,
-  },
 });
