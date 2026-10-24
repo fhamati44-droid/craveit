@@ -231,6 +231,8 @@ const dict = d({
   dailyEyebrow: { ar: "TAMAM · وجبتك على ذوقك", he: "TAMAM · הארוחה שלך בדרך שלך", en: "TAMAM · your meal, your way" },
   dailyTitle: { ar: "اختار وجبة اليوم", he: "בוחרים את ארוחת היום", en: "Choose today's meal" },
   dailyLandingHeadline: { ar: "اختار وجبتك على مزاجك", he: "בחרו ארוחה שמתאימה לכם", en: "Choose a meal your way" },
+  dailyMealMetaTitle: { ar: "وجبات اليوم في الناصرة | اختار وجبتك - TAMAM", he: "ארוחות היום בנצרת | בחרו ארוחה - TAMAM", en: "Today's meals in Nazareth | Choose your meal - TAMAM" },
+  dailyMealMetaDescription: { ar: "شوف وجبات اليوم من مطابخ بلدنا، أسعارها ومكوناتها، واختار وجبتك واطلبها من TAMAM.", he: "ראו את ארוחות היום מהמטבחים המקומיים, המחירים והמרכיבים, בחרו ארוחה והזמינו דרך TAMAM.", en: "See today's meals from local kitchens, their prices and ingredients, choose a meal and order through TAMAM." },
   dailySub: { ar: "مكوّنات كل وجبة وخياراتها ظاهرة قبل الاختيار.", he: "מרכיבי כל ארוחה והאפשרויות שלה מוצגים מראש.", en: "See every meal's ingredients and choices before you select." },
   dailyDate: { ar: "التاريخ", he: "תאריך", en: "Date" },
   dailySoup: { ar: "الشوربة", he: "מרק", en: "Soup" },

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
+import Head from "expo-router/head";
 import { ActivityIndicator, Image, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -121,6 +122,12 @@ export default function DailyMeal() {
 
   return (
     <Page>
+      <Head>
+        <title>{t("dailyMealMetaTitle")}</title>
+        <meta name="description" content={t("dailyMealMetaDescription")} />
+        <meta property="og:title" content={t("dailyMealMetaTitle")} />
+        <meta property="og:description" content={t("dailyMealMetaDescription")} />
+      </Head>
       {step === 0 && !checkout ? (
         <View style={s.landingHero}>
           {featuredMeal?.image_url ? (
