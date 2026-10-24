@@ -19,6 +19,10 @@ type ProductGroup = { key: string; offers: ProductOffer[] };
 // deliberately not included here.
 const homeKitchenAliases = new Set([
   "مطبخ 11", "مطعم 11", "11 kitchen", "kitchen 11", "11",
+  // These are the legacy catalog records for 11 Kitchen and Miri. Their
+  // display names were repurposed as category labels, but the catalogs still
+  // contain the actual vendor products.
+  "kitchen11", "n_sandwich_bar",
   "miri", "ميري", "مطبخ ميري",
   "mazawi", "مزاوي", "مزوي", "لزاوي", "مطبخ مزاوي",
   "maha", "مها", "مطبخ مها",
@@ -53,8 +57,16 @@ function isHomeKitchen(restaurant: Restaurant) {
   const names = [restaurant.name_ar, restaurant.name, restaurant.slug]
     .filter((value): value is string => Boolean(value))
     .map(normalizeLabel);
-  if (names.some((name) => excludedRestaurantLabels.some((blocked) => name.includes(blocked)))) return false;
+  const isKnownCatalog = names.includes("kitchen11") || names.includes("n sandwich bar");
+  if (!isKnownCatalog && names.some((name) => excludedRestaurantLabels.some((blocked) => name.includes(blocked)))) return false;
   return names.some((name) => homeKitchenAliases.has(name));
+}
+
+function kitchenLabel(restaurant: Restaurant, lang: string, localName: (x: Restaurant) => string) {
+  const slug = normalizeLabel(restaurant.slug || "");
+  if (slug === "kitchen11") return lang === "ar" ? "مطبخ 11" : lang === "he" ? "מטבח 11" : "11 Kitchen";
+  if (slug === "n sandwich bar") return lang === "ar" ? "ميري" : "Miri";
+  return localName(restaurant);
 }
 
 function groupKey(meal: Meal) {
@@ -63,7 +75,7 @@ function groupKey(meal: Meal) {
 
 export default function HomeCookedLanding() {
   const { api } = useStore();
-  const { t, name, restaurantName, desc } = useT();
+  const { t, name, restaurantName, desc, lang } = useT();
   const pageScroll = useRef<ScrollView>(null);
   const productsOffset = useRef(0);
   const [selectedProduct, setSelectedProduct] = useState<ProductGroup | null>(null);
@@ -215,7 +227,7 @@ export default function HomeCookedLanding() {
                   >
                     {logo ? <Image source={{ uri: logo }} style={styles.sellerLogo} resizeMode="cover" accessibilityLabel={t("image")} /> : <View style={styles.sellerLogoFallback}><Ionicons name="storefront-outline" size={17} color={colors.teal} /></View>}
                     <View style={styles.sellerCopy}>
-                      <Text style={styles.sellerName}>{restaurantName(restaurant) || "TAMAM"}</Text>
+                      <Text style={styles.sellerName}>{kitchenLabel(restaurant, lang, restaurantName) || "TAMAM"}</Text>
                       {!open ? <Text style={styles.sellerMeta}>{t("restaurantClosed")}</Text> : (
                         (restaurant.delivery_time != null || restaurant.delivery_fee != null) ? (
                           <Text style={styles.sellerMeta}>
