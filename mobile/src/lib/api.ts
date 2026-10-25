@@ -2,6 +2,9 @@ import type {
   Category,
   Extra,
   ExtraGroup,
+  HomeCookedKitchen,
+  HomeCookedOffer,
+  HomeCookedProduct,
   Id,
   Meal,
   Mood,
@@ -107,6 +110,34 @@ export function createApi(key: string = SUPABASE_ANON_KEY) {
   return {
     restaurants: () =>
       get<Restaurant[]>("restaurants?select=*&active=eq.true&order=id.asc"),
+    homeCookedCatalog: async () => {
+      const [products, offers, kitchens] = await Promise.all([
+        get<HomeCookedProduct[]>(
+          "home_cooked_products?select=*&is_active=eq.true&order=sort_order.asc,id.asc",
+        ),
+        get<HomeCookedOffer[]>(
+          "home_cooked_offers?select=*&is_available=eq.true&order=sort_order.asc,id.asc",
+        ),
+        get<HomeCookedKitchen[]>(
+          "home_cooked_kitchens?select=*&is_active=eq.true&order=sort_order.asc",
+        ),
+      ]);
+      const restaurantIds = [...new Set(kitchens.map((kitchen) => String(kitchen.restaurant_id)))];
+      if (!restaurantIds.length) return [];
+      const restaurants = await get<Restaurant[]>(
+        `restaurants?select=*&active=eq.true&id=${inList(restaurantIds)}`,
+      );
+      const byId = new Map(restaurants.map((restaurant) => [String(restaurant.id), restaurant]));
+      return products.map((product) => ({
+        product,
+        offers: offers.flatMap((offer) => {
+          const restaurant = byId.get(String(offer.restaurant_id));
+          return String(offer.product_id) === String(product.id) && restaurant
+            ? [{ product, offer, restaurant }]
+            : [];
+        }),
+      })).filter((entry) => entry.offers.length > 0);
+    },
     restaurant: async (id: Id) => {
       const rows = await get<Restaurant[]>(`restaurants?select=*&id=${eq(id)}`);
       if (!rows?.[0]) throw new Error("errNotFound");

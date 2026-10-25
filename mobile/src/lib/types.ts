@@ -29,6 +29,40 @@ export interface Meal {
   price: number;
   is_available?: boolean;
 }
+export interface HomeCookedProduct {
+  id: Id;
+  source_menu_item_id?: Id | null;
+  category_name?: string | null;
+  category_name_ar?: string | null;
+  category_name_he?: string | null;
+  category_name_en?: string | null;
+  name?: string;
+  name_ar?: string | null;
+  name_he?: string | null;
+  name_en?: string | null;
+  description?: string | null;
+  description_ar?: string | null;
+  description_he?: string | null;
+  description_en?: string | null;
+  image_url?: string | null;
+  base_price: number;
+  sort_order?: number;
+  is_active?: boolean;
+}
+export interface HomeCookedOffer {
+  id: Id;
+  product_id: Id;
+  restaurant_id: Id;
+  price: number;
+  extras_source_menu_item_id?: Id | null;
+  is_available?: boolean;
+  sort_order?: number;
+}
+export interface HomeCookedKitchen {
+  restaurant_id: Id;
+  is_active?: boolean;
+  sort_order?: number;
+}
 export interface Category {
   id: Id;
   name?: string;

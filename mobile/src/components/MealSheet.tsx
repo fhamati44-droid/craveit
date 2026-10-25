@@ -8,16 +8,19 @@ import { useLoad } from "../lib/useLoad";
 import {
   type Extra,
   type ExtraGroup,
+  type Id,
   type Meal,
   type Restaurant,
 } from "../lib/types";
 export function MealSheet({
   meal,
   restaurant,
+  extrasSourceId,
   close,
 }: {
   meal: Meal;
   restaurant: Restaurant;
+  extrasSourceId?: Id | null;
   close: () => void;
 }) {
   const { api, add } = useStore();
@@ -27,7 +30,14 @@ export function MealSheet({
   const [note, setNote] = useState("");
   const [selected, setSelected] = useState<Record<string, Extra[]>>({});
   const [error, setError] = useState("");
-  const load = useCallback(() => api.extras(meal.id), [api, meal.id]);
+  const load = useCallback(
+    () => extrasSourceId === undefined
+      ? api.extras(meal.id)
+      : extrasSourceId === null
+        ? Promise.resolve([] as ExtraGroup[])
+        : api.extras(extrasSourceId),
+    [api, extrasSourceId, meal.id],
+  );
   const data = useLoad(load);
   const extras = Object.values(selected).flat();
   const unit =

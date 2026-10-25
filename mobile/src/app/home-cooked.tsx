@@ -9,68 +9,23 @@ import { useT } from "../lib/i18n";
 import { imageUrl } from "../lib/media";
 import { useStore } from "../lib/state";
 import { useLoad } from "../lib/useLoad";
-import type { Meal, Restaurant } from "../lib/types";
+import type { HomeCookedOffer, HomeCookedProduct, Id, Meal, Restaurant } from "../lib/types";
 
-type ProductOffer = { meal: Meal; restaurant: Restaurant };
-type ProductGroup = { key: string; offers: ProductOffer[] };
-
-// Keep this page scoped to the home kitchens requested for TAMAM. The broad
-// "أكل بيتي" aggregator, daily-menu entries, supermarkets and chain menus are
-// deliberately not included here.
-const homeKitchenAliases = new Set([
-  "مطبخ 11", "مطعم 11", "11 kitchen", "kitchen 11", "11",
-  // These are the legacy catalog records for 11 Kitchen and Miri. Their
-  // display names were repurposed as category labels, but the catalogs still
-  // contain the actual vendor products.
-  "kitchen11", "n_sandwich_bar",
-  "miri", "ميري", "مطبخ ميري",
-  "mazawi", "مزاوي", "مزوي", "لزاوي", "مطبخ مزاوي",
-  "maha", "مها", "مطبخ مها",
-  "mariana", "ماريانا", "مارينا", "مطبخ ماريانا",
-  "sahriyat", "سهريات", "مطبخ سهريات",
-  "am rami", "ibn al rami", "ابن الرامي", "ام الرامي", "أم الرامي", "مطبخ ام الرامي", "مطبخ أم الرامي",
-  "am shadi", "مشادي", "مطبخ مشادي",
-].map(normalizeLabel));
-
-const excludedRestaurantLabels = [
-  "قائمة البيتزا",
-  "قائمة السندويشات والبرغر",
-  "اكل بيتي",
-  "سوبرماركت",
-  "تشرين 2",
-  "شاورما شعبي",
-].map(normalizeLabel);
-
-function normalizeLabel(value: string) {
-  return value
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
-    .replace(/[إأآ]/g, "ا")
-    .replace(/ى/g, "ي")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-function isHomeKitchen(restaurant: Restaurant) {
-  const names = [restaurant.name_ar, restaurant.name, restaurant.slug]
-    .filter((value): value is string => Boolean(value))
-    .map(normalizeLabel);
-  const isKnownCatalog = names.includes("kitchen11") || names.includes("n sandwich bar");
-  if (!isKnownCatalog && names.some((name) => excludedRestaurantLabels.some((blocked) => name.includes(blocked)))) return false;
-  return names.some((name) => homeKitchenAliases.has(name));
-}
+type ProductOffer = { product: HomeCookedProduct; offer: HomeCookedOffer; restaurant: Restaurant };
+type ProductGroup = { product: HomeCookedProduct; offers: ProductOffer[] };
+type SelectedOffer = { meal: Meal; restaurant: Restaurant; extrasSourceId: Id | null };
 
 function kitchenLabel(restaurant: Restaurant, lang: string, localName: (x: Restaurant) => string) {
-  const slug = normalizeLabel(restaurant.slug || "");
-  if (slug === "kitchen11") return lang === "ar" ? "مطبخ 11" : lang === "he" ? "מטבח 11" : "11 Kitchen";
-  if (slug === "n sandwich bar") return lang === "ar" ? "ميري" : "Miri";
+  const slug = (restaurant.slug || "").toLocaleLowerCase();
+  const labels: Record<string, [string, string, string]> = {
+    "mazawi": ["مزاوي", "מזאווי", "Mazawi"],
+    "maha": ["مها", "מאהא", "Maha"],
+    "mariana": ["ماريانا", "מריאנה", "Mariana"],
+    "sahriyat": ["سهريات", "סהריאת", "Sahriyat"],
+  };
+  const label = labels[slug];
+  if (label) return label[lang === "ar" ? 0 : lang === "he" ? 1 : 2];
   return localName(restaurant);
-}
-
-function groupKey(meal: Meal) {
-  return normalizeLabel(meal.name_ar || meal.name || meal.name_en || meal.name_he || "");
 }
 
 export default function HomeCookedLanding() {
@@ -79,52 +34,17 @@ export default function HomeCookedLanding() {
   const pageScroll = useRef<ScrollView>(null);
   const productsOffset = useRef(0);
   const [selectedProduct, setSelectedProduct] = useState<ProductGroup | null>(null);
-  const [selectedOffer, setSelectedOffer] = useState<ProductOffer | null>(null);
+  const [selectedOffer, setSelectedOffer] = useState<SelectedOffer | null>(null);
 
-  const data = useLoad(useCallback(async () => {
-    const restaurants = (await api.restaurants()).filter(isHomeKitchen);
-    const results = await Promise.all(restaurants.map(async (restaurant) => {
-      try {
-        const categories = await api.menu(restaurant.id);
-        return categories.flatMap((category) => category.items
-          .filter((meal) => meal.is_available !== false)
-          .map((meal) => ({ meal, restaurant })));
-      } catch {
-        // A missing/unpublished menu for one kitchen should not hide the other kitchens.
-        return [] as ProductOffer[];
-      }
-    }));
-    return results.flat();
-  }, [api]));
-
-  const productGroups = useMemo(() => {
-    const groups = new Map<string, ProductGroup>();
-    for (const offer of data.value ?? []) {
-      const key = groupKey(offer.meal);
-      if (!key) continue;
-      const group = groups.get(key);
-      if (group) group.offers.push(offer);
-      else groups.set(key, { key, offers: [offer] });
-    }
-    return [...groups.values()].map((group) => {
-      const byRestaurant = new Map<string, ProductOffer>();
-      for (const offer of group.offers) {
-        const restaurantId = String(offer.restaurant.id);
-        const existing = byRestaurant.get(restaurantId);
-        if (!existing || Number(offer.meal.price) < Number(existing.meal.price)) {
-          byRestaurant.set(restaurantId, offer);
-        }
-      }
-      return { ...group, offers: [...byRestaurant.values()] };
-    });
-  }, [data.value]);
+  const data = useLoad(useCallback(() => api.homeCookedCatalog(), [api]));
+  const productGroups = data.value ?? [];
 
   const selectedOffers = useMemo(() => {
     if (!selectedProduct) return [];
-    return [...selectedProduct.offers].sort((a, b) => Number(a.meal.price) - Number(b.meal.price));
+    return [...selectedProduct.offers].sort((a, b) => Number(a.offer.price) - Number(b.offer.price));
   }, [selectedProduct]);
 
-  const heroProduct = data.value?.find((offer) => offer.meal.image_url)?.meal;
+  const heroProduct = productGroups.find((group) => group.product.image_url)?.product;
 
   return (
     <>
@@ -162,12 +82,11 @@ export default function HomeCookedLanding() {
         ) : null}
         <View style={styles.grid}>
           {productGroups.map((group) => {
-            const product = group.offers[0]?.meal;
-            if (!product) return null;
-            const price = Math.min(...group.offers.map((offer) => Number(offer.meal.price)));
+            const product = group.product;
+            const price = Math.min(...group.offers.map((offer) => Number(offer.offer.price)));
             return (
               <Pressable
-                key={group.key}
+                key={String(product.id)}
                 accessibilityRole="button"
                 accessibilityLabel={`${t("homeCookedChooseRestaurant")} · ${name(product)}`}
                 onPress={() => setSelectedProduct(group)}
@@ -205,7 +124,7 @@ export default function HomeCookedLanding() {
             <View style={styles.sheetHeader}>
               <View style={styles.sheetCopy}>
                 <Text style={styles.sheetTitle}>{t("homeCookedChooseRestaurantTitle")}</Text>
-                {selectedProduct ? <Text style={styles.sheetMeal}>{name(selectedProduct.offers[0].meal)}</Text> : null}
+                {selectedProduct ? <Text style={styles.sheetMeal}>{name(selectedProduct.product)}</Text> : null}
               </View>
               <Pressable accessibilityRole="button" accessibilityLabel={t("close")} onPress={() => setSelectedProduct(null)} style={styles.closeButton}>
                 <Ionicons name="close" size={20} color={colors.tealDeep} />
@@ -215,14 +134,34 @@ export default function HomeCookedLanding() {
             <ScrollView style={styles.sellerList} contentContainerStyle={styles.sellerListContent}>
               {selectedOffers.map((offer) => {
                 const restaurant = offer.restaurant;
+                const product = offer.product;
+                const meal: Meal = {
+                  id: `home-cooked-${product.id}`,
+                  name: product.name || undefined,
+                  name_ar: product.name_ar || undefined,
+                  name_he: product.name_he || undefined,
+                  name_en: product.name_en || undefined,
+                  description: product.description || undefined,
+                  description_ar: product.description_ar || undefined,
+                  image_url: product.image_url || undefined,
+                  price: Number(offer.offer.price),
+                  is_available: offer.offer.is_available,
+                };
                 const logo = imageUrl(restaurant.logo_url || restaurant.image_url || "");
                 const open = (restaurant.is_open ?? restaurant.active) !== false;
                 return (
                   <Pressable
-                    key={`${restaurant.id}:${offer.meal.id}`}
+                    key={`${restaurant.id}:${product.id}`}
                     accessibilityRole="button"
-                    disabled={!open || offer.meal.is_available === false}
-                    onPress={() => { setSelectedProduct(null); setSelectedOffer(offer); }}
+                    disabled={!open || offer.offer.is_available === false}
+                    onPress={() => {
+                      setSelectedProduct(null);
+                      setSelectedOffer({
+                        meal,
+                        restaurant,
+                        extrasSourceId: offer.offer.extras_source_menu_item_id ?? null,
+                      });
+                    }}
                     style={({ pressed }) => [styles.sellerCard, !open && styles.sellerCardDisabled, pressed && styles.pressed]}
                   >
                     {logo ? <Image source={{ uri: logo }} style={styles.sellerLogo} resizeMode="cover" accessibilityLabel={t("image")} /> : <View style={styles.sellerLogoFallback}><Ionicons name="storefront-outline" size={17} color={colors.teal} /></View>}
@@ -239,7 +178,7 @@ export default function HomeCookedLanding() {
                       )}
                     </View>
                     <View style={styles.sellerPrice}>
-                      <Text style={styles.sellerPriceText}>{money(Number(offer.meal.price)).replace(".00", "")}</Text>
+                      <Text style={styles.sellerPriceText}>{money(Number(offer.offer.price)).replace(".00", "")}</Text>
                       <Text style={styles.sellerSelect}>{open ? t("homeCookedChooseProduct") : t("restaurantClosed")}</Text>
                     </View>
                   </Pressable>
@@ -255,6 +194,7 @@ export default function HomeCookedLanding() {
           key={`${selectedOffer.restaurant.id}:${selectedOffer.meal.id}`}
           meal={selectedOffer.meal}
           restaurant={selectedOffer.restaurant}
+          extrasSourceId={selectedOffer.extrasSourceId}
           close={() => setSelectedOffer(null)}
         />
       ) : null}
