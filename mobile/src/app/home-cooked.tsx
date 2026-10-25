@@ -34,12 +34,24 @@ function productCategory(product: HomeCookedProduct, lang: string) {
     : lang === "en"
       ? [product.category_name_en, product.category_name, product.category_name_ar, product.category_name_he]
       : [product.category_name_ar, product.category_name, product.category_name_he, product.category_name_en];
-  return names.find((value) => value?.trim())?.trim() || (lang === "he" ? "מנות נוספות" : lang === "en" ? "More dishes" : "أطباق متنوعة");
+  const raw = names.find((value) => value?.trim())?.trim();
+  if (!raw) return lang === "he" ? "מנות נוספות" : lang === "en" ? "More dishes" : "أطباق متنوعة";
+  if (lang === "ar") {
+    const arabicFallbacks: Record<string, string> = {
+      "סלטים": "سلطات",
+      "מנות עיקריות": "وجبات أساسية",
+      "מאפים": "معجنات",
+      "תוספות": "إضافات",
+      "פסטה": "باستا",
+    };
+    return arabicFallbacks[raw] || raw;
+  }
+  return raw;
 }
 
 function categoryRank(category: string) {
   const label = category.toLocaleLowerCase();
-  if (/وجبات? (أساسية|رئيسية)|أطباق رئيسية|main dishes?|main course|מנה עיקרית/.test(label)) return 0;
+  if (/وجبات? (أساسية|رئيسية)|أطباق رئيسية|main dishes?|main course|מנות עיקריות|מנה עיקרית/.test(label)) return 0;
   if (/مشاوي|مشويات|grill|barbecue|בשרים/.test(label)) return 1;
   if (/معجنات|مخبوزات|pastr|bakery|מאפים/.test(label)) return 2;
   if (/مقبلات|appetizer|starters?|מזטים|ראשונות/.test(label)) return 3;
