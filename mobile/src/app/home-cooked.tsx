@@ -28,6 +28,26 @@ function kitchenLabel(restaurant: Restaurant, lang: string, localName: (x: Resta
   return localName(restaurant);
 }
 
+function productCategory(product: HomeCookedProduct, lang: string) {
+  const names = lang === "he"
+    ? [product.category_name_he, product.category_name, product.category_name_ar, product.category_name_en]
+    : lang === "en"
+      ? [product.category_name_en, product.category_name, product.category_name_ar, product.category_name_he]
+      : [product.category_name_ar, product.category_name, product.category_name_he, product.category_name_en];
+  return names.find((value) => value?.trim())?.trim() || (lang === "he" ? "מנות נוספות" : lang === "en" ? "More dishes" : "أطباق متنوعة");
+}
+
+function categoryRank(category: string) {
+  const label = category.toLocaleLowerCase();
+  if (/وجبات? (أساسية|رئيسية)|أطباق رئيسية|main dishes?|main course|מנה עיקרית/.test(label)) return 0;
+  if (/مشاوي|مشويات|grill|barbecue|בשרים/.test(label)) return 1;
+  if (/معجنات|مخبوزات|pastr|bakery|מאפים/.test(label)) return 2;
+  if (/مقبلات|appetizer|starters?|מזטים|ראשונות/.test(label)) return 3;
+  if (/سلط|salads?|סלט/.test(label)) return 4;
+  if (/حلويات|حلوى|dessert|קינוחים/.test(label)) return 5;
+  return 6;
+}
+
 export default function HomeCookedLanding() {
   const { api } = useStore();
   const { t, name, restaurantName, desc, lang } = useT();
@@ -38,6 +58,16 @@ export default function HomeCookedLanding() {
 
   const data = useLoad(useCallback(() => api.homeCookedCatalog(), [api]));
   const productGroups = data.value ?? [];
+  const categoryGroups = useMemo(() => {
+    const groups = new Map<string, ProductGroup[]>();
+    for (const group of productGroups) {
+      const category = productCategory(group.product, lang);
+      groups.set(category, [...(groups.get(category) || []), group]);
+    }
+    return [...groups.entries()]
+      .map(([category, products]) => ({ category, products }))
+      .sort((a, b) => categoryRank(a.category) - categoryRank(b.category) || a.category.localeCompare(b.category, lang));
+  }, [lang, productGroups]);
 
   const selectedOffers = useMemo(() => {
     if (!selectedProduct) return [];
@@ -80,39 +110,48 @@ export default function HomeCookedLanding() {
             <Text style={styles.emptyText}>{t("homeCookedNoProducts")}</Text>
           </View>
         ) : null}
-        <View style={styles.grid}>
-          {productGroups.map((group) => {
-            const product = group.product;
-            const price = Math.min(...group.offers.map((offer) => Number(offer.offer.price)));
-            return (
-              <Pressable
-                key={String(product.id)}
-                accessibilityRole="button"
-                accessibilityLabel={`${t("homeCookedChooseRestaurant")} · ${name(product)}`}
-                onPress={() => setSelectedProduct(group)}
-                style={({ pressed }) => [styles.productCard, pressed && styles.pressed]}
-              >
-                {product.image_url ? (
-                  <Image source={{ uri: imageUrl(product.image_url) }} style={styles.productImage} resizeMode="cover" accessibilityLabel={t("mealImage")} />
-                ) : (
-                  <View style={[styles.productImage, styles.imageFallback]}><Ionicons name="restaurant-outline" size={27} color={colors.teal} /></View>
-                )}
-                <View style={styles.productInfo}>
-                  <Text style={styles.productTitle} numberOfLines={2}>{name(product)}</Text>
-                  {desc(product) ? <Text style={styles.description} numberOfLines={2}>{desc(product)}</Text> : null}
-                  <View style={styles.productMeta}>
-                    <Text style={styles.price}>{money(price).replace(".00", "")}</Text>
-                    <Text style={styles.priceSuffix}>{t(group.offers.length === 1 ? "homeCookedOneKitchen" : "homeCookedManyKitchens", { n: group.offers.length })}</Text>
-                  </View>
-                  <View style={styles.chooseButton}>
-                    <Ionicons name="storefront-outline" size={16} color={colors.white} />
-                    <Text style={styles.chooseButtonText}>{t("homeCookedChooseRestaurant")}</Text>
-                  </View>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+        {categoryGroups.map(({ category, products }) => (
+          <View key={category} style={styles.categorySection}>
+            <View style={styles.categoryHeader}>
+              <View style={styles.goldRule} />
+              <Text accessibilityRole="header" style={styles.categoryTitle}>{category}</Text>
+              <View style={styles.categoryRule} />
+            </View>
+            <View style={styles.grid}>
+              {products.map((group) => {
+                const product = group.product;
+                const price = Math.min(...group.offers.map((offer) => Number(offer.offer.price)));
+                return (
+                  <Pressable
+                    key={String(product.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t("homeCookedChooseRestaurant")} · ${name(product)}`}
+                    onPress={() => setSelectedProduct(group)}
+                    style={({ pressed }) => [styles.productCard, pressed && styles.pressed]}
+                  >
+                    {product.image_url ? (
+                      <Image source={{ uri: imageUrl(product.image_url) }} style={styles.productImage} resizeMode="cover" accessibilityLabel={t("mealImage")} />
+                    ) : (
+                      <View style={[styles.productImage, styles.imageFallback]}><Ionicons name="restaurant-outline" size={27} color={colors.teal} /></View>
+                    )}
+                    <View style={styles.productInfo}>
+                      <Text style={styles.productTitle} numberOfLines={2}>{name(product)}</Text>
+                      {desc(product) ? <Text style={styles.description} numberOfLines={2}>{desc(product)}</Text> : null}
+                      <View style={styles.productMeta}>
+                        <Text style={styles.price}>{money(price).replace(".00", "")}</Text>
+                        <Text style={styles.priceSuffix}>{t(group.offers.length === 1 ? "homeCookedOneKitchen" : "homeCookedManyKitchens", { n: group.offers.length })}</Text>
+                      </View>
+                      <View style={styles.chooseButton}>
+                        <Ionicons name="storefront-outline" size={16} color={colors.white} />
+                        <Text style={styles.chooseButtonText}>{t("homeCookedChooseRestaurant")}</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ))}
         <Text style={styles.footer}>{t("homeCookedFooter")}</Text>
         <CampaignContact message={t("homeCookedWaMessage")} />
       </Page>
@@ -209,6 +248,10 @@ const styles = StyleSheet.create({
   eyebrow: { color: colors.teal, fontFamily: font.bold, fontSize: 10 },
   sectionTitle: { color: colors.tealDeep, fontFamily: font.black, fontSize: 18, textAlign: "right" },
   sectionSub: { color: colors.muted, fontFamily: font.regular, fontSize: 10, lineHeight: 16, textAlign: "right" },
+  categorySection: { gap: 10, marginTop: 10 },
+  categoryHeader: { flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingVertical: 5 },
+  categoryTitle: { color: colors.tealDeep, fontFamily: font.black, fontSize: 16, textAlign: "right" },
+  categoryRule: { flex: 1, height: 1, backgroundColor: "#D9CFBF" },
   grid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 9 },
   productCard: { width: "48%", flexGrow: 1, flexBasis: "46%", overflow: "hidden", backgroundColor: "#FFFDF8", borderRadius: 12, borderWidth: 1, borderColor: "#D9CFBF" },
   productImage: { width: "100%", height: 142, backgroundColor: "#EDE5D8" },
