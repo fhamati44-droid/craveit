@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ImageBackground, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,6 +9,7 @@ import { WHATSAPP_NUMBER } from "../lib/orders";
 
 export function CampaignHero({
   image,
+  images,
   eyebrow,
   title,
   description,
@@ -18,6 +19,7 @@ export function CampaignHero({
   onSecondaryAction,
 }: {
   image?: string;
+  images?: string[];
   eyebrow: string;
   title: string;
   description: string;
@@ -28,6 +30,14 @@ export function CampaignHero({
 }) {
   const { t } = useT();
   const [failed, setFailed] = useState(false);
+  const [slideIndex, setSlideIndex] = useState(0);
+  const slides = (images?.length ? images : image ? [image] : []).filter(Boolean);
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const timer = setInterval(() => setSlideIndex((current) => (current + 1) % slides.length), 5000);
+    return () => clearInterval(timer);
+  }, [slides.length]);
+  const activeImage = slides.length ? slides[slideIndex % slides.length] : undefined;
   const content = (
     <LinearGradient
       colors={["rgba(5,20,18,0.04)", "rgba(5,20,18,0.13)", "rgba(5,20,18,0.88)"]}
@@ -55,14 +65,28 @@ export function CampaignHero({
           <Text style={hero.secondaryText}>{secondaryLabel}</Text>
         </Pressable>
       ) : null}
+      {slides.length > 1 ? (
+        <View accessibilityRole="none" style={hero.dots}>
+          {slides.map((_, index) => (
+            <Pressable
+              key={index}
+              accessibilityRole="button"
+              accessibilityLabel={`${t("image")} ${index + 1}`}
+              accessibilityState={{ selected: index === slideIndex % slides.length }}
+              onPress={() => { setSlideIndex(index); setFailed(false); }}
+              style={[hero.dot, index === slideIndex % slides.length && hero.dotActive]}
+            />
+          ))}
+        </View>
+      ) : null}
     </LinearGradient>
   );
 
   return (
     <View style={hero.wrap}>
-      {image && !failed ? (
+      {activeImage && !failed ? (
         <ImageBackground
-          source={{ uri: imageUrl(image) }}
+          source={{ uri: imageUrl(activeImage) }}
           style={hero.photo}
           resizeMode="cover"
           onError={() => setFailed(true)}
@@ -120,6 +144,9 @@ const hero = StyleSheet.create({
   actionText: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 12 },
   secondaryAction: { alignSelf: "stretch", minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.48)", alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
   secondaryText: { color: colors.white, fontFamily: font.bold, fontSize: 10 },
+  dots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", paddingTop: 2 },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.58)" },
+  dotActive: { width: 18, backgroundColor: colors.gold },
   pressed: { opacity: 0.84, transform: [{ scale: 0.99 }] },
 });
 

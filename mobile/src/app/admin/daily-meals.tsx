@@ -9,6 +9,7 @@ import {
   saveAdminMenu, saveAdminMenuOptionOverride, saveAdminOption, sendAdminPasswordRecovery, setAdminPassword, signInAdmin, updateAdminReservationGroup, uploadDailyMealImage,
   type AdminSession, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type DailyReservation, type SharedDailyCategory,
 } from "../../lib/dailyMeals";
+import { emptyLandingCopy, getAdminLandingPageSettings, saveLandingPageSettings, uploadLandingHeroImage, type LandingCopy, type LandingLocale, type LandingPageKey, type LandingPageSettings } from "../../lib/landingSettings";
 
 const categoryKey: Record<DailyCategory, "dailySoup" | "dailyMain" | "dailyAddition" | "dailySalad"> = {
   soup: "dailySoup", main: "dailyMain", addition: "dailyAddition", salad: "dailySalad",
@@ -34,7 +35,12 @@ export default function DailyMealsAdmin() {
   const [reservations, setReservations] = useState<DailyReservation[]>([]);
   const [menuOptionOverrides, setMenuOptionOverrides] = useState<DailyMenuOptionOverride[]>([]);
   const [menuOptionDrafts, setMenuOptionDrafts] = useState<Partial<Record<SharedDailyCategory, number[] | null>>>({});
-  const [tab, setTab] = useState<"menus" | "reservations">("menus");
+  const [tab, setTab] = useState<"menus" | "reservations" | "landing">("menus");
+  const [landingPage, setLandingPage] = useState<LandingPageKey>("home-cooked");
+  const [landingLocale, setLandingLocale] = useState<LandingLocale>("ar");
+  const [landingPages, setLandingPages] = useState<Partial<Record<LandingPageKey, LandingPageSettings>>>({});
+  const [landingImageUrl, setLandingImageUrl] = useState("");
+  const [landingError, setLandingError] = useState("");
   const [menuId, setMenuId] = useState<number | null>(null);
   const [editingMenuId, setEditingMenuId] = useState<number | null>(null);
   const [menuDate, setMenuDate] = useState(today());
@@ -85,6 +91,16 @@ export default function DailyMealsAdmin() {
   // Load protected records after the sign-in state becomes available.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (session) void refresh(session); }, [session, refresh]);
+
+  useEffect(() => {
+    if (!session) return;
+    getAdminLandingPageSettings(session.access_token)
+      .then((rows) => {
+        setLandingPages(Object.fromEntries(rows.map((row) => [row.page_key, row])));
+        setLandingError("");
+      })
+      .catch((e) => setLandingError(e instanceof Error ? e.message : t("adminLoadError")));
+  }, [session, t]);
 
   const login = async () => {
     setBusy(true); setError("");
@@ -185,6 +201,74 @@ export default function DailyMealsAdmin() {
     } catch (e) { setError(e instanceof Error ? e.message : t("adminLoadError")); }
     finally { setBusy(false); }
   };
+  const activeLanding = landingPages[landingPage] || {
+    page_key: landingPage,
+    images: [],
+    copy: emptyLandingCopy,
+  };
+  const activeLandingCopy = activeLanding.copy?.[landingLocale] || emptyLandingCopy[landingLocale];
+  const updateLandingCopy = (field: keyof LandingCopy, value: string) => {
+    setLandingPages((current) => {
+      const page = current[landingPage] || { page_key: landingPage, images: [], copy: emptyLandingCopy };
+      return {
+        ...current,
+        [landingPage]: {
+          ...page,
+          copy: { ...page.copy, [landingLocale]: { ...page.copy[landingLocale], [field]: value } },
+        },
+      };
+    });
+  };
+  const updateLandingImages = (images: string[]) => {
+    setLandingPages((current) => {
+      const page = current[landingPage] || { page_key: landingPage, images: [], copy: emptyLandingCopy };
+      return { ...current, [landingPage]: { ...page, images } };
+    });
+  };
+  const addLandingUrl = () => {
+    try {
+      const url = new URL(landingImageUrl.trim());
+      if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error();
+      if (activeLanding.images.includes(url.toString())) return;
+      updateLandingImages([...activeLanding.images, url.toString()]);
+      setLandingImageUrl(""); setLandingError("");
+    } catch {
+      setLandingError(t("adminInvalidImageUrl"));
+    }
+  };
+  const chooseLandingImage = () => {
+    if (typeof document === "undefined" || !session) return;
+    const picker = document.createElement("input");
+    picker.type = "file"; picker.accept = "image/*";
+    picker.onchange = async () => {
+      const file = picker.files?.[0];
+      if (!file) return;
+      setBusy(true); setLandingError("");
+      try {
+        const url = await uploadLandingHeroImage(session.access_token, landingPage, file);
+        updateLandingImages([...activeLanding.images, url]);
+      } catch (e) { setLandingError(e instanceof Error ? e.message : t("adminImageUploadError")); }
+      finally { setBusy(false); }
+    };
+    picker.click();
+  };
+  const moveLandingImage = (index: number, direction: -1 | 1) => {
+    const next = [...activeLanding.images];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    updateLandingImages(next);
+  };
+  const saveLandingPage = async () => {
+    if (!session) return;
+    setBusy(true); setLandingError(""); setNotice("");
+    try {
+      const saved = await saveLandingPageSettings(session.access_token, activeLanding);
+      setLandingPages((current) => ({ ...current, [landingPage]: saved[0] || activeLanding }));
+      setNotice(t("adminSaved"));
+    } catch (e) { setLandingError(e instanceof Error ? e.message : t("adminLoadError")); }
+    finally { setBusy(false); }
+  };
   const chooseOptionImage = () => {
     if (typeof document === "undefined" || !session || (optionCategory === "main" && !menuId)) return;
     const picker = document.createElement("input");
@@ -272,6 +356,7 @@ export default function DailyMealsAdmin() {
       <View style={s.tabs}>
         <Pressable onPress={() => setTab("menus")} style={[s.tab, tab === "menus" && s.tabOn]}><Text style={[s.tabText, tab === "menus" && s.tabTextOn]}>{t("adminMenus")}</Text></Pressable>
         <Pressable onPress={() => setTab("reservations")} style={[s.tab, tab === "reservations" && s.tabOn]}><Text style={[s.tabText, tab === "reservations" && s.tabTextOn]}>{t("adminReservations")}</Text></Pressable>
+        <Pressable onPress={() => setTab("landing")} style={[s.tab, tab === "landing" && s.tabOn]}><Text style={[s.tabText, tab === "landing" && s.tabTextOn]}>{t("adminLandingSettings")}</Text></Pressable>
       </View>
       <View style={s.actions}>
         <Button label={t("adminRefresh")} onPress={() => { setLoading(true); setError(""); void refresh(session); }} tone="ghost" />
@@ -397,7 +482,7 @@ export default function DailyMealsAdmin() {
             </View>)}
           </View>
         </>
-      ) : (
+      ) : tab === "reservations" ? (
         <View style={s.section}>
           <Text style={s.sectionTitle}>{t("adminReservations")}</Text>
           {groupDailyReservations(reservations).map((group) => {
@@ -422,6 +507,57 @@ export default function DailyMealsAdmin() {
             </View>;
           })}
           {!reservations.length && !loading ? <Text style={s.muted}>{t("adminEmptyReservations")}</Text> : null}
+        </View>
+      ) : (
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>{t("adminLandingTitle")}</Text>
+          <Text style={s.muted}>{t("adminLandingHint")}</Text>
+          {landingError ? <Text style={s.error}>{landingError}</Text> : null}
+          <View style={s.tabs}>
+            {(["home-cooked", "daily-meal"] as const).map((pageKey) => {
+              const selected = landingPage === pageKey;
+              return <Pressable key={pageKey} onPress={() => { setLandingPage(pageKey); setLandingImageUrl(""); }} style={[s.tab, selected && s.tabOn]}>
+                <Text style={[s.tabText, selected && s.tabTextOn]}>{t(pageKey === "home-cooked" ? "adminLandingHomeCooked" : "adminLandingDailyMeal")}</Text>
+              </Pressable>;
+            })}
+          </View>
+          <View style={s.form}>
+            <Text style={s.label}>{t("adminLandingImages")}</Text>
+            <Pressable accessibilityRole="button" onPress={chooseLandingImage} disabled={busy} style={s.imageUpload}>
+              <Ionicons name="cloud-upload-outline" size={18} color={colors.teal} />
+              <Text style={s.link}>{t(busy ? "adminUploading" : "adminUploadImage")}</Text>
+            </Pressable>
+            <View style={s.rowBetween}>
+              <TextInput value={landingImageUrl} onChangeText={setLandingImageUrl} style={[s.input, { flex: 1 }]} placeholder={t("adminLandingImageUrl")} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
+              <Pressable accessibilityRole="button" accessibilityLabel={t("adminLandingAddImage")} onPress={addLandingUrl} style={s.iconButton}><Ionicons name="add" size={22} color={colors.teal} /></Pressable>
+            </View>
+            {activeLanding.images.map((url, index) => <View key={`${url}-${index}`} style={s.landingImageRow}>
+              <Image source={{ uri: url }} style={s.landingImagePreview} resizeMode="cover" accessibilityLabel={t("image")} />
+              <View style={s.landingImageActions}>
+                <Text numberOfLines={1} style={[s.muted, { flex: 1 }]}>{url}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={t("adminLandingMoveUp")} onPress={() => moveLandingImage(index, -1)} disabled={index === 0} style={s.iconButton}><Ionicons name="arrow-up" size={17} color={index === 0 ? colors.muted : colors.teal} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={t("adminLandingMoveDown")} onPress={() => moveLandingImage(index, 1)} disabled={index === activeLanding.images.length - 1} style={s.iconButton}><Ionicons name="arrow-down" size={17} color={index === activeLanding.images.length - 1 ? colors.muted : colors.teal} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={t("adminLandingRemoveImage")} onPress={() => updateLandingImages(activeLanding.images.filter((_, imageIndex) => imageIndex !== index))} style={s.iconButton}><Ionicons name="trash-outline" size={17} color={colors.error} /></Pressable>
+              </View>
+            </View>)}
+          </View>
+          <View style={s.form}>
+            <Text style={s.label}>{t("adminLandingTitle")}</Text>
+            <View style={s.tabs}>
+              {(["ar", "he", "en"] as const).map((locale) => <Pressable key={locale} onPress={() => setLandingLocale(locale)} style={[s.tab, landingLocale === locale && s.tabOn]}>
+                <Text style={[s.tabText, landingLocale === locale && s.tabTextOn]}>{locale === "ar" ? "العربية" : locale === "he" ? "עברית" : "English"}</Text>
+              </Pressable>)}
+            </View>
+            <Text style={s.label}>{t("adminLandingEyebrow")}</Text>
+            <TextInput value={activeLandingCopy.eyebrow} onChangeText={(value) => updateLandingCopy("eyebrow", value)} style={s.input} placeholder={t("adminLandingEyebrow")} />
+            <Text style={s.label}>{t("adminLandingHeadline")}</Text>
+            <TextInput value={activeLandingCopy.title} onChangeText={(value) => updateLandingCopy("title", value)} style={s.input} placeholder={t("adminLandingHeadline")} />
+            <Text style={s.label}>{t("adminLandingDescription")}</Text>
+            <TextInput value={activeLandingCopy.description} onChangeText={(value) => updateLandingCopy("description", value)} style={[s.input, { minHeight: 76 }]} multiline placeholder={t("adminLandingDescription")} />
+            <Text style={s.label}>{t("adminLandingButton")}</Text>
+            <TextInput value={activeLandingCopy.action_label} onChangeText={(value) => updateLandingCopy("action_label", value)} style={s.input} placeholder={t("adminLandingButton")} />
+          </View>
+          <Button label={busy ? t("sending") : t("adminSave")} onPress={() => void saveLandingPage()} disabled={busy} />
         </View>
       )}
     </Page>
@@ -456,6 +592,9 @@ const styles = StyleSheet.create({
   rowCardOn: { borderColor: colors.green, backgroundColor: colors.mint },
   optionImagePreview: { width: "100%", height: 180, borderRadius: 14, backgroundColor: colors.high },
   menuImagePreview: { width: "100%", height: 200, borderRadius: 14, backgroundColor: colors.high },
+  landingImageRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8, padding: 8, borderWidth: 1, borderColor: colors.outline, borderRadius: 13, backgroundColor: colors.surface },
+  landingImagePreview: { width: 76, height: 60, borderRadius: 9, backgroundColor: colors.high },
+  landingImageActions: { flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: 4 },
   optionListImage: { width: 48, height: 48, borderRadius: 12, backgroundColor: colors.high },
   imageUpload: { minHeight: 48, borderWidth: 1, borderStyle: "dashed", borderColor: colors.green, borderRadius: 14, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.mint },
   cardTitle: { color: colors.ink, fontFamily: font.bold, fontSize: 12, textAlign: "right" },

@@ -10,6 +10,7 @@ import { useT, localName, localRestaurantName } from "../lib/i18n";
 import { imageUrl } from "../lib/media";
 import { DAILY_CATEGORIES, getPublicMenuOptionOverrides, getPublicOptions, getPublishedMenus, getVisibleDailyCategories, getVisibleDailyOptions, isDailyMenuAvailableOnDate, submitDailyOrder, type DailyCartLine, type DailyCategory, type DailyMenu, type DailyMenuOptionOverride, type DailyOption, type SharedDailyCategory } from "../lib/dailyMeals";
 import { WHATSAPP_NUMBER } from "../lib/orders";
+import { getLandingPageSettings, localizedLandingCopy, type LandingPageSettings } from "../lib/landingSettings";
 
 const categoryKey: Record<DailyCategory, "dailySoup" | "dailyMain" | "dailyAddition" | "dailySalad"> = {
   soup: "dailySoup", main: "dailyMain", addition: "dailyAddition", salad: "dailySalad",
@@ -55,6 +56,8 @@ export default function DailyMeal() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [menuGridWidth, setMenuGridWidth] = useState(0);
+  const [landingSettings, setLandingSettings] = useState<LandingPageSettings | null>(null);
+  const [heroSlide, setHeroSlide] = useState(0);
   const handledLandingAction = useRef(false);
 
   const applyLandingAction = useCallback((rows: DailyMenu[], optionRows: DailyOption[]) => {
@@ -121,6 +124,15 @@ export default function DailyMeal() {
   const menu = menus.find((m) => m.id === menuId) || null;
   const dayMenus = menus.filter((item) => isDailyMenuAvailableOnDate(item, selectedDate));
   const featuredMeal = dayMenus[0] || null;
+  const heroImages = landingSettings?.images?.filter(Boolean).length
+    ? landingSettings.images.filter(Boolean)
+    : featuredMeal?.image_url ? [featuredMeal.image_url] : [];
+  const heroCopy = localizedLandingCopy(landingSettings, lang, {
+    eyebrow: t("dailyEyebrow"),
+    title: t("dailyLandingHeadline"),
+    description: t("dailySub"),
+    action_label: t("dailyChooseMeal"),
+  });
   const dayMenuGroups = Array.from(dayMenus.reduce((groups, item) => {
     const group = groups.get(item.restaurant_id) || [];
     group.push(item);
@@ -128,6 +140,16 @@ export default function DailyMeal() {
     return groups;
   }, new Map<number, DailyMenu[]>()));
   const visibleCategories = menu ? getVisibleDailyCategories(options, menuId, optionOverrides) : [];
+
+  useEffect(() => {
+    getLandingPageSettings("daily-meal").then(setLandingSettings).catch(() => setLandingSettings(null));
+  }, []);
+
+  useEffect(() => {
+    if (heroImages.length < 2 || step !== 0 || checkout) return;
+    const timer = setInterval(() => setHeroSlide((current) => (current + 1) % heroImages.length), 5000);
+    return () => clearInterval(timer);
+  }, [checkout, heroImages.length, step]);
   const detailStep = visibleCategories.length + 1;
   const currentCategory = visibleCategories[step - 1];
   const currentOverride = optionOverrides.find((row) => row.menu_id === menuId && row.category === currentCategory);
@@ -172,32 +194,35 @@ export default function DailyMeal() {
       {step === 0 && !checkout ? (
         <>
         <View style={s.landingHero}>
-          {featuredMeal?.image_url ? (
-            <ImageBackground source={{ uri: featuredMeal.image_url }} style={s.landingPhoto} imageStyle={s.landingPhotoImage} resizeMode="cover" accessibilityLabel={t("image")}>
+          {heroImages.length ? (
+            <ImageBackground source={{ uri: imageUrl(heroImages[heroSlide % heroImages.length]) }} style={s.landingPhoto} imageStyle={s.landingPhotoImage} resizeMode="cover" accessibilityLabel={t("image")}>
               <LinearGradient colors={["rgba(5,20,18,0.04)", "rgba(5,20,18,0.16)", "rgba(5,20,18,0.88)"]} locations={[0, 0.42, 1]} style={s.landingGradient}>
                 <View style={s.heroTopRow}>
                   <View style={s.todayBadge}><Ionicons name="calendar-outline" size={13} color={colors.white} /><Text style={s.todayBadgeText}>{t("dailyTodayShort")} · {dateLabel(selectedDate)}</Text></View>
-                  <Text style={s.heroKicker}>{t("dailyEyebrow")}</Text>
+                  <Text style={s.heroKicker}>{heroCopy.eyebrow}</Text>
                 </View>
                 <View style={s.landingCopy}>
-                  <Text style={s.landingTitle}>{t("dailyLandingHeadline")}</Text>
-                  <Text style={s.landingSubtitle}>{t("dailySub")}</Text>
-                  <View style={s.featuredMealRow}>
+                  <Text style={s.landingTitle}>{heroCopy.title}</Text>
+                  <Text style={s.landingSubtitle}>{heroCopy.description}</Text>
+                  {featuredMeal ? <View style={s.featuredMealRow}>
                     <View style={s.featuredMealCopy}>
                       <Text numberOfLines={1} style={s.featuredRestaurant}>{restaurants[String(featuredMeal.restaurant_id)]?.name || "TAMAM"}</Text>
                       <Text numberOfLines={1} style={s.featuredMealTitle}>{featuredMeal.title}</Text>
                     </View>
                     <Text style={s.featuredPrice}>{Number(featuredMeal.price)} ₪</Text>
-                  </View>
-                  <Pressable
+                  </View> : null}
+                  {featuredMeal ? <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`${t("dailyChooseMeal")} · ${featuredMeal.title}`}
                     onPress={() => { setMenuId(featuredMeal.id); setSelected({}); setQuantity(1); setStep(1); setError(""); }}
                     style={({ pressed }) => [s.featuredCta, pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] }]}
                   >
-                    <Text style={s.featuredCtaText}>{t("dailyChooseMeal")}</Text>
+                    <Text style={s.featuredCtaText}>{heroCopy.action_label}</Text>
                     <Ionicons name="arrow-back" size={17} color={colors.tealDeep} />
-                  </Pressable>
+                  </Pressable> : null}
+                  {heroImages.length > 1 ? <View style={s.heroDots}>
+                    {heroImages.map((_, index) => <Pressable key={index} accessibilityRole="button" accessibilityLabel={`${t("image")} ${index + 1}`} onPress={() => setHeroSlide(index)} style={[s.heroDot, index === heroSlide % heroImages.length && s.heroDotActive]} />)}
+                  </View> : null}
                 </View>
               </LinearGradient>
             </ImageBackground>
@@ -208,8 +233,8 @@ export default function DailyMeal() {
                 <Ionicons name="restaurant-outline" size={28} color={colors.bright} />
               </View>
               <View style={s.landingCopy}>
-                <Text style={s.landingTitle}>{t("dailyLandingHeadline")}</Text>
-                <Text style={s.landingSubtitle}>{t("dailySub")}</Text>
+                <Text style={s.landingTitle}>{heroCopy.title}</Text>
+                <Text style={s.landingSubtitle}>{heroCopy.description}</Text>
               </View>
             </View>
           )}
@@ -492,6 +517,9 @@ const styles = StyleSheet.create({
   featuredPrice: { color: colors.white, fontFamily: font.black, fontSize: 18 },
   featuredCta: { minHeight: 39, alignSelf: "flex-end", flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.bright, borderRadius: 9, paddingHorizontal: 15, marginTop: 3 },
   featuredCtaText: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 11 },
+  heroDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingTop: 5 },
+  heroDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.58)" },
+  heroDotActive: { width: 18, backgroundColor: colors.gold },
   hero: { backgroundColor: colors.tealDeep, borderRadius: 14, padding: 20, gap: 5, alignItems: "flex-end" },
   heroBrowse: { borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, gap: 4 },
   heroIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center", marginBottom: 6 },

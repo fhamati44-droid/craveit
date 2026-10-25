@@ -6,6 +6,7 @@ import { CampaignContact, CampaignHero } from "../components/CampaignLanding";
 import { MealSheet } from "../components/MealSheet";
 import { colors, font, money, Page, Status } from "../components/ui";
 import { useT } from "../lib/i18n";
+import { getLandingPageSettings, localizedLandingCopy } from "../lib/landingSettings";
 import { imageUrl } from "../lib/media";
 import { useStore } from "../lib/state";
 import { useLoad } from "../lib/useLoad";
@@ -70,6 +71,7 @@ export default function HomeCookedLanding() {
   const [selectedOffer, setSelectedOffer] = useState<SelectedOffer | null>(null);
 
   const data = useLoad(useCallback(() => api.homeCookedCatalog(), [api]));
+  const landingData = useLoad(useCallback(() => getLandingPageSettings("home-cooked").catch(() => null), []));
   const productGroups = data.value ?? [];
   const categoryGroups = useMemo(() => {
     const groups = new Map<string, ProductGroup[]>();
@@ -88,6 +90,14 @@ export default function HomeCookedLanding() {
   }, [selectedProduct]);
 
   const heroProduct = productGroups.find((group) => group.product.image_url)?.product;
+  const heroSettings = landingData.value;
+  const heroCopy = localizedLandingCopy(heroSettings, lang, {
+    eyebrow: t("homeCookedEyebrow"),
+    title: t("homeCookedTitle"),
+    description: t("homeCookedIntro"),
+    action_label: t("homeCookedBrowseProducts"),
+  });
+  const heroImages = heroSettings?.images?.filter(Boolean) || [];
 
   return (
     <>
@@ -99,11 +109,12 @@ export default function HomeCookedLanding() {
       </Head>
       <Page scrollRef={pageScroll}>
         <CampaignHero
-          image={heroProduct?.image_url ? imageUrl(heroProduct.image_url) : undefined}
-          eyebrow={t("homeCookedEyebrow")}
-          title={t("homeCookedTitle")}
-          description={t("homeCookedIntro")}
-          actionLabel={t("homeCookedBrowseProducts")}
+          image={heroImages.length ? undefined : heroProduct?.image_url ? imageUrl(heroProduct.image_url) : undefined}
+          images={heroImages.length ? heroImages : undefined}
+          eyebrow={heroCopy.eyebrow}
+          title={heroCopy.title}
+          description={heroCopy.description}
+          actionLabel={heroCopy.action_label}
           onAction={() => pageScroll.current?.scrollTo({ y: productsOffset.current, animated: true })}
         />
 
