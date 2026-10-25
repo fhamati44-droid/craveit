@@ -65,6 +65,7 @@ export default function HomeCookedLanding() {
   const { t, name, restaurantName, desc, lang } = useT();
   const pageScroll = useRef<ScrollView>(null);
   const productsOffset = useRef(0);
+  const categoryOffsets = useRef<Record<string, number>>({});
   const [selectedProduct, setSelectedProduct] = useState<ProductGroup | null>(null);
   const [selectedOffer, setSelectedOffer] = useState<SelectedOffer | null>(null);
 
@@ -115,6 +116,34 @@ export default function HomeCookedLanding() {
           <Text style={styles.sectionSub}>{t("homeCookedProductsSub")}</Text>
         </View>
 
+        {categoryGroups.length > 1 ? (
+          <View style={styles.categoryNavWrap}>
+            <Text style={styles.categoryNavLabel}>{t("homeCookedBrowseCategories")}</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryNav}
+              accessibilityLabel={t("homeCookedBrowseCategories")}
+            >
+              {categoryGroups.map(({ category }) => (
+                <Pressable
+                  key={category}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t("homeCookedBrowseCategories")}: ${category}`}
+                  onPress={() => {
+                    const offset = categoryOffsets.current[category];
+                    if (offset != null) pageScroll.current?.scrollTo({ y: Math.max(0, offset - 8), animated: true });
+                  }}
+                  style={({ pressed }) => [styles.categoryChip, pressed && styles.categoryChipPressed]}
+                >
+                  <Text style={styles.categoryChipText}>{category}</Text>
+                  <Ionicons name="chevron-down" size={13} color={colors.teal} />
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
         <Status loading={data.loading} error={data.error} retry={() => void data.reload()} />
         {!data.loading && !data.error && !productGroups.length ? (
           <View style={styles.empty}>
@@ -123,7 +152,11 @@ export default function HomeCookedLanding() {
           </View>
         ) : null}
         {categoryGroups.map(({ category, products }) => (
-          <View key={category} style={styles.categorySection}>
+          <View
+            key={category}
+            onLayout={(event) => { categoryOffsets.current[category] = event.nativeEvent.layout.y; }}
+            style={styles.categorySection}
+          >
             <View style={styles.categoryHeader}>
               <View style={styles.goldRule} />
               <Text accessibilityRole="header" style={styles.categoryTitle}>{category}</Text>
@@ -260,6 +293,12 @@ const styles = StyleSheet.create({
   eyebrow: { color: colors.teal, fontFamily: font.bold, fontSize: 10 },
   sectionTitle: { color: colors.tealDeep, fontFamily: font.black, fontSize: 18, textAlign: "right" },
   sectionSub: { color: colors.muted, fontFamily: font.regular, fontSize: 10, lineHeight: 16, textAlign: "right" },
+  categoryNavWrap: { gap: 6, paddingVertical: 8, marginTop: 5, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#D9CFBF" },
+  categoryNavLabel: { color: colors.muted, fontFamily: font.bold, fontSize: 9, textAlign: "right" },
+  categoryNav: { flexDirection: "row-reverse", alignItems: "center", gap: 7, paddingHorizontal: 2 },
+  categoryChip: { flexDirection: "row-reverse", alignItems: "center", gap: 4, minHeight: 34, paddingHorizontal: 11, borderRadius: 18, borderWidth: 1, borderColor: "#C7B99F", backgroundColor: "#FFFDF8" },
+  categoryChipPressed: { backgroundColor: "#E8F0EA", borderColor: colors.teal },
+  categoryChipText: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 10 },
   categorySection: { gap: 10, marginTop: 10 },
   categoryHeader: { flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingVertical: 5 },
   categoryTitle: { color: colors.tealDeep, fontFamily: font.black, fontSize: 16, textAlign: "right" },

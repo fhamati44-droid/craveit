@@ -154,6 +154,7 @@ const dict = d({
   homeCookedMealsSub: { ar: "اختار الوجبة أولًا، وبعدها اختار المطبخ والسعر اللي بناسبك.", he: "בחרו קודם מנה, ואז בחרו מטבח ומחיר שמתאימים לכם.", en: "Choose a dish first, then choose the kitchen and price that suit you." },
   homeCookedProductsTitle: { ar: "منتجات المطابخ البيتية", he: "מנות מהמטבחים הביתיים", en: "Dishes from home kitchens" },
   homeCookedProductsSub: { ar: "كل طبق ظاهر مرة واحدة. اختاره لتشوف أي مطبخ بقدّمه وبأي سعر.", he: "כל מנה מופיעה פעם אחת. בחרו אותה כדי לראות אילו מטבחים מציעים אותה ובאיזה מחיר.", en: "Each dish appears once. Select it to see which kitchens offer it and at what price." },
+  homeCookedBrowseCategories: { ar: "تصفّح الأقسام", he: "דפדוף לפי קטגוריה", en: "Browse categories" },
   homeCookedNoProducts: { ar: "ما في منتجات منشورة حاليًا من المطابخ البيتية.", he: "אין כרגע מנות שפורסמו מהמטבחים הביתיים.", en: "No home-kitchen dishes are published right now." },
   homeCookedBrowseProducts: { ar: "شوف الأكلات البيتية", he: "לצפייה במנות הביתיות", en: "Browse home-cooked dishes" },
   homeCookedChooseProduct: { ar: "اختار المنتج", he: "בחרו מנה", en: "Choose dish" },
