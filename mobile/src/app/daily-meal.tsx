@@ -170,6 +170,7 @@ export default function DailyMeal() {
         <meta property="og:description" content={t("dailyMealMetaDescription")} />
       </Head>
       {step === 0 && !checkout ? (
+        <>
         <View style={s.landingHero}>
           {featuredMeal?.image_url ? (
             <ImageBackground source={{ uri: featuredMeal.image_url }} style={s.landingPhoto} imageStyle={s.landingPhotoImage} resizeMode="cover" accessibilityLabel={t("image")}>
@@ -224,6 +225,17 @@ export default function DailyMeal() {
           </Pressable>
           </View>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("homeCookedBrowseProducts")}
+          onPress={() => router.push("/home-cooked")}
+          style={({ pressed }) => [s.homeCookedLink, pressed && { opacity: 0.84, transform: [{ scale: 0.99 }] }]}
+        >
+          <Ionicons name="storefront-outline" size={18} color={colors.teal} />
+          <Text style={s.homeCookedLinkText}>{t("homeCookedBrowseProducts")}</Text>
+          <Ionicons name="arrow-back" size={16} color={colors.teal} />
+        </Pressable>
+        </>
       ) : (
         <View style={s.hero}>
           <View style={s.heroIcon}><Ionicons name={step > 0 ? "restaurant-outline" : "bag-handle-outline"} size={25} color={colors.green} /></View>
@@ -492,6 +504,8 @@ const styles = StyleSheet.create({
   contactAction: { flexDirection: "row-reverse", alignItems: "center", gap: 5, minHeight: 30 },
   contactText: { color: colors.white, fontFamily: font.medium, fontSize: 10 },
   contactDivider: { width: 1, height: 17, backgroundColor: "rgba(255,255,255,0.25)" },
+  homeCookedLink: { minHeight: 46, marginTop: 9, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.gold, backgroundColor: "#FFFDF8", flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  homeCookedLinkText: { flex: 1, color: colors.tealDeep, fontFamily: font.bold, fontSize: 12, textAlign: "right" },
   progressRow: { flexDirection: "row-reverse", justifyContent: "space-between", marginVertical: 14, gap: 3 },
   progressItem: { alignItems: "center", flex: 1, gap: 5 },
   dot: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.high, alignItems: "center", justifyContent: "center" },
