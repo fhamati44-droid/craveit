@@ -15,6 +15,7 @@ import { moodIcon } from "../../lib/moods";
 import { useT } from "../../lib/i18n";
 import { WHATSAPP_NUMBER } from "../../lib/orders";
 import { getPublishedMenus } from "../../lib/dailyMeals";
+import { basketText } from "../../lib/basketCopy";
 
 function SectionTitle({
   label,
@@ -50,7 +51,7 @@ function SectionTitle({
 
 export default function Home() {
   const { api } = useStore();
-  const { t, name, sheet, f, fwd } = useT();
+  const { t, name, sheet, f, fwd, lang } = useT();
   const h = sheet(hs);
   const site = useLoad(useCallback(() => api.settings(), [api]));
   const restaurants = useLoad(useCallback(() => api.restaurants(), [api]));
@@ -130,6 +131,11 @@ export default function Home() {
           </View>
           {!heroImage ? <View style={h.heroMark}><TamamMark size={54} color={colors.white} /></View> : null}
       </View>
+
+      <Pressable accessibilityRole="button" accessibilityLabel={basketText(lang).start} onPress={() => router.push("/basket")} style={[h.section, { backgroundColor: colors.mint, borderRadius: 16, padding: 18, margin: 16 }]}>
+        <Text style={h.heading}>{basketText(lang).start}</Text>
+        <Text style={h.muted}>{basketText(lang).intro}</Text>
+      </Pressable>
 
       {moods.value?.length ? (
         <View style={h.section}>

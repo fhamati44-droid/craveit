@@ -14,6 +14,7 @@ import { Heebo_700Bold } from "@expo-google-fonts/heebo/700Bold";
 import { Heebo_800ExtraBold } from "@expo-google-fonts/heebo/800ExtraBold";
 import { colors } from "../components/ui";
 import { useT } from "../lib/i18n";
+import { basketText } from "../lib/basketCopy";
 
 function Screens() {
   const { t, lang } = useT();
@@ -41,6 +42,7 @@ function Screens() {
       <Stack.Screen name="daily-meal" options={{ title: t("dailyTitle") }} />
       <Stack.Screen name="home-cooked" options={{ title: t("homeCookedNavTitle") }} />
       <Stack.Screen name="family-meals" options={{ title: t("familyMealsNavTitle") }} />
+      <Stack.Screen name="basket" options={{ title: basketText(lang).title }} />
       <Stack.Screen name="admin/daily-meals" options={{ title: t("adminDailyMeals") }} />
     </Stack>
   );

@@ -4,6 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, colors, money, Page, Picture, Status, Txt, useS } from "./ui";
 import { useT } from "../lib/i18n";
 import { useStore } from "../lib/state";
+import type { Line } from "../lib/state";
+import { basketText } from "../lib/basketCopy";
 import { useLoad } from "../lib/useLoad";
 import {
   type Extra,
@@ -17,17 +19,29 @@ export function MealSheet({
   restaurant,
   extrasSourceId,
   close,
+  initialQuantity = 1,
+  minimumQuantity = 1,
+  budgetLimit,
+  draftSubtotal = 0,
+  initialNote = "",
+  onPrepared,
 }: {
   meal: Meal;
   restaurant: Restaurant;
   extrasSourceId?: Id | null;
   close: () => void;
+  initialQuantity?: number;
+  minimumQuantity?: number;
+  budgetLimit?: number;
+  draftSubtotal?: number;
+  initialNote?: string;
+  onPrepared?: (line: Omit<Line, "key">) => void;
 }) {
   const { api, add } = useStore();
-  const { t, name, desc } = useT();
+  const { t, name, desc, lang } = useT();
   const s = useS();
-  const [quantity, setQuantity] = useState(1);
-  const [note, setNote] = useState("");
+  const [quantity, setQuantity] = useState(initialQuantity);
+  const [note, setNote] = useState(initialNote);
   const [selected, setSelected] = useState<Record<string, Extra[]>>({});
   const [error, setError] = useState("");
   const load = useCallback(
@@ -60,6 +74,10 @@ export function MealSheet({
     });
   };
   const submit = () => {
+    if (quantity < minimumQuantity) { setError(basketText(lang).tooLittle); return; }
+    if (budgetLimit != null && Math.round((draftSubtotal + unit * quantity + Number(restaurant.delivery_fee || 0)) * 100) > Math.round(budgetLimit * 100)) {
+      setError(basketText(lang).budgetExceeded); return;
+    }
     const missing = data.value?.find(
       (group) =>
         (selected[String(group.id)] || []).length <
@@ -69,8 +87,9 @@ export function MealSheet({
       setError(t("chooseFirst", { name: name(missing) || missing.group_name }));
       return;
     }
-    add({ meal, restaurant, quantity, note: note.trim(), extras });
-    close();
+    const line = { meal, restaurant, quantity, note: note.trim(), extras };
+    if (onPrepared) onPrepared(line);
+    else { add(line); close(); }
   };
   return (
     <Modal animationType="slide" onRequestClose={close}>
@@ -132,7 +151,7 @@ export function MealSheet({
             <Txt>{quantity}</Txt>
             <Button
               label="−"
-              onPress={() => setQuantity((n) => Math.max(1, n - 1))}
+              onPress={() => setQuantity((n) => Math.max(minimumQuantity, n - 1))}
             />
           </View>
           {!!error && (

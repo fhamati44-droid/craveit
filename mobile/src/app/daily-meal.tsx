@@ -29,7 +29,7 @@ const addDays = (date: string, offset: number) => {
 };
 
 export default function DailyMeal() {
-  const params = useLocalSearchParams<{ focusMenuId?: string; focusDate?: string; quickAddMenuId?: string; quickAddMainId?: string; quickAddDate?: string }>();
+  const params = useLocalSearchParams<{ focusMenuId?: string; focusDate?: string; focusQuantity?: string; quickAddMenuId?: string; quickAddMainId?: string; quickAddDate?: string }>();
   const { api, customer, saveCustomer, lang } = useStore();
   const { t, sheet } = useT();
   const s = sheet(styles);
@@ -93,10 +93,12 @@ export default function DailyMeal() {
     } else {
       setMenuId(target.id);
       setSelected({});
+      const focusedQuantity = Number(params.focusQuantity);
+      setQuantity(Number.isInteger(focusedQuantity) && focusedQuantity >= 1 && focusedQuantity <= 99 ? focusedQuantity : 1);
       setStep(1);
     }
     router.replace("/daily-meal");
-  }, [params.focusDate, params.focusMenuId, params.quickAddDate, params.quickAddMainId, params.quickAddMenuId, weekStart]);
+  }, [params.focusDate, params.focusMenuId, params.focusQuantity, params.quickAddDate, params.quickAddMainId, params.quickAddMenuId, weekStart]);
 
   const load = useCallback(async () => {
     try {
