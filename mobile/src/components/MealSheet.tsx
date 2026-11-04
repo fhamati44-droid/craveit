@@ -25,6 +25,7 @@ export function MealSheet({
   draftSubtotal = 0,
   initialNote = "",
   onPrepared,
+  deliveryTotal,
 }: {
   meal: Meal;
   restaurant: Restaurant;
@@ -36,6 +37,7 @@ export function MealSheet({
   draftSubtotal?: number;
   initialNote?: string;
   onPrepared?: (line: Omit<Line, "key">) => void;
+  deliveryTotal?: number;
 }) {
   const { api, add } = useStore();
   const { t, name, desc, lang } = useT();
@@ -75,7 +77,7 @@ export function MealSheet({
   };
   const submit = () => {
     if (quantity < minimumQuantity) { setError(basketText(lang).tooLittle); return; }
-    if (budgetLimit != null && Math.round((draftSubtotal + unit * quantity + Number(restaurant.delivery_fee || 0)) * 100) > Math.round(budgetLimit * 100)) {
+    if (budgetLimit != null && Math.round((draftSubtotal + unit * quantity + (deliveryTotal ?? Number(restaurant.delivery_fee || 0))) * 100) > Math.round(budgetLimit * 100)) {
       setError(basketText(lang).budgetExceeded); return;
     }
     const missing = data.value?.find(

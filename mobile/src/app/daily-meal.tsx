@@ -30,7 +30,7 @@ const addDays = (date: string, offset: number) => {
 };
 
 export default function DailyMeal() {
-  const params = useLocalSearchParams<{ focusMenuId?: string; focusDate?: string; focusQuantity?: string; focusBudget?: string; quickAddMenuId?: string; quickAddMainId?: string; quickAddDate?: string }>();
+  const params = useLocalSearchParams<{ focusMenuId?: string; focusDate?: string; focusQuantity?: string; focusBudget?: string; plannerMeals?: string; quickAddMenuId?: string; quickAddMainId?: string; quickAddDate?: string }>();
   const { api, customer, saveCustomer, lang } = useStore();
   const { t, sheet } = useT();
   const s = sheet(styles);
@@ -53,6 +53,9 @@ export default function DailyMeal() {
   const [phone, setPhone] = useState(customer.phone);
   const [quantity, setQuantity] = useState(1);
   const [plannerBudget, setPlannerBudget] = useState<number | null>(null);
+  const [plannerPending, setPlannerPending] = useState<{ menuId: number; quantity: number }[]>([]);
+  const [plannerInProgress, setPlannerInProgress] = useState(false);
+  const [plannerMinimums, setPlannerMinimums] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -99,10 +102,28 @@ export default function DailyMeal() {
       setQuantity(Number.isInteger(focusedQuantity) && focusedQuantity >= 1 && focusedQuantity <= 99 ? focusedQuantity : 1);
       const focusedBudget = Number(params.focusBudget);
       setPlannerBudget(Number.isFinite(focusedBudget) && focusedBudget > 0 ? focusedBudget : null);
+      if (params.plannerMeals) {
+        try {
+          const batch: unknown = JSON.parse(params.plannerMeals);
+          if (!Array.isArray(batch) || batch.length < 1 || batch.length > 3 || !batch.every((entry) => entry && Number.isInteger(entry.menuId) && Number.isInteger(entry.quantity) && entry.quantity >= 1 && entry.quantity <= 99 && rows.some(row => row.id === entry.menuId && isDailyMenuAvailableOnDate(row, serviceDate)))) throw new Error("Invalid meal selection");
+          if (batch[0].menuId !== target.id) throw new Error("Meal selection mismatch");
+          if (new Set(batch.map(entry => entry.menuId)).size !== batch.length) throw new Error("Repeated meal selection");
+          setQuantity(batch[0].quantity);
+          setPlannerMinimums(Object.fromEntries(batch.map(entry => [entry.menuId, entry.quantity])));
+          setPlannerPending(batch.slice(1));
+          setPlannerInProgress(true);
+        } catch {
+          setError(basketText(lang).unavailable);
+          setStep(0);
+          setMenuId(null);
+          router.replace("/daily-meal");
+          return;
+        }
+      }
       setStep(1);
     }
     router.replace("/daily-meal");
-  }, [params.focusDate, params.focusMenuId, params.focusQuantity, params.focusBudget, params.quickAddDate, params.quickAddMainId, params.quickAddMenuId, weekStart]);
+  }, [lang, params.focusDate, params.focusMenuId, params.focusQuantity, params.focusBudget, params.plannerMeals, params.quickAddDate, params.quickAddMainId, params.quickAddMenuId, weekStart]);
 
   const load = useCallback(async () => {
     try {
@@ -171,11 +192,21 @@ export default function DailyMeal() {
 
   const addToCart = () => {
     if (!menu || !selected.main) { setError(t("dailyFinishChoices")); return; }
-    if (plannerBudget != null && Math.round((total + Number(menu.price) * quantity) * 100) > Math.round(plannerBudget * 100)) { setError(basketText(lang).budgetExceeded); return; }
+    if (quantity < (plannerMinimums[menu.id] || 1)) { setError(basketText(lang).tooLittle); return; }
+    const reserved = plannerPending.reduce((sum, next) => sum + Number(menus.find(row => row.id === next.menuId)?.price ?? Infinity) * next.quantity, 0);
+    if (plannerBudget != null && Math.round((total + Number(menu.price) * quantity + reserved) * 100) > Math.round(plannerBudget * 100)) { setError(basketText(lang).budgetExceeded); return; }
     setCart((old) => [...old, { menu_id: menu.id, service_date: selectedDate, quantity, selected_options: selected, unit_price: Number(menu.price) }]);
+    if (plannerPending.length) {
+      const [next, ...remaining] = plannerPending;
+      setPlannerPending(remaining); setMenuId(next.menuId); setSelected({}); setQuantity(next.quantity); setStep(1); setError("");
+      return;
+    }
+    setPlannerInProgress(false);
     setStep(0); setMenuId(null); setSelected({}); setQuantity(1); setError("");
   };
   const submit = async () => {
+    if (plannerInProgress) { setError(basketText(lang).incomplete); return; }
+    if (cart.some(row => row.quantity < (plannerMinimums[row.menu_id] || 1))) { setError(basketText(lang).tooLittle); return; }
     if (plannerBudget != null && Math.round(total * 100) > Math.round(plannerBudget * 100)) { setError(basketText(lang).budgetExceeded); return; }
     const cleanPhone = phone.replace(/[\s()-]/g, "");
     if (!name.trim()) { setError(t("errName")); return; }
@@ -280,7 +311,8 @@ export default function DailyMeal() {
       {cart.length && !checkout && !success ? <View style={s.cartCard}>
         <View style={s.rowBetween}><Text style={s.sectionTitle}>{t("dailyCart", { n: cart.reduce((sum, line) => sum + line.quantity, 0) })}</Text><Text style={s.total}>{total} ₪</Text></View>
         <Text style={s.body}>{cartRestaurantNames.join(" · ")}</Text>
-        <Button label={t("dailyCheckout", { n: cart.reduce((sum, line) => sum + line.quantity, 0) })} onPress={() => { setCheckout(true); setError(""); }} />
+        {plannerInProgress ? <Text style={s.body}>{basketText(lang).incomplete}</Text> : null}
+        <Button label={t("dailyCheckout", { n: cart.reduce((sum, line) => sum + line.quantity, 0) })} disabled={plannerInProgress} onPress={() => { setCheckout(true); setError(""); }} />
       </View> : null}
       {success ? (
         <View style={s.success}>
@@ -439,9 +471,9 @@ export default function DailyMeal() {
               <View style={s.quantityRow}>
                 <Text style={s.label}>{t("dailyQuantity")}</Text>
                 <View style={s.quantityControls}>
-                  <Pressable onPress={() => setQuantity((q) => Math.max(1, q - 1))} style={s.qtyButton}><Ionicons name="remove" size={18} color={colors.teal} /></Pressable>
+                  <Pressable onPress={() => setQuantity((q) => Math.max(plannerMinimums[menuId || 0] || 1, q - 1))} style={s.qtyButton}><Ionicons name="remove" size={18} color={colors.teal} /></Pressable>
                   <Text style={s.quantity}>{quantity}</Text>
-                  <Pressable onPress={() => setQuantity((q) => Math.min(20, q + 1))} style={s.qtyButton}><Ionicons name="add" size={18} color={colors.teal} /></Pressable>
+                  <Pressable onPress={() => setQuantity((q) => Math.min(99, q + 1))} style={s.qtyButton}><Ionicons name="add" size={18} color={colors.teal} /></Pressable>
                 </View>
               </View>
               <Text style={s.total}>{t("total")}: {Number(menu.price) * quantity} ₪</Text>
@@ -464,9 +496,9 @@ export default function DailyMeal() {
                   <View style={s.quantityRow}>
                     <Text style={s.body}>{t("dailyQuantity")}</Text>
                     <View style={s.quantityControls}>
-                      <Pressable accessibilityRole="button" accessibilityLabel={t("decrease")} onPress={() => setCart((old) => old.map((row, i) => i === index ? { ...row, quantity: Math.max(1, row.quantity - 1) } : row))} style={s.qtyButton}><Ionicons name="remove" size={18} color={colors.teal} /></Pressable>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t("decrease")} onPress={() => setCart((old) => old.map((row, i) => i === index ? { ...row, quantity: Math.max(plannerMinimums[row.menu_id] || 1, row.quantity - 1) } : row))} style={s.qtyButton}><Ionicons name="remove" size={18} color={colors.teal} /></Pressable>
                       <Text style={s.quantity}>{line.quantity}</Text>
-                      <Pressable accessibilityRole="button" accessibilityLabel={t("increase")} onPress={() => setCart((old) => old.map((row, i) => i === index ? { ...row, quantity: Math.min(20, row.quantity + 1) } : row))} style={s.qtyButton}><Ionicons name="add" size={18} color={colors.teal} /></Pressable>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t("increase")} onPress={() => setCart((old) => old.map((row, i) => i === index ? { ...row, quantity: Math.min(99, row.quantity + 1) } : row))} style={s.qtyButton}><Ionicons name="add" size={18} color={colors.teal} /></Pressable>
                       <Pressable accessibilityRole="button" accessibilityLabel={t("remove")} onPress={() => setCart((old) => old.filter((_, i) => i !== index))} style={s.qtyButton}><Ionicons name="trash-outline" size={17} color={colors.error} /></Pressable>
                     </View>
                   </View>
