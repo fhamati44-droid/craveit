@@ -1,3 +1,4 @@
+import { basketText } from "../lib/basketCopy";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import Head from "expo-router/head";
@@ -29,7 +30,7 @@ const addDays = (date: string, offset: number) => {
 };
 
 export default function DailyMeal() {
-  const params = useLocalSearchParams<{ focusMenuId?: string; focusDate?: string; focusQuantity?: string; quickAddMenuId?: string; quickAddMainId?: string; quickAddDate?: string }>();
+  const params = useLocalSearchParams<{ focusMenuId?: string; focusDate?: string; focusQuantity?: string; focusBudget?: string; quickAddMenuId?: string; quickAddMainId?: string; quickAddDate?: string }>();
   const { api, customer, saveCustomer, lang } = useStore();
   const { t, sheet } = useT();
   const s = sheet(styles);
@@ -51,6 +52,7 @@ export default function DailyMeal() {
   const [name, setName] = useState(customer.name);
   const [phone, setPhone] = useState(customer.phone);
   const [quantity, setQuantity] = useState(1);
+  const [plannerBudget, setPlannerBudget] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -95,10 +97,12 @@ export default function DailyMeal() {
       setSelected({});
       const focusedQuantity = Number(params.focusQuantity);
       setQuantity(Number.isInteger(focusedQuantity) && focusedQuantity >= 1 && focusedQuantity <= 99 ? focusedQuantity : 1);
+      const focusedBudget = Number(params.focusBudget);
+      setPlannerBudget(Number.isFinite(focusedBudget) && focusedBudget > 0 ? focusedBudget : null);
       setStep(1);
     }
     router.replace("/daily-meal");
-  }, [params.focusDate, params.focusMenuId, params.focusQuantity, params.quickAddDate, params.quickAddMainId, params.quickAddMenuId, weekStart]);
+  }, [params.focusDate, params.focusMenuId, params.focusQuantity, params.focusBudget, params.quickAddDate, params.quickAddMainId, params.quickAddMenuId, weekStart]);
 
   const load = useCallback(async () => {
     try {
@@ -167,10 +171,12 @@ export default function DailyMeal() {
 
   const addToCart = () => {
     if (!menu || !selected.main) { setError(t("dailyFinishChoices")); return; }
+    if (plannerBudget != null && Math.round((total + Number(menu.price) * quantity) * 100) > Math.round(plannerBudget * 100)) { setError(basketText(lang).budgetExceeded); return; }
     setCart((old) => [...old, { menu_id: menu.id, service_date: selectedDate, quantity, selected_options: selected, unit_price: Number(menu.price) }]);
     setStep(0); setMenuId(null); setSelected({}); setQuantity(1); setError("");
   };
   const submit = async () => {
+    if (plannerBudget != null && Math.round(total * 100) > Math.round(plannerBudget * 100)) { setError(basketText(lang).budgetExceeded); return; }
     const cleanPhone = phone.replace(/[\s()-]/g, "");
     if (!name.trim()) { setError(t("errName")); return; }
     if (cleanPhone.replace(/\D/g, "").length < 8) { setError(t("errPhone")); return; }
