@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import { buildMealBasket, recommendMealBaskets, pairingFit } from '../src/lib/multiBasketEngine.ts';
 import { DEFAULT_BASKET_INPUT } from '../src/lib/basketEngine.ts';
 const now=new Date('2026-11-05T11:00:00Z');
-const input={...DEFAULT_BASKET_INPUT,people:4,budget:240,mainDishes:2};
+const input={...DEFAULT_BASKET_INPUT,people:4,budget:240,mainDishes:2,autoTable:false};
 const profile={group:'A',role:'أساسي',servings:1,time:[1,5,4],day:[4,5],occasion:[3,5,5],satiety:4,flavor:3,fit:[5,4,3,4],light:3,treat:3,needsCooking:false};
 function food(uid,group,restaurantId,name,price=30,changes={}){return{uid,group,restaurantId,name,description:'',price,delivery:10,minimum:0,prep:15,transport:20,available:true,profile:{...profile,group},kind:'menu',...changes};}
 const a=()=>food('A1','A','1','دجاج مشوي');
@@ -22,3 +22,52 @@ test('daily reservations are not mixed with regular-cart meals',()=>{const baske
 test('three mains can form a correctly sized basket',()=>{const c=food('C','C','1','كباب',20);const result=recommendMealBaskets([a(),b(),c],{}, {...input,people:4,mainDishes:3},now);assert.equal(result[0].best.mainCount,3);assert.equal(result[0].best.servings,4);});
 test('a single diner is not forced to buy multiple full meals',()=>{const result=recommendMealBaskets([a(),b()],{}, {...input,people:1,mainDishes:3},now);assert.ok(result.every(g=>g.best.mainCount===1));});
 test('fractional prices and multiple delivery fees reconcile to cents',()=>{const basket=buildMealBasket([{offer:food('A','A','1','دجاج مشوي',10.1,{delivery:.3}),quantity:1},{offer:food('B','B','2','كوسا محشي',9.9,{delivery:.2}),quantity:2}],{...input,people:3},now);assert.equal(basket.total,30.4);});
+
+test('automatic family lunch builds five complementary items when affordable',()=>{
+ const main=food('M','M','1','جاج محمر',50,{profile:{...profile,servings:4}});
+ const side=(uid,name)=>food(uid,uid,'1',name,10,{profile:{...profile,role:'جانبي',servings:4}});
+ const offers=[main,side('S1','سلطة عربية'),side('S2','سلطة ملفوف'),side('H','حمص'),side('F','بطاطا')];
+ const result=recommendMealBaskets(offers,{}, {...input,autoTable:true,budget:150},now)[0].best;
+ assert.equal(result.lines.length,5);assert.equal(result.mainCount,1);assert.equal(result.total,100);assert.equal(result.servings,4);
+});
+test('included salads and bread are not purchased again; budget still controls table size',()=>{
+ const main=food('M','M','1','جاج محمر',50,{description:'يشمل 4 سلطات وخبز',profile:{...profile,servings:4}});
+ const side=food('S','S','1','سلطة عربية',10,{profile:{...profile,role:'جانبي',servings:4}});
+ const result=recommendMealBaskets([main,side],{}, {...input,autoTable:true,budget:60},now)[0].best;
+ assert.equal(result.lines.length,1);assert.equal(result.total,60);
+});
+test('social treat table includes dessert only if available and affordable',()=>{
+ const main=food('M','M','1','مشاوي',50,{profile:{...profile,servings:4}});
+ const side=(uid,name)=>food(uid,uid,'1',name,10,{profile:{...profile,role:'جانبي',servings:4}});
+ const offers=[main,side('S','سلطة عربية'),side('H','حمص'),side('D','كنافة')];
+ const options={...input,autoTable:true,occasion:'guests',goal:'treat',budget:100};
+ const result=recommendMealBaskets(offers,{},options,now)[0].best;
+ assert.equal(result.lines.length,4);assert.ok(result.lines.some(l=>l.offer.uid==='D'));
+ const tight=recommendMealBaskets(offers,{}, {...options,budget:60},now)[0].best;assert.equal(tight.lines.length,1);
+});
+test('work table does not add dessert just because it is available',()=>{
+ const main=food('M','M','1','دجاج مشوي',30);
+ const dessert=food('D','D','1','كنافة',10,{profile:{...profile,role:'جانبي'}});
+ const result=recommendMealBaskets([main,dessert],{}, {...input,autoTable:true,gathering:'work',people:1},now)[0].best;
+ assert.equal(result.lines.length,1);
+});
+
+test('brunch and snacks have different structures, with no artificial five-item target',async()=>{
+ const {tablePlan}=await import('../src/lib/multiBasketEngine.ts');
+ assert.deepEqual(tablePlan({...input,autoTable:true,period:'brunch'},now),['starter','bread']);
+ assert.deepEqual(tablePlan({...input,autoTable:true,period:'snack'},now),[]);
+ assert.deepEqual(tablePlan({...input,autoTable:true,period:'snack',goal:'treat'},now),['dessert']);
+});
+test('burgers do not automatically get tahini as a starter',()=>{
+ const main=food('B','B','1','برغر دجاج',30);
+ const tahini=food('T','T','1','طحينة',10,{profile:{...profile,role:'جانبي',servings:4}});
+ const result=recommendMealBaskets([main,tahini],{}, {...input,autoTable:true},now)[0].best;
+ assert.equal(result.lines.length,1);
+});
+test('removing one component preserves the other table components and recalculates the total',()=>{
+ const main=food('M','M','1','جاج محمر',50,{profile:{...profile,servings:4}});
+ const side=(uid,name)=>food(uid,uid,'1',name,10,{profile:{...profile,role:'جانبي',servings:4}});
+ const result=recommendMealBaskets([main,side('S','سلطة عربية'),side('H','حمص')],{}, {...input,autoTable:true},now)[0].best;
+ const edited=buildMealBasket(result.lines.filter(l=>l.offer.uid!=='S'),{...input,autoTable:true},now);
+ assert.equal(edited.lines.length,2);assert.equal(edited.total,result.total-10);assert.equal(edited.eligible,true);assert.ok(edited.lines.some(l=>l.offer.uid==='H'));
+});

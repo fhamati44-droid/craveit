@@ -47,9 +47,62 @@ export function redundantSide(main: Offer[], side: Offer): boolean {
   return /سلط|salad|סלט/.test(side.name) && /سلطات|أنواع سلط|סלטים|salads/i.test(descriptions)
     || /بطاطا|fries|ציפס/.test(side.name) && /بطاطا|مقليات|fries|ציפס/i.test(descriptions);
 }
+export type TableRole = "main" | "salad" | "starter" | "bread" | "starch" | "dessert" | "other";
+/** Conservative menu-name classification; descriptions only establish included components. */
+export function tableRole(o: Offer): TableRole {
+ const t=o.name.toLocaleLowerCase();
+ if(/تحلا|كنافة|كيك|بوظة|ايس كريم|كريب|وافل|dessert|cake|ice cream|קינוח|גלידה/.test(t))return "dessert";
+ if(/سلط|تبول|فتوش|salad|סלט/.test(t))return "salad";
+ if(/حمص|طحين|متبل|لبنة|مقبل|شورب|hummus|soup|טחינה|חומוס|מרק/.test(t))return "starter";
+ if(/خبز|طابون|بيتا|bread|pita|לחם|פיתה/.test(t)&&o.profile.role!=="أساسي")return "bread";
+ if(/بطاط|شيبس|أرز|رز |fries|rice|ציפס|אורז/.test(t)&&o.profile.role!=="أساسي")return "starch";
+ return o.profile.role==="أساسي"?"main":"other";
+}
+export function tablePlan(input: BasketInput, now=new Date(), hour=localOrderContext(now).hour): TableRole[] {
+ const period=input.period==="auto"?(hour>=5&&hour<11?"breakfast":hour>=11&&hour<17?"lunch":"dinner"):input.period;
+ const social=input.occasion==="guests"||input.gathering==="friends"||input.gathering==="women";
+ if(period==="snack")return input.goal==="treat"?["dessert"]:[];
+ if(input.goal==="light"||input.hunger<=2)return ["salad"];
+ if(input.gathering==="work")return period==="breakfast"?["starter","bread"]:["salad"];
+ if(period==="breakfast"||period==="brunch")return social?["starter","salad","bread"]:["starter","bread"];
+ if(social)return input.goal==="treat"?["starter","salad","dessert"]:["starter","salad"];
+ if(input.people===1)return ["salad"];
+ return period==="lunch"?["salad","salad","starter","starch"]:["salad","starter"];
+}
+function sideFits(mains:Offer[],side:Offer):boolean {
+ const families=mains.map(mealFamily),role=tableRole(side),name=side.name.toLocaleLowerCase();
+ if(role==="starch"&&families.every(f=>["pizza","pasta","handheld","stuffed"].includes(f)))return false;
+ if(role==="starter"&&mains.every(o=>/برغر|burger|تشاباتا|toast|טוסט/.test(o.name.toLocaleLowerCase())))return /شورب|soup|מרק/.test(name);
+ if(role==="starter"&&families.every(f=>["pizza","pasta"].includes(f)))return /شورب|soup|מרק/.test(name);
+ return true;
+}
+function desiredMainCount(input:BasketInput):number {
+ if(!input.autoTable)return Math.min(input.mainDishes??2,input.people);
+ const social=input.occasion==="guests"||input.gathering==="friends"||input.gathering==="women";
+ return input.people>=4&&(social||input.profile==="variety")&&input.hunger>2&&input.goal!=="light"?2:1;
+}
+function componentIdentity(o:Offer):string {
+ return o.name.toLocaleLowerCase().replace(/[0-9٠-٩.,]/g, "").replace(/غرام|جرام|كغم|كيلو|كبير[ة]?|صغير[ة]?|grams?|kg|gr|ml|لتر|\s+/g, "");
+}
+function includedCount(mains: Offer[],role:TableRole):number {
+ let count=0;
+ for(const o of mains){const t=o.description.toLocaleLowerCase().replace(/(?:بدون|بلا|no|without)\s+(?:سلط\S*|خبز|بطاط\S*|salads?|bread|fries)/g, "");
+  if(role==="salad"){const n=t.match(/([1-9])\s*(?:أنواع\s*)?سلط|([1-9])\s*salads?/);count+=n?Number(n[1]||n[2]):/سلطات|salads|סלטים/.test(t)?2:/سلطة|salad|סלט/.test(t)?1:0;}
+  if(role==="bread"&&/خبز|طابون|bread|pita|פיתה|לחם/.test(t))count++;
+  if(role==="starch"&&/بطاط|شيبس|أرز|رز |fries|rice|אורז|ציפס/.test(t))count++;
+ }
+ return count;
+}
+function tableCoverage(lines:BasketLine[],input:BasketInput,now:Date,hour:number):number {
+ const mains=mainLines(lines).map(l=>l.offer),used=new Map<TableRole,number>();let covered=0;
+ for(const role of tablePlan(input,now,hour)){const index=(used.get(role)||0)+1;used.set(role,index);
+  if(includedCount(mains,role)+lines.filter(l=>l.offer.profile.role!=="أساسي"&&tableRole(l.offer)===role).length>=index)covered++;
+ }
+ return covered/Math.max(1,tablePlan(input,now,hour).length);
+}
 function periodFit(o: Offer, input: BasketInput, context: ReturnType<typeof localOrderContext>) {
   const period = input.period === "auto" ? context.hour >= 5 && context.hour < 11 ? "breakfast" : context.hour >= 11 && context.hour < 17 ? "lunch" : "dinner" : input.period;
-  return o.profile.time[["breakfast","lunch","dinner"].indexOf(period)] || 0;
+  return period==="brunch"?Math.max(o.profile.time[0]||0,o.profile.time[1]||0):period==="snack"?Math.max(o.profile.time[0]||0,o.profile.time[2]||0):o.profile.time[["breakfast","lunch","dinner"].indexOf(period)] || 0;
 }
 function mealScore(o: Offer, input: BasketInput, context: ReturnType<typeof localOrderContext>, total: number) {
   const p = o.profile, target = input.goal === "light" ? Math.min(input.hunger,2) : input.hunger;
@@ -86,21 +139,21 @@ export function buildMealBasket(lines: BasketLine[], input: BasketInput, now=new
   for(let a=0;a<mains.length;a++)for(let b=a+1;b<mains.length;b++) { const fit=pairingFit(mains[a].offer,mains[b].offer);pairs++;pairTotal+=fit;if(fit<=0)forbidden=true; }
   if(pairs)compatibility=pairTotal/pairs;
   const weighted=mains.reduce((n,l)=>n+mealScore(l.offer,input,context,total)*(l.offer.profile.servings||0)*l.quantity,0)/Math.max(1,servings);
-  const desired=Math.min(input.mainDishes??2,input.people);
-  const score=Math.round(Math.max(0,Math.min(100,.85*weighted+3*compatibility-10*Math.max(0,servings/input.people-1)-5*Math.max(0,desired-mains.length)-4*Math.max(0,restaurants.length-1)))*10)/10;
+  const desired=desiredMainCount(input);
+  const score=Math.round(Math.max(0,Math.min(100,(input.autoTable ? .75 : .85)*weighted+3*compatibility+(input.autoTable?12*tableCoverage(lines,input,now,context.hour):0)-10*Math.max(0,servings/input.people-1)-5*Math.max(0,desired-mains.length)-4*Math.max(0,restaurants.length-1)))*10)/10;
   let reason:MealBasket["reason"]="";
   if(!validBasketInput(input))reason="invalid";
-  else if(!mains.length || mains.length>3 || lines.length>4 || lines.some(l=>!Number.isInteger(l.quantity)||l.quantity<1||l.quantity>99) || servings<input.people)reason="quantity";
+  else if(!mains.length || mains.length>3 || lines.length>5 || lines.some(l=>!Number.isInteger(l.quantity)||l.quantity<1||l.quantity>99) || servings<input.people)reason="quantity";
   else if(lines.some(l=>unavailable(l.offer)) || lines.some(l=>!["أساسي","جانبي"].includes(l.offer.profile.role)) || new Set(lines.map(l=>l.offer.uid)).size!==lines.length)reason="unavailable";
   else if(input.allergen.trim())reason="allergy";
   else if(lines.some(l=>disliked(l.offer,input)))reason="disliked";
   else if(mains.some(l=>l.offer.kind==="daily") && lines.some(l=>l.offer.kind!=="daily"))reason="flow";
   else if((input.allowMixed===false && restaurants.length>1) || forbidden || new Set(mains.map(l=>l.offer.group)).size!==mains.length)reason="pairing";
-  else if(lines.filter(l=>l.offer.profile.role==="جانبي").some(l=>!restaurants.some(id=>mains.some(m=>m.offer.restaurantId===id && id===l.offer.restaurantId)) || redundantSide(mains.map(m=>m.offer),l.offer)))reason="pairing";
+  else if(lines.filter(l=>l.offer.profile.role==="جانبي").some(l=>!restaurants.some(id=>mains.some(m=>m.offer.restaurantId===id && id===l.offer.restaurantId)) || (input.autoTable ? includedCount(mains.map(m=>m.offer),tableRole(l.offer)) >= tablePlan(input,now,context.hour).filter(r=>r===tableRole(l.offer)).length : redundantSide(mains.map(m=>m.offer),l.offer))))reason="pairing";
   else if([...byRestaurant.values()].some(r=>r.subtotal<r.minimum))reason="minimum";
   else if(cents(total)>cents(input.budget))reason="budget";
   else if(minutes>input.maxMinutes)reason="time";
-  else if(mains.some(l=>periodFit(l.offer,input,context)<=0))reason="period";
+  else if(lines.some(l=>periodFit(l.offer,input,context)<=0))reason="period";
   return {id:recipeKey(lines),group:groupKey(lines),lines,subtotal,delivery,total,minutes,servings,score:finite(score)?score:0,compatibility,restaurants,mainCount:mains.length,eligible:!reason,reason};
 }
 function compare(a:MealBasket,b:MealBasket,desired:number) {
@@ -125,10 +178,11 @@ function combinations(offers:Offer[],size:number,visit:(o:Offer[])=>void,start=0
   if(chosen.length===size){visit(chosen);return;}
   for(let i=start;i<offers.length;i++)combinations(offers,size,visit,i+1,[...chosen,offers[i]]);
 }
+const totalPrice=(lines:BasketLine[],side:Offer)=>lines.reduce((n,l)=>n+l.offer.price*l.quantity,0)+side.price;
 export function recommendMealBaskets(offers:Offer[],relations:Record<string,string[]>,input:BasketInput,now=new Date()):MealBasketGroup[]{
   if(!validBasketInput(input)||input.allergen.trim())return [];
-  const context=localOrderContext(now),desired=Math.min(input.mainDishes??2,input.people);
-  const mains=offers.filter(o=>o.profile.role==="أساسي"&&!unavailable(o)&&!disliked(o,input)&&periodFit(o,input,context)>0&&o.prep+o.transport<=input.maxMinutes&&cents(o.price)+cents(o.delivery)<=cents(input.budget));
+  const context=localOrderContext(now),desired=desiredMainCount(input);
+  const mains=offers.filter(o=>o.profile.role==="أساسي"&&tableRole(o)!=="dessert"&&!unavailable(o)&&!disliked(o,input)&&periodFit(o,input,context)>0&&o.prep+o.transport<=input.maxMinutes&&cents(o.price)+cents(o.delivery)<=cents(input.budget));
   const byUid=new Map(offers.map(o=>[o.uid,o]));
   const candidates=new Map<string,MealBasket>();
   function bestFor(combo:Offer[],includeSides=true,includeUnaffordable=false):MealBasket|undefined {
@@ -139,7 +193,23 @@ export function recommendMealBaskets(offers:Offer[],relations:Record<string,stri
       const lines=combo.map((offer,i)=>({offer,quantity:amounts[i]}));
       if(!includeUnaffordable && lines.reduce((n,l)=>n+cents(l.offer.price)*l.quantity,0)>cents(input.budget))continue;
       const variants=[buildMealBasket(lines,input,now,context)];
-      if(includeSides){const sides=[...new Set(combo.flatMap(o=>relations[o.uid]||[]))];for(const uid of sides){const side=byUid.get(uid);if(side && combo.some(o=>o.restaurantId===side.restaurantId) && !redundantSide(combo,side))variants.push(buildMealBasket([...lines,{offer:side,quantity:Math.ceil(input.people/(side.profile.servings||1))}],input,now,context));}}
+      if(includeSides && input.autoTable){
+       let frontier=[lines];const used=new Map<TableRole,number>();
+       for(const role of tablePlan(input,now,context.hour)){
+        const needed=(used.get(role)||0)+1;used.set(role,needed);
+        if(includedCount(combo,role)>=needed)continue;
+        const next:BasketLine[][]=[];
+        for(const partial of frontier){next.push(partial);if(partial.length>=5)continue;
+         const options=offers.filter(side=>side.profile.role==="جانبي"&&tableRole(side)===role&&combo.some(o=>o.restaurantId===side.restaurantId)&&!unavailable(side)&&!disliked(side,input)&&periodFit(side,input,context)>0&&!partial.some(l=>l.offer.uid===side.uid||l.offer.group===side.group||componentIdentity(l.offer)===componentIdentity(side))&&(side.kind==="daily")===(combo[0].kind==="daily"))
+          .filter(side=>sideFits(combo,side))
+          .sort((a,b)=>mealScore(b,input,context,totalPrice(partial,b))-mealScore(a,input,context,totalPrice(partial,a))||a.price-b.price).slice(0,4);
+         for(const side of options){const extended=[...partial,{offer:side,quantity:Math.ceil(input.people/(side.profile.servings||1))}];const b=buildMealBasket(extended,input,now,context);if(b.eligible||b.reason==="minimum")next.push(extended);}
+        }
+        frontier=next.map(v=>({v,b:buildMealBasket(v,input,now,context)})).sort((a,b)=>b.b.score-a.b.score||a.b.total-b.b.total).slice(0,8).map(x=>x.v);
+       }
+       variants.push(...frontier.map(v=>buildMealBasket(v,input,now,context)));
+      }
+      if(includeSides && !input.autoTable){const sides=[...new Set(combo.flatMap(o=>relations[o.uid]||[]))];for(const uid of sides){const side=byUid.get(uid);if(side && combo.some(o=>o.restaurantId===side.restaurantId) && !redundantSide(combo,side))variants.push(buildMealBasket([...lines,{offer:side,quantity:Math.ceil(input.people/(side.profile.servings||1))}],input,now,context));}}
       for(const b of variants)if(!best||compare(b,best,desired)<0)best=b;
     }
     return best;

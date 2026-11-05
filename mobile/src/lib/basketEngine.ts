@@ -2,10 +2,10 @@ export type ProfileId = "home" | "easy" | "value" | "variety";
 export type Goal = "full" | "light" | "treat" | "auto";
 export interface BasketInput {
   profile: ProfileId; people: number; budget: number; maxMinutes: number;
-  hunger: number; flavor: number; period: "auto" | "breakfast" | "lunch" | "dinner";
+  hunger: number; flavor: number; period: "auto" | "breakfast" | "brunch" | "lunch" | "snack" | "dinner";
   occasion: "solo" | "family" | "guests"; goal: Goal; disliked: string;
   allergen: string; lastMealHours: string; children: number; notes: string;
-  mainDishes?: number; allowMixed?: boolean;
+  mainDishes?: number; allowMixed?: boolean; autoTable?: boolean; gathering?: "home" | "work" | "friends" | "women";
 }
 export interface MealProfile {
   group: string; role: string; servings: number | null; time: number[];
@@ -28,7 +28,7 @@ export const DEFAULT_BASKET_INPUT: BasketInput = {
   profile: "home", people: 4, budget: 240, maxMinutes: 70, hunger: 4, flavor: 3,
   period: "auto", occasion: "family", goal: "full", disliked: "", allergen: "",
   lastMealHours: "", children: 0, notes: "",
-  mainDishes: 2, allowMixed: true,
+  mainDishes: 2, allowMixed: true, autoTable: true, gathering: "home",
 };
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 export function validBasketInput(x: BasketInput) {
@@ -37,13 +37,15 @@ export function validBasketInput(x: BasketInput) {
     && finite(x.budget) && x.budget > 0 && finite(x.maxMinutes) && x.maxMinutes > 0
     && finite(x.hunger) && x.hunger >= 0 && x.hunger <= 5
     && finite(x.flavor) && x.flavor >= 0 && x.flavor <= 5
-    && ["auto","breakfast","lunch","dinner"].includes(x.period)
+    && ["auto","breakfast","brunch","lunch","snack","dinner"].includes(x.period)
     && ["solo","family","guests"].includes(x.occasion)
     && ["full","light","treat","auto"].includes(x.goal)
     && Number.isInteger(x.children) && x.children >= 0
     && typeof x.lastMealHours === "string" && (x.lastMealHours === "" || (finite(Number(x.lastMealHours)) && Number(x.lastMealHours) >= 0))
     && typeof x.disliked === "string" && typeof x.allergen === "string" && typeof x.notes === "string"
     && (x.mainDishes === undefined || (Number.isInteger(x.mainDishes) && x.mainDishes >= 1 && x.mainDishes <= 3))
+    && (x.autoTable === undefined || typeof x.autoTable === "boolean")
+    && (x.gathering === undefined || ["home","work","friends","women"].includes(x.gathering))
     && (x.allowMixed === undefined || typeof x.allowMixed === "boolean");
 }
 export function localOrderContext(now = new Date()) {
@@ -64,7 +66,7 @@ export function buildBasket(primary: Offer, side: Offer | undefined, input: Bask
   const total = (subtotalCents + deliveryCents) / 100;
   const minutes = Math.max(primary.prep, side?.prep || 0) + primary.transport;
   const period = input.period === "auto" ? context.hour >= 5 && context.hour < 11 ? "breakfast" : context.hour >= 11 && context.hour < 17 ? "lunch" : "dinner" : input.period;
-  const time = p.time[["breakfast","lunch","dinner"].indexOf(period)];
+  const time = p.time[["breakfast","lunch","dinner"].indexOf(period === "brunch" ? "breakfast" : period === "snack" ? "dinner" : period)];
   const target = input.goal === "light" ? Math.min(input.hunger, 2) : input.hunger;
   const satiety = 5 - Math.abs(p.satiety - target), flavor = 5 - Math.abs(p.flavor - input.flavor);
   const occasion = p.occasion[["solo","family","guests"].indexOf(input.occasion)];
