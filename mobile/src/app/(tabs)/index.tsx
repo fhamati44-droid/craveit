@@ -137,6 +137,11 @@ export default function Home() {
         <Text style={h.muted}>{basketText(lang).intro}</Text>
       </Pressable>
 
+      <Pressable accessibilityRole="button" onPress={() => router.push("/market")} style={[h.section, {backgroundColor:colors.surface,borderRadius:16,padding:18,margin:16}]}>
+        <Text style={h.heading}>{lang==='en'?'Build a market basket':lang==='he'?'הרכבת סל מכולת':'رتّبي مقاضي البيت'}</Text>
+        <Text style={h.muted}>{lang==='en'?'Ready-made ideas. Save and repeat your basket.':lang==='he'?'סלים מוכנים, שמירה והזמנה חוזרת.':'سلال جاهزة، واحفظي سلتك لترجعي إلها.'}</Text>
+      </Pressable>
+
       {moods.value?.length ? (
         <View style={h.section}>
           <SectionTitle

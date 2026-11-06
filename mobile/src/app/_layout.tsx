@@ -42,6 +42,7 @@ function Screens() {
       <Stack.Screen name="daily-meal" options={{ title: t("dailyTitle") }} />
       <Stack.Screen name="home-cooked" options={{ title: t("homeCookedNavTitle") }} />
       <Stack.Screen name="family-meals" options={{ title: t("familyMealsNavTitle") }} />
+      <Stack.Screen name="market" options={{title:lang==='en'?'Market baskets':lang==='he'?'סלי מכולת':'سلال الماركت'}} />
       <Stack.Screen name="basket" options={{ title: basketText(lang).title }} />
       <Stack.Screen name="admin/daily-meals" options={{ title: t("adminDailyMeals") }} />
     </Stack>
