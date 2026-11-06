@@ -6,7 +6,9 @@ import {
   useMemo,
   useState,
   type ReactNode,
+  type Dispatch, type SetStateAction,
 } from "react";
+import {parseDailyCart,type StoredDailyLine} from "./dailyCartState";
 import { createApi, type Api } from "./api";
 import type { Extra, Meal, Restaurant } from "./types";
 import { ActivityIndicator, Platform } from "react-native";
@@ -43,6 +45,8 @@ interface Store {
   rememberOrders: (ids: number[]) => void;
   ready: boolean;
   lines: Line[];
+  dailyCart: StoredDailyLine[];
+  setDailyCart: Dispatch<SetStateAction<StoredDailyLine[]>>;
   add: (line: Omit<Line, "key">) => void;
   quantity: (key: string, amount: number) => void;
   clear: () => void;
@@ -53,13 +57,14 @@ interface Store {
 const Context = createContext<Store | null>(null);
 export function Provider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<Line[]>([]);
+  const [dailyCart,setDailyCart]=useState<StoredDailyLine[]>([]);
   const [ready, setReady] = useState(false);
   const [customer, setCustomer] = useState<Customer>(emptyCustomer);
   const [orderIds, setOrderIds] = useState<number[]>([]);
   const [lang, setLangState] = useState<Lang>("ar");
   useEffect(() => {
     let active = true;
-    AsyncStorage.multiGet(["craveit.cart", "tamam.customer", "tamam.orders", "tamam.lang"])
+    AsyncStorage.multiGet(["craveit.cart", "tamam.customer", "tamam.orders", "tamam.lang","tamam.daily.cart.v1"])
       .then((values) => {
         if (!active) return;
         try {
@@ -67,6 +72,7 @@ export function Provider({ children }: { children: ReactNode }) {
           if (values[1][1])
             setCustomer({ ...emptyCustomer, ...JSON.parse(values[1][1]) });
           if (values[2][1]) setOrderIds(JSON.parse(values[2][1]));
+          setDailyCart(parseDailyCart(values[4]?.[1]||null));
           const fromUrl = urlLang();
           const chosen = fromUrl || asLang(values[3][1]);
           if (chosen) setLangState(chosen);
@@ -90,6 +96,7 @@ export function Provider({ children }: { children: ReactNode }) {
         () => {},
       );
   }, [lines, ready]);
+  useEffect(()=>{if(ready)AsyncStorage.setItem("tamam.daily.cart.v1",JSON.stringify(dailyCart)).catch(()=>{});},[dailyCart,ready]);
   const api = useMemo(() => createApi(), []);
   // Keep the page's lang attribute in sync for screen readers and search.
   useEffect(() => {
@@ -116,7 +123,7 @@ export function Provider({ children }: { children: ReactNode }) {
         return next;
       }),
     ready,
-    lines,
+    lines, dailyCart, setDailyCart,
     add: (line) =>
       setLines((previous) => {
         const key = JSON.stringify([
@@ -142,7 +149,7 @@ export function Provider({ children }: { children: ReactNode }) {
       ),
     replaceCart: (items) => setLines(items.map(line=>({...line,key:JSON.stringify([line.restaurant.id,line.meal.id,line.extras.map(e=>String(e.id)).sort(),line.note])}))),
     clear: () => setLines([]),
-    count: lines.reduce((sum, line) => sum + line.quantity, 0),
+    count: lines.reduce((sum, line) => sum + line.quantity, 0)+dailyCart.reduce((sum,line)=>sum+line.quantity,0),
     subtotal: lines.reduce(
       (sum, line) =>
         sum +

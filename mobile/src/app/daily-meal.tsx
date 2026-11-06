@@ -30,8 +30,8 @@ const addDays = (date: string, offset: number) => {
 };
 
 export default function DailyMeal() {
-  const params = useLocalSearchParams<{ focusMenuId?: string; focusDate?: string; focusQuantity?: string; focusBudget?: string; plannerMeals?: string; quickAddMenuId?: string; quickAddMainId?: string; quickAddDate?: string }>();
-  const { api, customer, saveCustomer, lang } = useStore();
+  const params = useLocalSearchParams<{ focusMenuId?: string; focusDate?: string; focusQuantity?: string; focusBudget?: string; plannerMeals?: string; quickAddMenuId?: string; quickAddMainId?: string; quickAddDate?: string; openCart?:string }>();
+  const { api, customer, saveCustomer, lang, dailyCart:cart, setDailyCart:setCart } = useStore();
   const { t, sheet } = useT();
   const s = sheet(styles);
   const [weekStart] = useState(initialDate);
@@ -44,8 +44,7 @@ export default function DailyMeal() {
   const [menuId, setMenuId] = useState<number | null>(null);
   const [step, setStep] = useState(0);
   const [selected, setSelected] = useState<Partial<Record<DailyCategory, number>>>({});
-  const [cart, setCart] = useState<DailyCartLine[]>([]);
-  const [checkout, setCheckout] = useState(false);
+  const [checkout, setCheckout] = useState(params.openCart==='1');
   const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">("delivery");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
@@ -55,11 +54,13 @@ export default function DailyMeal() {
   const [plannerBudget, setPlannerBudget] = useState<number | null>(null);
   const [plannerPending, setPlannerPending] = useState<{ menuId: number; quantity: number }[]>([]);
   const [plannerInProgress, setPlannerInProgress] = useState(false);
+  const [plannerDraft,setPlannerDraft]=useState<DailyCartLine[]>([]);
   const [plannerMinimums, setPlannerMinimums] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [receipt,setReceipt]=useState({n:0,p:0});
   const [menuGridWidth, setMenuGridWidth] = useState(0);
   const [landingSettings, setLandingSettings] = useState<LandingPageSettings | null>(null);
   const [heroSlide, setHeroSlide] = useState(0);
@@ -85,9 +86,9 @@ export default function DailyMeal() {
           service_date: serviceDate,
           quantity: 1,
           selected_options: { main: mainOption.id },
-          unit_price: Number(target.price),
+          unit_price: Number(target.price),menu_title:target.title,
         }]);
-        setStep(0);
+        setStep(0);setCheckout(true);
         setMenuId(null);
         setSelected({});
       } else {
@@ -111,7 +112,7 @@ export default function DailyMeal() {
           setQuantity(batch[0].quantity);
           setPlannerMinimums(Object.fromEntries(batch.map(entry => [entry.menuId, entry.quantity])));
           setPlannerPending(batch.slice(1));
-          setPlannerInProgress(true);
+          setPlannerDraft([]);setPlannerInProgress(true);
         } catch {
           setError(basketText(lang).unavailable);
           setStep(0);
@@ -123,7 +124,7 @@ export default function DailyMeal() {
       setStep(1);
     }
     router.replace("/daily-meal");
-  }, [lang, params.focusDate, params.focusMenuId, params.focusQuantity, params.focusBudget, params.plannerMeals, params.quickAddDate, params.quickAddMainId, params.quickAddMenuId, weekStart]);
+  }, [lang, params.focusDate, params.focusMenuId, params.focusQuantity, params.focusBudget, params.plannerMeals, params.quickAddDate, params.quickAddMainId, params.quickAddMenuId, weekStart, setCart]);
 
   const load = useCallback(async () => {
     try {
@@ -186,7 +187,7 @@ export default function DailyMeal() {
   const weekdayLabel = (date: string) => new Intl.DateTimeFormat(lang === "ar" ? "ar" : lang === "he" ? "he" : "en", { timeZone: "Asia/Jerusalem", weekday: "short" }).format(new Date(`${date}T12:00:00`)).replace(/\.$/, "");
   const stepNames = ["dailyDate", ...visibleCategories.map((category) => categoryKey[category]), "dailyYourDetails"] as const;
   // Measure actual grid width so the centered web shell does not use the full window width.
-  const menuCardWidth = menuGridWidth >= 680 ? "32%" : "48%";
+
   const total = cart.reduce((sum, line) => sum + line.unit_price * line.quantity, 0);
   const cartRestaurantNames = [...new Set(cart.map((line) => restaurants[String(menus.find((m) => m.id === line.menu_id)?.restaurant_id)]?.name || "TAMAM"))];
 
@@ -194,20 +195,22 @@ export default function DailyMeal() {
     if (!menu || !selected.main) { setError(t("dailyFinishChoices")); return; }
     if (quantity < (plannerMinimums[menu.id] || 1)) { setError(basketText(lang).tooLittle); return; }
     const reserved = plannerPending.reduce((sum, next) => sum + Number(menus.find(row => row.id === next.menuId)?.price ?? Infinity) * next.quantity, 0);
-    if (plannerBudget != null && Math.round((total + Number(menu.price) * quantity + reserved) * 100) > Math.round(plannerBudget * 100)) { setError(basketText(lang).budgetExceeded); return; }
-    setCart((old) => [...old, { menu_id: menu.id, service_date: selectedDate, quantity, selected_options: selected, unit_price: Number(menu.price) }]);
+    if (plannerBudget != null && Math.round((total + plannerDraft.reduce((n,l)=>n+l.unit_price*l.quantity,0) + Number(menu.price) * quantity + reserved) * 100) > Math.round(plannerBudget * 100)) { setError(basketText(lang).budgetExceeded); return; }
+    const nextLine={menu_id:menu.id,service_date:selectedDate,quantity,selected_options:selected,unit_price:Number(menu.price),menu_title:menu.title};
     if (plannerPending.length) {
+      setPlannerDraft(old=>[...old,nextLine]);
       const [next, ...remaining] = plannerPending;
       setPlannerPending(remaining); setMenuId(next.menuId); setSelected({}); setQuantity(next.quantity); setStep(1); setError("");
       return;
     }
-    setPlannerInProgress(false);
-    setStep(0); setMenuId(null); setSelected({}); setQuantity(1); setError("");
+    setCart(old=>[...old,...plannerDraft,nextLine]);setPlannerDraft([]);setPlannerInProgress(false);
+    setStep(0); setMenuId(null); setSelected({}); setQuantity(1); setCheckout(true); setError("");
   };
   const submit = async () => {
     if (plannerInProgress) { setError(basketText(lang).incomplete); return; }
     if (cart.some(row => row.quantity < (plannerMinimums[row.menu_id] || 1))) { setError(basketText(lang).tooLittle); return; }
     if (plannerBudget != null && Math.round(total * 100) > Math.round(plannerBudget * 100)) { setError(basketText(lang).budgetExceeded); return; }
+    if(cart.some(row=>{const current=menus.find(m=>m.id===row.menu_id);return !current||!isDailyMenuAvailableOnDate(current,row.service_date||selectedDate)||Math.round(Number(current.price)*100)!==Math.round(row.unit_price*100);})){setError(basketText(lang).unavailable);return;}
     const cleanPhone = phone.replace(/[\s()-]/g, "");
     if (!name.trim()) { setError(t("errName")); return; }
     if (cleanPhone.replace(/\D/g, "").length < 8) { setError(t("errPhone")); return; }
@@ -217,7 +220,7 @@ export default function DailyMeal() {
     try {
       await submitDailyOrder({ lines: cart, customer_name: name.trim(), phone: cleanPhone, delivery_method: deliveryMethod, delivery_address: address, customer_notes: notes });
       saveCustomer({ ...customer, name: name.trim(), phone: cleanPhone });
-      setSuccess(true);
+      setReceipt({n:cart.reduce((sum,l)=>sum+l.quantity,0),p:total});setCart([]);setSuccess(true);
     } catch (e) { setError(e instanceof Error ? e.message : t("errServer")); }
     finally { setSending(false); }
   };
@@ -319,7 +322,7 @@ export default function DailyMeal() {
           <Ionicons name="checkmark-circle" size={48} color={colors.green} />
           <Text style={s.title}>{t("dailyThanks")}</Text>
           <Text style={s.body}>{t("dailyReservationReceived")}</Text>
-          <Text style={s.body}>{t("dailyOrderSummary", { n: cart.reduce((sum, line) => sum + line.quantity, 0), p: total })}</Text>
+          <Text style={s.body}>{t("dailyOrderSummary", { n: receipt.n, p: receipt.p })}</Text>
           <Button label={t("backHome")} onPress={() => router.replace("/")} tone="ghost" />
         </View>
       ) : (
@@ -395,12 +398,12 @@ export default function DailyMeal() {
                     </View>
                     <Text style={s.restaurantCount}>{t("dailyDayMealsCount", { n: restaurantMenus.length })}</Text>
                   </View>
-                  <View style={s.menuGrid} onLayout={(event) => {
+                  <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={s.mealCarousel} onLayout={(event) => {
                     const nextWidth = Math.round(event.nativeEvent.layout.width);
                     if (nextWidth !== menuGridWidth) setMenuGridWidth(nextWidth);
                   }}>
                     {restaurantMenus.map((item) => (
-                      <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title} · ${t("dailyChooseMeal")}`} onPress={() => { setMenuId(item.id); setSelected({}); setQuantity(1); setStep(1); setError(""); }} style={[s.menuCard, { width: menuCardWidth }, menuId === item.id && s.selectedCard]}>
+                      <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title} · ${t("dailyChooseMeal")}`} onPress={() => { setMenuId(item.id); setSelected({}); setQuantity(1); setStep(1); setError(""); }} style={[s.menuCard, { width: 280 }, menuId === item.id && s.selectedCard]}>
                         {item.image_url
                           ? <Image nativeID={`daily-menu-photo-${item.id}`} source={{ uri: item.image_url }} style={s.menuPhoto} resizeMode="cover" accessibilityLabel={t("image")} />
                           : <View style={s.menuPhotoPlaceholder}><Ionicons name="restaurant" size={34} color={colors.teal} /></View>}
@@ -431,7 +434,7 @@ export default function DailyMeal() {
                         </View>
                       </Pressable>
                     ))}
-                  </View>
+                  </ScrollView>
                 </View>
               ))}
             </View>
@@ -538,6 +541,7 @@ export default function DailyMeal() {
 }
 
 const styles = StyleSheet.create({
+  mealCarousel:{flexDirection:"row-reverse",gap:12,paddingBottom:8},
   landingHero: { backgroundColor: colors.tealDeep, borderRadius: 17, overflow: "hidden", borderWidth: 1, borderColor: "rgba(7,29,27,0.14)" },
   landingPhoto: { minHeight: 254, justifyContent: "space-between", overflow: "hidden" },
   landingPhotoImage: { borderRadius: 17 },

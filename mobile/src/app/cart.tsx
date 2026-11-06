@@ -7,11 +7,11 @@ import { useT } from "../lib/i18n";
 import { groupByRestaurant, lineTotal } from "../lib/orders";
 
 export default function Cart() {
-  const { lines, quantity, subtotal } = useStore();
+  const { lines, quantity, subtotal, dailyCart } = useStore();
   const { t, name, sheet } = useT();
   const s = useS();
   const c = sheet(cs);
-  if (!lines.length)
+  if (!lines.length&&!dailyCart.length)
     return (
       <Page>
         <View style={c.empty}>
@@ -21,14 +21,18 @@ export default function Cart() {
           <Text style={c.emptyTitle}>{t("cartEmpty")}</Text>
           <Text style={c.muted}>{t("cartEmptySub")}</Text>
         </View>
-        <Button label={t("playTamam")} tone="green" onPress={() => router.push("/game")} />
+        <Button label={t("dailyTitle")} tone="green" onPress={() => router.push("/daily-meal")} />
+        <Button label={t("screenSuggestions")} onPress={() => router.push("/basket")} />
         <Button label={t("browseRestaurants")} tone="ghost" onPress={() => router.push("/restaurants")} />
       </Page>
     );
+  const dailySection=dailyCart.length?<View style={s.card}><Text style={s.heading}>{t("dailyTitle")}</Text>{dailyCart.map((line,i)=><View key={`${line.menu_id}-${i}`}><Text style={s.text}>{line.menu_title||t("dailyTitle")} · ×{line.quantity}</Text><Text style={s.muted}>{line.service_date} · {money(line.unit_price*line.quantity)}</Text></View>)}<Button label={t("dailyCheckout",{n:dailyCart.reduce((n,l)=>n+l.quantity,0)})} onPress={()=>router.push({pathname:'/daily-meal',params:{openCart:'1'}})}/></View>:null;
+  if(!lines.length)return <Page>{dailySection}</Page>;
   const groups = groupByRestaurant(lines);
   return (
     <Page>
       <Text style={s.heading}>{t("yourCart")}</Text>
+      {dailySection}
       {groups.map((group) => (
         <View key={String(group[0].restaurant.id)} style={s.card}>
           <View style={c.restRow}>
