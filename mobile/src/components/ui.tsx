@@ -12,21 +12,22 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { imageUrl } from "../lib/media";
 import { useT } from "../lib/i18n";
 export const colors = {
-  // Warm editorial canvas with the TAMAM forest-green identity.
-  bg: "#F3F0EA",
-  surface: "#FBF9F5",
-  high: "#E7E0D5",
+  // Light mint canvas with readable forest-green actions.
+  bg: "#EDF8E7",
+  hero: "#DDF3D5",
+  surface: "#FBFFF7",
+  high: "#D9EBCF",
   teal: "#073B35",
   tealDeep: "#071D1B",
   tealMid: "#0A4A42",
   green: "#4FA45A",
   bright: "#7BC77C",
-  mint: "#E4EEE2",
+  mint: "#E0F2D9",
   ink: "#171715",
   white: "#FFFFFF",
   text: "#0F1A19",
-  muted: "#686861",
-  outline: "#DCD6CC",
+  muted: "#50664F",
+  outline: "#C8DABD",
   gold: "#E9B949",
   error: "#B3261E",
 };

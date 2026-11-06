@@ -40,7 +40,7 @@ export function CampaignHero({
   const activeImage = slides.length ? slides[slideIndex % slides.length] : undefined;
   const content = (
     <LinearGradient
-      colors={["rgba(5,20,18,0.04)", "rgba(5,20,18,0.13)", "rgba(5,20,18,0.88)"]}
+      colors={["rgba(237,248,231,0.85)", "rgba(237,248,231,0.85)", "rgba(237,248,231,0.98)"]}
       locations={[0, 0.42, 1]}
       style={hero.copy}
     >
@@ -131,19 +131,19 @@ export function CampaignContact({ message }: { message: string }) {
 }
 
 const hero = StyleSheet.create({
-  wrap: { overflow: "hidden", borderRadius: 15, backgroundColor: colors.tealDeep, borderWidth: 1, borderColor: "#C7AD79" },
-  photo: { width: "100%", height: 294, justifyContent: "flex-end", backgroundColor: colors.tealDeep },
+  wrap: { overflow: "hidden", borderRadius: 15, backgroundColor: colors.hero, borderWidth: 1, borderColor: "#C7AD79" },
+  photo: { width: "100%", height: 294, justifyContent: "flex-end", backgroundColor: colors.hero },
   fallback: { alignItems: "stretch", justifyContent: "flex-end" },
   copy: { minHeight: 205, paddingHorizontal: 17, paddingTop: 42, paddingBottom: 15, alignItems: "flex-end", justifyContent: "flex-end", gap: 7 },
   kickerRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
   rule: { width: 31, height: 2, backgroundColor: colors.gold },
-  eyebrow: { color: "#F0D7A5", fontFamily: font.bold, fontSize: 10, textAlign: "right" },
-  title: { color: colors.white, fontFamily: font.black, fontSize: 23, lineHeight: 31, textAlign: "right" },
-  description: { color: "#F5F3EE", fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right", maxWidth: 310 },
+  eyebrow: { color: colors.teal, fontFamily: font.bold, fontSize: 10, textAlign: "right" },
+  title: { color: colors.teal, fontFamily: font.black, fontSize: 23, lineHeight: 31, textAlign: "right" },
+  description: { color: colors.teal, fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right", maxWidth: 310 },
   action: { alignSelf: "stretch", minHeight: 44, marginTop: 3, borderRadius: 9, backgroundColor: "#E7D3A8", flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 7, paddingHorizontal: 12 },
   actionText: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 12 },
   secondaryAction: { alignSelf: "stretch", minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.48)", alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
-  secondaryText: { color: colors.white, fontFamily: font.bold, fontSize: 10 },
+  secondaryText: { color: colors.teal, fontFamily: font.bold, fontSize: 10 },
   dots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", paddingTop: 2 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.58)" },
   dotActive: { width: 18, backgroundColor: colors.gold },

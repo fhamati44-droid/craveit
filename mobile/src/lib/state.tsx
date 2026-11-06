@@ -166,7 +166,7 @@ export function Provider({ children }: { children: ReactNode }) {
       ) : (
         <ActivityIndicator
           color="#6EBF5F"
-          style={{ flex: 1, backgroundColor: "#101412" }}
+          style={{ flex: 1, backgroundColor: "#EDF8E7" }}
         />
       )}
     </Context.Provider>

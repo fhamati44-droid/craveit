@@ -82,11 +82,12 @@ export function localizedLandingCopy(
   fallback: LandingCopy,
 ): LandingCopy {
   const saved = settings?.copy?.[locale];
+  const local = (text: string) => locale === "ar" ? text.replace(/هسّا|هسا|هلّق|هلأ/g, "إسا") : text;
   return {
-    eyebrow: saved?.eyebrow?.trim() || fallback.eyebrow,
-    title: saved?.title?.trim() || fallback.title,
-    description: saved?.description?.trim() || fallback.description,
-    action_label: saved?.action_label?.trim() || fallback.action_label,
+    eyebrow: local(saved?.eyebrow?.trim() || fallback.eyebrow),
+    title: local(saved?.title?.trim() || fallback.title),
+    description: local(saved?.description?.trim() || fallback.description),
+    action_label: local(saved?.action_label?.trim() || fallback.action_label),
   };
 }
 

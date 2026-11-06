@@ -238,7 +238,7 @@ export default function DailyMeal() {
         <View style={s.landingHero}>
           {heroImages.length ? (
             <ImageBackground source={{ uri: imageUrl(heroImages[heroSlide % heroImages.length]) }} style={s.landingPhoto} imageStyle={s.landingPhotoImage} resizeMode="cover" accessibilityLabel={t("image")}>
-              <LinearGradient colors={["rgba(5,20,18,0.04)", "rgba(5,20,18,0.16)", "rgba(5,20,18,0.88)"]} locations={[0, 0.42, 1]} style={s.landingGradient}>
+              <LinearGradient colors={["rgba(237,248,231,0.85)", "rgba(237,248,231,0.85)", "rgba(237,248,231,0.98)"]} locations={[0, 0.42, 1]} style={s.landingGradient}>
                 <View style={s.heroTopRow}>
                   <View style={s.todayBadge}><Ionicons name="calendar-outline" size={13} color={colors.white} /><Text style={s.todayBadgeText}>{t("dailyTodayShort")} · {dateLabel(selectedDate)}</Text></View>
                   <Text style={s.heroKicker}>{heroCopy.eyebrow}</Text>
@@ -542,39 +542,39 @@ export default function DailyMeal() {
 
 const styles = StyleSheet.create({
   mealCarousel:{flexDirection:"row-reverse",gap:12,paddingBottom:8},
-  landingHero: { backgroundColor: colors.tealDeep, borderRadius: 17, overflow: "hidden", borderWidth: 1, borderColor: "rgba(7,29,27,0.14)" },
+  landingHero: { backgroundColor: colors.hero, borderRadius: 17, overflow: "hidden", borderWidth: 1, borderColor: "rgba(7,29,27,0.14)" },
   landingPhoto: { minHeight: 254, justifyContent: "space-between", overflow: "hidden" },
   landingPhotoImage: { borderRadius: 17 },
   landingGradient: { flex: 1, minHeight: 254, justifyContent: "space-between", padding: 15 },
-  landingFallback: { backgroundColor: colors.tealDeep, padding: 16 },
+  landingFallback: { backgroundColor: colors.hero, padding: 16 },
   heroTopRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8 },
   todayBadge: { flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 20, backgroundColor: "rgba(6,27,25,0.76)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
   todayBadgeText: { color: colors.white, fontFamily: font.medium, fontSize: 10 },
-  heroKicker: { color: colors.gold, fontFamily: font.bold, fontSize: 9, letterSpacing: 1.2, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6 },
+  heroKicker: { color: colors.teal, fontFamily: font.bold, fontSize: 9, letterSpacing: 1.2 },
   landingCopy: { alignItems: "flex-end", gap: 5 },
-  landingTitle: { color: colors.white, fontFamily: font.black, fontSize: 24, lineHeight: 32, textAlign: "right", textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 8 },
-  landingSubtitle: { color: "#F1F2EC", fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6 },
+  landingTitle: { color: colors.teal, fontFamily: font.black, fontSize: 24, lineHeight: 32, textAlign: "right" },
+  landingSubtitle: { color: colors.teal, fontFamily: font.regular, fontSize: 11, lineHeight: 17, textAlign: "right" },
   featuredMealRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 10, marginTop: 3 },
   featuredMealCopy: { flex: 1, alignItems: "flex-end", gap: 1 },
-  featuredRestaurant: { color: "#D8E8DC", fontFamily: font.medium, fontSize: 10, textAlign: "right" },
-  featuredMealTitle: { color: colors.white, fontFamily: font.bold, fontSize: 14, textAlign: "right" },
-  featuredPrice: { color: colors.white, fontFamily: font.black, fontSize: 18 },
+  featuredRestaurant: { color: colors.teal, fontFamily: font.medium, fontSize: 10, textAlign: "right" },
+  featuredMealTitle: { color: colors.teal, fontFamily: font.bold, fontSize: 14, textAlign: "right" },
+  featuredPrice: { color: colors.teal, fontFamily: font.black, fontSize: 18 },
   featuredCta: { minHeight: 39, alignSelf: "flex-end", flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.bright, borderRadius: 9, paddingHorizontal: 15, marginTop: 3 },
   featuredCtaText: { color: colors.tealDeep, fontFamily: font.bold, fontSize: 11 },
   heroDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingTop: 5 },
   heroDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.58)" },
   heroDotActive: { width: 18, backgroundColor: colors.gold },
-  hero: { backgroundColor: colors.tealDeep, borderRadius: 14, padding: 20, gap: 5, alignItems: "flex-end" },
+  hero: { backgroundColor: colors.hero, borderRadius: 14, padding: 20, gap: 5, alignItems: "flex-end" },
   heroBrowse: { borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, gap: 4 },
   heroIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center", marginBottom: 6 },
-  eyebrow: { color: colors.bright, fontFamily: font.bold, fontSize: 11, textAlign: "right" },
-  title: { color: colors.white, fontFamily: font.black, fontSize: 21, textAlign: "right" },
+  eyebrow: { color: colors.teal, fontFamily: font.bold, fontSize: 11, textAlign: "right" },
+  title: { color: colors.teal, fontFamily: font.black, fontSize: 21, textAlign: "right" },
   titleBrowse: { fontSize: 20, lineHeight: 28 },
-  subtitle: { color: "#D5E8E4", fontFamily: font.regular, fontSize: 12, lineHeight: 20, textAlign: "right" },
+  subtitle: { color: colors.teal, fontFamily: font.regular, fontSize: 12, lineHeight: 20, textAlign: "right" },
   subtitleBrowse: { fontSize: 11, lineHeight: 17 },
   contactRow: { flexDirection: "row-reverse", alignItems: "center", gap: 12, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.22)", marginTop: 6, paddingTop: 5 },
   contactAction: { flexDirection: "row-reverse", alignItems: "center", gap: 5, minHeight: 30 },
-  contactText: { color: colors.white, fontFamily: font.medium, fontSize: 10 },
+  contactText: { color: colors.teal, fontFamily: font.medium, fontSize: 10 },
   contactDivider: { width: 1, height: 17, backgroundColor: "rgba(255,255,255,0.25)" },
   homeCookedLink: { minHeight: 46, marginTop: 9, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.gold, backgroundColor: "#FFFDF8", flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 8 },
   homeCookedLinkText: { flex: 1, color: colors.tealDeep, fontFamily: font.bold, fontSize: 12, textAlign: "right" },

@@ -83,7 +83,7 @@ export default function Home() {
           />
         ) : null}
           <LinearGradient
-            colors={["rgba(7,29,27,0.02)", "rgba(7,29,27,0.18)", "rgba(7,29,27,0.88)"]}
+            colors={["rgba(237,248,231,0.12)", "rgba(237,248,231,0.85)", "rgba(237,248,231,0.98)"]}
             locations={[0, 0.46, 1]}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
@@ -116,7 +116,7 @@ export default function Home() {
                 onPress={() => void Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}`)}
                 style={h.contactButton}
               >
-                <Ionicons name="logo-whatsapp" size={16} color={colors.white} />
+                <Ionicons name="logo-whatsapp" size={16} color={colors.teal} />
                 <Text style={h.contactLabel}>{t("whatsappUs")}</Text>
               </Pressable>
               <Pressable
@@ -124,12 +124,12 @@ export default function Home() {
                 onPress={() => void Linking.openURL(`tel:+${WHATSAPP_NUMBER}`)}
                 style={h.contactButton}
               >
-                <Ionicons name="call-outline" size={15} color={colors.white} />
+                <Ionicons name="call-outline" size={15} color={colors.teal} />
                 <Text style={h.contactLabel}>{t("callUs")}</Text>
               </Pressable>
             </View>
           </View>
-          {!heroImage ? <View style={h.heroMark}><TamamMark size={54} color={colors.white} /></View> : null}
+          {!heroImage ? <View style={h.heroMark}><TamamMark size={54} color={colors.teal} /></View> : null}
       </View>
 
       <Pressable accessibilityRole="button" accessibilityLabel={basketText(lang).start} onPress={() => router.push("/basket")} style={[h.section, { backgroundColor: colors.mint, borderRadius: 16, padding: 18, margin: 16 }]}>
@@ -267,13 +267,13 @@ const hs = StyleSheet.create({
     minHeight: 350,
     justifyContent: "flex-end",
     padding: 20,
-    backgroundColor: colors.tealDeep,
+    backgroundColor: colors.hero,
   },
   heroCopy: { gap: 7, alignItems: "flex-end", zIndex: 1 },
   eyebrow: {
     fontFamily: font.bold,
     fontSize: 11,
-    color: colors.bright,
+    color: colors.teal,
     textAlign: "right",
     letterSpacing: 1,
   },
@@ -281,14 +281,14 @@ const hs = StyleSheet.create({
     fontFamily: font.medium,
     fontSize: 30,
     lineHeight: 42,
-    color: colors.white,
+    color: colors.teal,
     textAlign: "right",
   },
   heroSub: {
     fontFamily: font.regular,
     fontSize: 13,
     lineHeight: 22,
-    color: "#CFE3DE",
+    color: colors.teal,
     textAlign: "right",
   },
   heroCta: { fontFamily: font.black, fontSize: 14, color: colors.tealDeep },
@@ -324,7 +324,7 @@ const hs = StyleSheet.create({
     marginTop: 1,
   },
   contactButton: { flexDirection: "row-reverse", alignItems: "center", gap: 6, minHeight: 34 },
-  contactLabel: { fontFamily: font.medium, fontSize: 11, color: colors.white },
+  contactLabel: { fontFamily: font.medium, fontSize: 11, color: colors.teal },
   mood: { width: 76, alignItems: "center", gap: 6 },
   moodCircle: {
     width: 68,
