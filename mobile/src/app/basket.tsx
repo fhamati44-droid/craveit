@@ -4,6 +4,7 @@ import { Image, Linking, Pressable, StyleSheet, Text, TextInput, View, ScrollVie
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button, colors, font, money, Page, Status } from '../components/ui';
+import { preflightCart } from '../lib/cartPreparation';
 import { MealSheet } from '../components/MealSheet';
 import { useStore, type Line } from '../lib/state';
 import { useT } from '../lib/i18n';
@@ -19,7 +20,7 @@ type QueueItem={offer:OrderableOffer;quantity:number;reserved:number};
 const STORAGE_KEY='tamam.basket.preferences.v1';
 export default function BasketPlanner(){
  const {lang,sheet,name,restaurantName}=useT(),t=basketText(lang),s=sheet(styles);
- const {lines,add,clear}=useStore();
+ const {lines,api,replaceCart}=useStore();
  const scroll=useRef<ScrollView>(null),edited=useRef(false);
  const [showProviders,setShowProviders]=useState(false);
  const [previewLoading,setPreviewLoading]=useState(true),[previewError,setPreviewError]=useState(false),[previewRevision,setPreviewRevision]=useState(0);
@@ -40,6 +41,9 @@ export default function BasketPlanner(){
   const definitions:[string,number,Partial<BasketInput>][]=[['family',4,{period:'lunch',gathering:'home',occasion:'family',profile:'home'}],['work',1,{period:'lunch',gathering:'work',occasion:'solo',profile:'easy'}],['friends',4,{period:'dinner',gathering:'friends',occasion:'guests',profile:'variety'}],['brunch',2,{period:'brunch',gathering:'home',occasion:'family',profile:'home'}]];
   return definitions.map(([id,people,context])=>{const selection={...context,people:eventCounts[id]??people,autoTable:true,goal:"full" as const,hunger:4};const next={...input,...selection};const suggestions=validBasketInput(next)?recommendMealBaskets(catalog,mealRelations,next,at):[];return{id,selection,basket:suggestions[0]?.best};});
  },[catalog,input,eventCounts,at]);
+ const addLabel=lang==='en'?'Add basket to cart':lang==='he'?'הוספת הסל לעגלה':'أضيفي للسلة';
+ const nextLabel=lang==='en'?'Continue':lang==='he'?'המשך':'التالي';
+ const viewLabel=lang==='en'?'View & edit':lang==='he'?'צפייה ועריכה':'عرض وتعديل';
  const eventLabel=(id:string)=>lang==='en'?({family:'Family lunch',work:'Lunch at work',friends:'Friends gathering',brunch:'A relaxed brunch'}[id]||''):lang==='he'?({family:'צהריים למשפחה',work:'ארוחה בעבודה',friends:'מפגש חברים',brunch:'בראנץ׳ בנחת'}[id]||''):({family:'غدا العيلة',work:'غدا بالشغل',friends:'لمّة صحاب',brunch:'ترويقة على مهلك'}[id]||'');
 
  const ui=lang==='he'?{auto:'הרכבת שולחן אוטומטית · עד 5 פריטים',where:'איפה אוכלים?',home:'בבית עם המשפחה',work:'בעבודה',friends:'מפגש חברים',women:'מפגש חברות',main:'עיקרית',salad:'סלט',starter:'פתיח',bread:'לחם',starch:'תוספת',dessert:'קינוח',other:'תוספת'}:lang==='en'?{auto:'Build my table automatically · up to 5 items',where:'Where are you eating?',home:'At home with family',work:'At work',friends:'Friends gathering',women:'Women’s gathering',main:'Main',salad:'Salad',starter:'Starter',bread:'Bread',starch:'Side',dessert:'Dessert',other:'Side'}:{auto:'رتّبي الطاولة تلقائيًا · لحد 5 أصناف',where:'وين ومع مين الأكل؟',home:'بالبيت مع العيلة',work:'بالشغل',friends:'لمّة صحاب',women:'لمّة صبايا',main:'رئيسي',salad:'سلطة',starter:'مقبلات',bread:'خبز',starch:'إضافة',dessert:'تحلاي',other:'إضافة'};
@@ -55,19 +59,22 @@ export default function BasketPlanner(){
  function pictures(b:MealBasket){return <View style={s.gallery}>{tableLines(b).map(line=>{const item=catalog.find(o=>o.uid===line.offer.uid),uri=item?.meal.image_url;return <View key={line.offer.uid} style={s.tile}>{uri?<Image source={{uri:imageUrl(uri)}} style={s.tileImage} resizeMode="cover" accessibilityLabel={dishName(line.offer.uid,line.offer.name)}/>:<View style={[s.tileImage,s.imageMissing]}><Ionicons name="image-outline" size={28} color={colors.muted}/><Text style={s.muted}>{lang==='en'?'Image unavailable':lang==='he'?'אין תמונה':'الصورة غير متوفرة'}</Text></View>}<View style={s.tileCaption}><Text style={s.tileRole}>{ui[tableRole(line.offer)]} · ×{line.quantity}</Text><Text style={s.tileName}>{dishName(line.offer.uid,line.offer.name)}</Text></View></View>;})}</View>;}
  function selectProvider(b:MealBasket){setShowProviders(false);setQuote(b);setPending(null);setError('');}
  function choose(g:MealBasketGroup){setGroupId(g.id);selectProvider(g.best);setShowProviders(false);scroll.current?.scrollTo({y:0,animated:true});}
- function enqueue(q:MealBasket,live:OrderableOffer[]){
+ async function enqueue(q:MealBasket,live:OrderableOffer[],prefs:BasketInput){
   const recipe=q.lines.map(l=>({offer:live.find(o=>o.uid===l.offer.uid),quantity:l.quantity}));
   if(recipe.some(l=>!l.offer)){setError(t.unavailable);return;}
-  if(recipe.every(l=>l.offer!.kind==='daily')){const meals=recipe.map(l=>({menuId:l.offer!.dailyMenuId,quantity:l.quantity}));router.push({pathname:'/daily-meal',params:{focusMenuId:String(meals[0].menuId),focusDate:recipe[0].offer!.serviceDate,focusQuantity:String(meals[0].quantity),focusBudget:String(applied?.budget||input.budget),plannerMeals:JSON.stringify(meals)}});return;}
+  if(recipe.every(l=>l.offer!.kind==='daily')){const meals=recipe.map(l=>({menuId:l.offer!.dailyMenuId,quantity:l.quantity}));router.push({pathname:'/daily-meal',params:{focusMenuId:String(meals[0].menuId),focusDate:recipe[0].offer!.serviceDate,focusQuantity:String(meals[0].quantity),focusBudget:String(prefs.budget),plannerMeals:JSON.stringify(meals)}});return;}
+  const prepared=await preflightCart(recipe.map(l=>({meal:l.offer!.meal,restaurant:l.offer!.restaurant,quantity:l.quantity,extrasSourceId:l.offer!.extrasSourceId,note:prefs.notes})),api.extras);
+  if(!prepared.needsChoices){replaceCart(prepared.lines);setPending(null);router.push('/cart');return;}
   setDraft([]);setDraftDelivery(q.delivery);setQueue(recipe.map((l,i)=>({offer:l.offer!,quantity:l.quantity,reserved:recipe.slice(i+1).reduce((n,next)=>n+next.offer!.price*next.quantity,0)})));setPending(null);
  }
- const begin=async()=>{if(!quote?.eligible||!applied)return;setLoading(true);setError('');try{
-  const live=await loadBasketCatalog(),recipe=quote.lines.map(l=>({offer:live.find(o=>o.uid===l.offer.uid),quantity:l.quantity}));
+ const begin=async(allowReplace=false,requested:MealBasket|null=quote,prefs:BasketInput|null=applied)=>{if(loading||!requested?.eligible||!prefs)return;setLoading(true);setError('');try{
+  const live=await loadBasketCatalog(),recipe=requested.lines.map(l=>({offer:live.find(o=>o.uid===l.offer.uid),quantity:l.quantity}));
   if(recipe.some(l=>!l.offer)){setError(t.unavailable);return;}
-  const now=new Date(),fresh=buildMealBasket(recipe.map(l=>({offer:l.offer!,quantity:l.quantity})),applied,now);setCatalog(live);setAt(now);setQuote(fresh);setGroups(recommendMealBaskets(live,mealRelations,applied,now));
-  if(!fresh.eligible){setError(reason(fresh.reason));return;}if(Math.round(fresh.total*100)!==Math.round(quote.total*100)){setError(t.estimates);return;}
-  if(recipe.some(l=>l.offer!.kind!=='daily')&&lines.length){setPending(fresh);return;}enqueue(fresh,live);
+  const now=new Date(),fresh=buildMealBasket(recipe.map(l=>({offer:l.offer!,quantity:l.quantity})),prefs,now);setApplied(prefs);setCatalog(live);setAt(now);setQuote(fresh);setGroups(recommendMealBaskets(live,mealRelations,prefs,now));
+  if(!fresh.eligible){setError(reason(fresh.reason));return;}if(Math.round(fresh.total*100)!==Math.round(requested.total*100)){setError(t.estimates);return;}
+  if(recipe.some(l=>l.offer!.kind!=='daily')&&lines.length&&!allowReplace){setPending(fresh);return;}await enqueue(fresh,live,prefs);
  }catch{setError(t.failed);}finally{setLoading(false);}};
+
  function prepared(line:DraftLine){
   const next=[...draft,line];if(queue.length>1){setDraft(next);setQueue(queue.slice(1));return;}
   const restaurants=new Map(next.map(l=>[String(l.restaurant.id),l.restaurant]));
@@ -75,7 +82,7 @@ export default function BasketPlanner(){
   const total=subtotal+[...restaurants.values()].reduce((n,r)=>n+Number(r.delivery_fee||0),0);
   const minimumFailed=[...restaurants].some(([id,r])=>next.filter(l=>String(l.restaurant.id)===id).reduce((n,l)=>n+(Number(l.meal.price)+l.extras.reduce((a,x)=>a+Number(x.price||0),0))*l.quantity,0)<Number(r.min_order??r.minimum_order??0));
   if(!applied||!Number.isFinite(total)||Math.round(total*100)>Math.round(applied.budget*100)||minimumFailed){setError(minimumFailed?t.minimum:t.budgetExceeded);setQueue([]);setDraft([]);return;}
-  clear();next.forEach(add);setQueue([]);setDraft([]);router.push('/cart');
+  replaceCart(next);setQueue([]);setDraft([]);router.push('/cart');
  }
  function choices(key:'profile'|'period'|'occasion'|'goal',label:string,values:[string,string][]){return <View style={s.field}><Text style={s.label}>{label}</Text><View style={s.chips}>{values.map(([id,text])=><Pressable key={id} accessibilityRole="radio" accessibilityLabel={text} accessibilityState={{checked:input[key]===id}} disabled={loading} onPress={()=>set(key,id as BasketInput[typeof key])} style={[s.chip,input[key]===id&&s.active]}><Text style={[s.chipText,input[key]===id&&s.activeText]}>{text}</Text></Pressable>)}</View></View>;}
  function numeric(key:'people'|'budget'|'maxMinutes'|'flavor'|'children',label:string,hint?:string){return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput accessibilityLabel={label} keyboardType="numeric" editable={!loading} value={Number.isFinite(input[key])?String(input[key]):''} onChangeText={v=>set(key,v.trim()===''?NaN:Number(v.replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))))} style={s.input}/>{hint?<Text style={s.muted}>{hint}</Text>:null}</View>;}
@@ -92,7 +99,7 @@ export default function BasketPlanner(){
    {eventCards.map(event=><View key={event.id} style={s.eventCard}>
     <Text style={s.heading}>{eventLabel(event.id)}</Text>
     <View style={s.countRow}><Text style={s.label}>{event.selection.people} · {t.people}</Text><View style={s.countButtons}><Pressable accessibilityRole="button" accessibilityLabel={`${ux.remove}: ${t.people}`} disabled={loading||event.selection.people<=1} onPress={()=>setEventCounts(old=>({...old,[event.id]:Math.max(1,event.selection.people-1)}))} style={s.counter}><Text style={s.link}>−</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`${ux.restore}: ${t.people}`} disabled={loading||event.selection.people>=99} onPress={()=>setEventCounts(old=>({...old,[event.id]:Math.min(99,event.selection.people+1)}))} style={s.counter}><Text style={s.link}>＋</Text></Pressable></View></View>
-    {event.basket?<>{pictures(event.basket)}<Text style={s.price}>{money(event.basket.total)}</Text><Text style={s.muted}>{ux.budgetHint} · {providerLabel(event.basket)}</Text><Button label={t.chooseBasket} disabled={loading} onPress={()=>void find(event.selection,event.basket!.group,event.id)}/></>:<Text style={s.muted}>{input.allergen.trim()?t.allergyMessage:previewLoading?t.loading:t.empty}</Text>}
+    {event.basket?<>{pictures(event.basket)}<Text style={s.price}>{money(event.basket.total)}</Text><Text style={s.muted}>{ux.budgetHint} · {providerLabel(event.basket)}</Text><Button label={addLabel} disabled={loading} onPress={()=>void begin(false,event.basket!,{...input,...event.selection})}/><Button tone="ghost" label={viewLabel} disabled={loading} onPress={()=>void find(event.selection,event.basket!.group,event.id)}/></>:<Text style={s.muted}>{input.allergen.trim()?t.allergyMessage:previewLoading?t.loading:t.empty}</Text>}
    </View>)}
    </ScrollView>
   </View>:null}
@@ -124,7 +131,7 @@ export default function BasketPlanner(){
   {groups?<View style={s.section}><Text style={s.heading}>{t.results}</Text><Text style={s.muted}>{t.noScore}</Text>{!groups.length?<View style={s.card}><Text style={s.text}>{applied?.allergen.trim()?t.allergyMessage:t.empty}</Text>{applied?.allergen.trim()?<Button label={t.help} onPress={()=>void Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}`)}/>:null}</View>:null}
    {!quote?groups.map((g,index)=>{return <Pressable key={g.id} accessibilityRole="button" accessibilityLabel={`${t.chooseBasket}: ${g.best.lines.map(l=>dishName(l.offer.uid,l.offer.name)).join(' + ')}`} disabled={loading} onPress={()=>choose(g)} style={[s.card,groupId===g.id&&s.selected]}>
     <View style={s.resultTop}><Text style={s.badge}>{index===0?ux.recommend:`${g.best.lines.length} ${ux.items}`}</Text><Text style={s.muted}>{g.best.minutes} {t.minutes}</Text></View><Text style={s.heading}>{t.basketContains}</Text>{pictures(g.best)}
-    <Text style={s.label}>{g.best.restaurants.length===1?t.sameRestaurant:t.mixedRestaurants}: {providerLabel(g.best)}</Text><View style={s.priceRow}><Text style={s.price}>{money(g.best.total)}</Text><Text style={s.muted}>{ux.budgetHint}</Text></View><Text style={s.muted}>{t.score}: {g.best.score}/100</Text><View style={s.chooseBar}><Text style={s.chooseText}>{t.chooseBasket}</Text><Ionicons name={lang==='en'?'arrow-forward':'arrow-back'} size={20} color={colors.white}/></View><Text style={s.muted}>{ux.chooseHint}</Text>
+    <Text style={s.label}>{g.best.restaurants.length===1?t.sameRestaurant:t.mixedRestaurants}: {providerLabel(g.best)}</Text><View style={s.priceRow}><Text style={s.price}>{money(g.best.total)}</Text><Text style={s.muted}>{ux.budgetHint}</Text></View><Text style={s.muted}>{t.score}: {g.best.score}/100</Text><View style={s.chooseBar}><Text style={s.chooseText}>{viewLabel}</Text><Ionicons name={lang==='en'?'arrow-forward':'arrow-back'} size={20} color={colors.white}/></View><Text style={s.muted}>{ux.chooseHint}</Text>
    </Pressable>;}):<Button label={ux.change} tone="ghost" disabled={loading} onPress={()=>{setQuote(null);setGroupId('');setPending(null);}}/>}
   </View>:null}
   {quote&&applied?<View style={s.card}><Text accessibilityRole="header" style={s.heading}>{ux.chosen}</Text><View style={s.note}><Ionicons name="storefront-outline" size={22} color={colors.teal}/><Text style={[s.label,{flex:1}]}>{providerLabel(quote)}</Text></View><Pressable accessibilityRole="button" accessibilityState={{expanded:showProviders}} onPress={()=>setShowProviders(!showProviders)} style={s.detail}><Text style={s.link}>{ux.moreRestaurants} ({selectedGroup?.providers.length||1})</Text><Ionicons name={showProviders?'chevron-up':'chevron-down'} size={18} color={colors.teal}/></Pressable>{showProviders?(selectedGroup?.providers||[quote]).map(b=><Pressable key={b.id} accessibilityRole="radio" accessibilityLabel={providerLabel(b)} accessibilityState={{checked:providerKey(quote)===providerKey(b),disabled:!b.eligible}} disabled={loading||!b.eligible} onPress={()=>selectProvider(b)} style={[s.provider,providerKey(quote)===providerKey(b)&&s.selected,!b.eligible&&s.disabled]}>
@@ -133,12 +140,12 @@ export default function BasketPlanner(){
    {optionalSides.length?<View style={s.field}><Text style={s.label}>{t.side}</Text>{optionalSides.map(side=>{const selected=quote.lines.some(l=>l.offer.uid===side.uid);return <Pressable key={side.uid} accessibilityRole="checkbox" accessibilityState={{checked:selected}} disabled={loading||(!selected&&quote.lines.length>=5)} onPress={()=>{const remaining=quote.lines.filter(l=>l.offer.uid!==side.uid);setQuote(buildMealBasket(selected?remaining:[...remaining,{offer:side,quantity:Math.ceil(applied.people/(side.profile.servings||1))}],applied,at));setPending(null);}} style={s.chip}><Text style={s.text}>{selected?'− ':'＋ '}{name(side.meal)} · {selected?ux.remove:ux.restore}</Text></Pressable>;})}<Text style={s.muted}>{t.sideIncluded}</Text></View>:null}
    <Text style={s.heading}>{t.basketContains}</Text>{pictures(quote)}
    <Text style={s.text}>{t.subtotal}: {money(quote.subtotal)}</Text><Text style={s.text}>{t.delivery}: {money(quote.delivery)}</Text><View style={s.priceRow}><Text style={s.label}>{t.total}</Text><Text style={s.price}>{money(quote.total)}</Text></View>{quote.eligible?<Text style={s.muted}>{ux.remaining}: {money(applied.budget-quote.total)}</Text>:null}<Text style={s.muted}>{t.score}: {quote.score}/100</Text>{quote.restaurants.length>1?<Text style={s.muted}>{t.mixedHint}</Text>:null}<Text style={s.muted}>{t.estimates}</Text>{!quote.eligible?<Text accessibilityRole="alert" style={s.error}>{reason(quote.reason)}</Text>:null}
-   <Button label={quote.lines.every(l=>l.offer.kind==='daily')?t.daily:t.review} onPress={()=>void begin()} disabled={loading||!quote.eligible}/>
-   {pending?<View style={s.field}><Text style={s.text}>{t.cartExists}</Text><Button label={t.replace} onPress={()=>enqueue(pending,catalog)}/><Button label={t.keep} onPress={()=>setPending(null)}/></View>:null}
+   <Button label={quote.lines.every(l=>l.offer.kind==='daily')?t.daily:addLabel} onPress={()=>void begin()} disabled={loading||!quote.eligible}/>
+   {pending?<View style={s.field}><Text style={s.text}>{t.cartExists}</Text><Button label={t.replace} disabled={loading} onPress={()=>void begin(true,pending,applied)}/><Button label={t.keep} onPress={()=>setPending(null)}/></View>:null}
   </View>:null}
   <Button tone="ghost" label={t.cart} disabled={loading} onPress={()=>router.push('/cart')}/>
   {queue[0]?<View style={s.note}><Text accessibilityLiveRegion="polite" style={s.label}>{t.review} · {draft.length+1}/{draft.length+queue.length}</Text></View>:null}
-  {queue[0]&&applied?<MealSheet key={queue[0].offer.uid} meal={queue[0].offer.meal} restaurant={queue[0].offer.restaurant} extrasSourceId={queue[0].offer.extrasSourceId} initialQuantity={queue[0].quantity} minimumQuantity={queue[0].quantity} budgetLimit={applied.budget-queue[0].reserved} draftSubtotal={draft.reduce((sum,l)=>sum+(Number(l.meal.price)+l.extras.reduce((n,e)=>n+Number(e.price||0),0))*l.quantity,0)} deliveryTotal={draftDelivery} initialNote={applied.notes} onPrepared={prepared} close={()=>{setQueue([]);setDraft([]);}}/>:null}
+  {queue[0]&&applied?<MealSheet key={queue[0].offer.uid} meal={queue[0].offer.meal} restaurant={queue[0].offer.restaurant} extrasSourceId={queue[0].offer.extrasSourceId} submitLabel={queue.length===1?addLabel:`${nextLabel} · ${draft.length+1}/${draft.length+queue.length}`} initialQuantity={queue[0].quantity} minimumQuantity={queue[0].quantity} budgetLimit={applied.budget-queue[0].reserved} draftSubtotal={draft.reduce((sum,l)=>sum+(Number(l.meal.price)+l.extras.reduce((n,e)=>n+Number(e.price||0),0))*l.quantity,0)} deliveryTotal={draftDelivery} initialNote={applied.notes} onPrepared={prepared} close={()=>{setQueue([]);setDraft([]);}}/>:null}
   </View>
  </Page>;
 }

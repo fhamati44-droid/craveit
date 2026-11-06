@@ -26,6 +26,7 @@ export function MealSheet({
   initialNote = "",
   onPrepared,
   deliveryTotal,
+  submitLabel,
 }: {
   meal: Meal;
   restaurant: Restaurant;
@@ -38,6 +39,7 @@ export function MealSheet({
   initialNote?: string;
   onPrepared?: (line: Omit<Line, "key">) => void;
   deliveryTotal?: number;
+  submitLabel?: string;
 }) {
   const { api, add } = useStore();
   const { t, name, desc, lang } = useT();
@@ -165,7 +167,7 @@ export function MealSheet({
             </Text>
           )}
           <Button
-            label={t("addToCart", { p: money(unit * quantity) })}
+            label={submitLabel || t("addToCart", { p: money(unit * quantity) })}
             disabled={
               data.loading ||
               !!data.error ||

@@ -46,6 +46,7 @@ interface Store {
   add: (line: Omit<Line, "key">) => void;
   quantity: (key: string, amount: number) => void;
   clear: () => void;
+  replaceCart: (items: Omit<Line,"key">[]) => void;
   count: number;
   subtotal: number;
 }
@@ -139,6 +140,7 @@ export function Provider({ children }: { children: ReactNode }) {
           .map((x) => (x.key === key ? { ...x, quantity: amount } : x))
           .filter((x) => x.quantity > 0),
       ),
+    replaceCart: (items) => setLines(items.map(line=>({...line,key:JSON.stringify([line.restaurant.id,line.meal.id,line.extras.map(e=>String(e.id)).sort(),line.note])}))),
     clear: () => setLines([]),
     count: lines.reduce((sum, line) => sum + line.quantity, 0),
     subtotal: lines.reduce(
