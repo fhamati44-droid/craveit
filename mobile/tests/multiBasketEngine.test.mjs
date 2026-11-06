@@ -71,3 +71,24 @@ test('removing one component preserves the other table components and recalculat
  const edited=buildMealBasket(result.lines.filter(l=>l.offer.uid!=='S'),{...input,autoTable:true},now);
  assert.equal(edited.lines.length,2);assert.equal(edited.total,result.total-10);assert.equal(edited.eligible,true);assert.ok(edited.lines.some(l=>l.offer.uid==='H'));
 });
+
+test('restaurant comparison keeps the full chosen composition and quantities even above budget',async()=>{
+ const{getBasketProviders,approveBasketProvider}=await import('../src/lib/multiBasketEngine.ts');
+ const main1=food('A1','A','1','جاج محمر',20),main2=food('A2','A','2','جاج محمر',60);
+ const side1=food('S1','S','1','سلطة عربية',10,{profile:{...profile,role:'جانبي',servings:2}}),side2=food('S2','S','2','سلطة عربية',30,{profile:{...profile,role:'جانبي',servings:2}});
+ const prefs={...input,people:2,budget:70,mainDishes:1};
+ const template=buildMealBasket([{offer:main1,quantity:2},{offer:side1,quantity:1}],prefs,now);
+ const providers=getBasketProviders([main1,main2,side1,side2],template,prefs,now);
+ assert.equal(providers.length,2);const expensive=providers.find(b=>b.restaurants[0]==='2');assert.equal(expensive.total,160);assert.equal(expensive.reason,'budget');assert.equal(expensive.lines.length,2);
+ const approved=approveBasketProvider(expensive,prefs,now);assert.ok(approved);assert.equal(approved.input.budget,160);assert.equal(approved.extra,90);assert.equal(approved.basket.eligible,true);assert.equal(prefs.budget,70);
+});
+test('a kitchen missing a selected side stays visible without silently changing the basket',async()=>{
+ const{getBasketProviders,approveBasketProvider}=await import('../src/lib/multiBasketEngine.ts');
+ const first=food('A1','A','1','جاج محمر',20),second=food('A2','A','2','جاج محمر',20),side=food('S1','S','1','سلطة عربية',10,{profile:{...profile,role:'جانبي',servings:2}});
+ const prefs={...input,people:2,mainDishes:1};const template=buildMealBasket([{offer:first,quantity:2},{offer:side,quantity:1}],prefs,now);
+ const missing=getBasketProviders([first,second,side],template,prefs,now).find(b=>b.restaurants[0]==='2');assert.deepEqual(missing.providerMissing,['سلطة عربية']);assert.equal(approveBasketProvider(missing,prefs,now),null);
+});
+test('approving a higher price cannot bypass availability or allergy restrictions',async()=>{
+ const{approveBasketProvider}=await import('../src/lib/multiBasketEngine.ts');const prefs={...input,people:1,budget:50};const basket=buildMealBasket([{offer:food('A','A','1','دجاج مشوي',90),quantity:1}],prefs,now);
+ assert.equal(approveBasketProvider(basket,{...prefs,allergen:'حليب'},now),null);assert.equal(approveBasketProvider({...basket,lines:[{offer:{...basket.lines[0].offer,available:false},quantity:1}]},prefs,now),null);
+});

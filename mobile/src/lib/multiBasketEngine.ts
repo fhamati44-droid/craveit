@@ -4,7 +4,7 @@ export interface BasketLine { offer: Offer; quantity: number }
 export interface MealBasket {
   id: string; group: string; lines: BasketLine[]; subtotal: number; delivery: number;
   total: number; minutes: number; servings: number; score: number; compatibility: number;
-  restaurants: string[]; mainCount: number; eligible: boolean;
+  restaurants: string[]; mainCount: number; eligible: boolean; providerMissing?:string[];
   reason: Basket["reason"] | "quantity" | "pairing" | "flow";
 }
 export interface MealBasketGroup { id: string; best: MealBasket; providers: MealBasket[] }
@@ -234,15 +234,30 @@ export function recommendMealBaskets(offers:Offer[],relations:Record<string,stri
   const grouped=new Map<string,MealBasket[]>();
   for(const basket of candidates.values()){const list=grouped.get(basket.group)||[];list.push(basket);grouped.set(basket.group,list);}
   const top=[...grouped].map(([id,providers])=>{providers.sort((a,b)=>compare(a,b,desired));return{id,best:providers[0],providers};}).sort((a,b)=>compare(a.best,b.best,desired)).slice(0,3);
-  // Expand every same-restaurant provider for the chosen composition, even outside the search pool.
+  // Compare the exact selected composition and quantities at every matching restaurant.
   for(const group of top){
-    const groups=mainLines(group.best.lines).map(l=>l.offer.group),providers:MealBasket[]=[];
-    for(const restaurant of [...new Set(offers.map(o=>o.restaurantId))]){
-      const combo=groups.map(key=>offers.find(o=>o.restaurantId===restaurant&&o.group===key&&o.profile.role==="أساسي"));
-      if(combo.every((o):o is Offer=>!!o)){const basket=bestFor(combo,true,true);if(basket)providers.push(basket);}
-    }
-    for(const b of group.providers.filter(b=>b.restaurants.length>1).slice(0,6))providers.push(b);
-    providers.sort((a,b)=>compare(a,b,desired));group.providers=providers;group.best=providers.find(b=>b.eligible)||group.best;
+    const providers=getBasketProviders(offers,group.best,input,now);
+    for(const basket of group.providers.filter(b=>b.restaurants.length>1))if(!providers.some(p=>p.id===basket.id))providers.push(basket);
+    providers.sort((a,b)=>compare(a,b,desired));group.providers=providers;
   }
   return top.sort((a,b)=>compare(a.best,b.best,desired));
+}
+
+/** All restaurants offering the selected mains; missing side dishes stay explicit. */
+export function getBasketProviders(offers:Offer[],template:MealBasket,input:BasketInput,now=new Date()):MealBasket[]{
+ const results:MealBasket[]=[];const mains=mainLines(template.lines);
+ for(const restaurant of new Set(offers.map(o=>o.restaurantId))){
+  if(!mains.every(line=>offers.some(o=>o.restaurantId===restaurant&&o.group===line.offer.group&&o.profile.role===line.offer.profile.role)))continue;
+  const missing:string[]=[],lines:BasketLine[]=[];
+  for(const line of template.lines){const offer=offers.find(o=>o.restaurantId===restaurant&&o.group===line.offer.group&&o.profile.role===line.offer.profile.role);if(offer)lines.push({offer,quantity:line.quantity});else missing.push(line.offer.name);}
+  const basket=buildMealBasket(lines,input,now);if(missing.length){basket.providerMissing=missing;basket.eligible=false;basket.reason='unavailable';}results.push(basket);
+ }
+ return results.sort((a,b)=>Number(b.eligible)-Number(a.eligible)||a.total-b.total);
+}
+/** An explicit restaurant choice may raise only this basket's approved spending limit. */
+export function approveBasketProvider(basket:MealBasket,input:BasketInput,now=new Date()){
+ if(basket.providerMissing?.length||!Number.isFinite(basket.total)||basket.total<=0)return null;
+ const approved={...input,budget:Math.max(input.budget,basket.total)};
+ const rebuilt=buildMealBasket(basket.lines,approved,now);
+ return rebuilt.eligible?{basket:rebuilt,input:approved,extra:Math.max(0,Math.round((basket.total-input.budget)*100)/100)}:null;
 }
