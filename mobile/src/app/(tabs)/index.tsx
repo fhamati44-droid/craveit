@@ -7,6 +7,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, font, Page, RtlRow, Status } from "../../components/ui";
 import { TamamMark, Tri, TrianglePattern } from "../../components/brand";
+import { HomeTablePreview } from "../../components/HomeTablePreview";
 import { RestaurantCard, SuggestionCard } from "../../components/cards";
 import { useStore } from "../../lib/state";
 import { useLoad } from "../../lib/useLoad";
@@ -92,6 +93,7 @@ export default function Home() {
         <Image nativeID="home-hero-photo" source={{uri:imageUrl(heroImage)}} style={h.featureImage} resizeMode="cover" onError={()=>setHeroFailed(true)} accessibilityLabel={t("mealImage")}/>
         <View style={h.featureBody}><Text style={h.eyebrow}>{copy("من قائمة اليوم", "מהתפריט היומי", "From today's menu")}</Text><Text style={h.heading}>{t("dailyHomeCard")}</Text><Text style={h.link}>{copy("شوف الوجبات والتفاصيل ←", "לארוחות ולפרטים ←", "Explore meals and details →")}</Text></View>
       </Pressable>:null}
+      <HomeTablePreview />
       <View style={h.contactActions}>
         <Pressable accessibilityRole="button" onPress={()=>void Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}`)} style={h.contactButton}><Ionicons name="logo-whatsapp" size={18} color={colors.teal}/><Text style={h.contactLabel}>{t("whatsappUs")}</Text></Pressable>
         <Pressable accessibilityRole="button" onPress={()=>void Linking.openURL(`tel:+${WHATSAPP_NUMBER}`)} style={h.contactButton}><Ionicons name="call-outline" size={18} color={colors.teal}/><Text style={h.contactLabel}>{t("callUs")}</Text></Pressable>
