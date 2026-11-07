@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Image, Linking, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -20,6 +20,8 @@ type DraftLine=Omit<Line,'key'>;
 type QueueItem={offer:OrderableOffer;quantity:number;reserved:number};
 const STORAGE_KEY='tamam.basket.preferences.v1';
 export default function BasketPlanner(){
+ const homeParams=useLocalSearchParams<{homeInput?:string;homeGroup?:string}>();
+ const homeApplied=useRef(false);
  const {lang,sheet,name,restaurantName}=useT(),t=basketText(lang),s=sheet(styles);
  const {lines,dailyCart,api,replaceCart}=useStore();
  const scroll=useRef<ScrollView>(null),edited=useRef(false);
@@ -38,6 +40,11 @@ export default function BasketPlanner(){
  function set<K extends keyof BasketInput>(key:K,value:BasketInput[K]){if(loading)return;edited.current=true;setProviderBudget(null);setInput(old=>({...old,[key]:value}));setGroups(null);setApplied(null);setGroupId('');setQuote(null);setPending(null);setError('');}
  const reason=(r:MealBasket['reason'])=>({'':'',invalid:t.invalidReason,unavailable:t.unavailable,allergy:t.allergy,disliked:t.dislikedReason,budget:t.budgetReason,minimum:t.minimum,time:t.time,period:t.periodReason,quantity:t.quantityReason,pairing:t.pairingReason,flow:t.flowReason}[r]);
  const find=async(overrides:Partial<BasketInput>={},preferredGroup?:string,eventId?:string)=>{if(loading)return;const next={...input,...overrides};if(!validBasketInput(next)){setError(t.invalid);setAdvanced(true);return;}edited.current=true;setProviderBudget(null);catalogueRequest.current++;setInput(next);if(eventId!==undefined)setActiveEvent(eventId);setLoading(true);setError('');setGroups(null);setGroupId('');setQuote(null);setPending(null);try{const live=await loadBasketCatalog(),now=new Date();const suggestions=recommendMealBaskets(live,mealRelations,next,now);setCatalog(live);setAt(now);setApplied(next);setGroups(suggestions);const chosen=suggestions.find(g=>g.id===preferredGroup);if(chosen){setGroupId(chosen.id);setQuote(chosen.best);}scroll.current?.scrollTo({y:0,animated:true});await AsyncStorage.setItem(STORAGE_KEY,JSON.stringify(next)).catch(()=>{});}catch{setError(t.failed);}finally{setLoading(false);}};
+ useEffect(()=>{
+  if(homeApplied.current || !homeParams.homeInput)return;
+  homeApplied.current=true;
+  try { const next={...DEFAULT_BASKET_INPUT,...JSON.parse(homeParams.homeInput)}; if(validBasketInput(next))void find(next,homeParams.homeGroup); } catch {/* Ignore malformed links. */}
+ },[homeParams.homeInput,homeParams.homeGroup]);
  const eventCards=useMemo(()=>{
   const definitions:[string,number,Partial<BasketInput>][]=[['family',4,{period:'lunch',gathering:'home',occasion:'family',profile:'home'}],['work',1,{period:'lunch',gathering:'work',occasion:'solo',profile:'easy'}],['friends',4,{period:'dinner',gathering:'friends',occasion:'guests',profile:'variety'}],['brunch',2,{period:'brunch',gathering:'home',occasion:'family',profile:'home'}]];
   return definitions.map(([id,people,context])=>{const selection={...context,people:eventCounts[id]??people,autoTable:true,goal:"full" as const,hunger:4};const next={...input,...selection};const suggestions=validBasketInput(next)?recommendMealBaskets(catalog,mealRelations,next,at):[];return{id,selection,basket:suggestions[0]?.best};});
