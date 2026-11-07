@@ -27,8 +27,8 @@ export const colors = {
   white: "#FFFFFF",
   text: "#0F1A19",
   muted: "#50664F",
-  outline: "#C8DABD",
-  gold: "#E9B949",
+  outline: "#DCE7D7",
+  gold: "#9E6B40",
   error: "#B3261E",
 };
 export const font = {
@@ -39,14 +39,14 @@ export const font = {
 };
 export const shadow = {
   shadowColor: "#06463F",
-  shadowOpacity: 0.1,
-  shadowRadius: 14,
+  shadowOpacity: 0.04,
+  shadowRadius: 8,
   shadowOffset: { width: 0, height: 6 },
   elevation: 3,
 };
 const base = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 16, gap: 16, paddingBottom: 40 },
+  content: { padding: 16, gap: 16, paddingBottom: 40, width: "100%", maxWidth: 760, alignSelf: "center" },
   text: {
     color: colors.text,
     textAlign: "right",

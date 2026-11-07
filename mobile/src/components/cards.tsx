@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -16,6 +16,7 @@ export function FoodImage({
   height?: number;
 }) {
   const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [uri]);
   const { t } = useT();
   const c = cs;
   return uri && !failed ? (

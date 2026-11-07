@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { router } from "expo-router";
 import { Linking } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -53,6 +53,8 @@ export default function Home() {
   const { api } = useStore();
   const { t, name, sheet, f, fwd, lang } = useT();
   const h = sheet(hs);
+  const [heroFailed, setHeroFailed] = useState(false);
+  const copy = (ar: string, he: string, en: string) => lang === "en" ? en : lang === "he" ? he : ar;
   const site = useLoad(useCallback(() => api.settings(), [api]));
   const restaurants = useLoad(useCallback(() => api.restaurants(), [api]));
   const suggestions = useLoad(useCallback(() => api.suggestions(), [api]));
@@ -72,75 +74,28 @@ export default function Home() {
     site.value?.cover_url;
   return (
     <Page>
-      <View style={h.hero}>
-        {heroImage ? (
-          <Image
-            nativeID="home-hero-photo"
-            source={{ uri: imageUrl(heroImage) }}
-            style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%" }}
-            resizeMode="cover"
-            accessibilityLabel={t("mealImage")}
-          />
-        ) : null}
-          <LinearGradient
-            colors={["rgba(237,248,231,0.12)", "rgba(237,248,231,0.85)", "rgba(237,248,231,0.98)"]}
-            locations={[0, 0.46, 1]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          {!heroImage ? <TrianglePattern opacity={0.08} /> : null}
-          <View style={h.heroCopy}>
-            <Text style={h.eyebrow}>{t("homeEyebrow")}</Text>
-            <Text style={h.heroTitle}>{t("homeTitle")}</Text>
-            <Text style={h.heroSub}>{t("homeSub")}</Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push("/daily-meal")}
-              style={h.heroCtaButton}
-            >
-              <View
-                style={f({
-                  flexDirection: "row-reverse",
-                  alignItems: "center",
-                  gap: 8,
-                })}
-              >
-                <Text style={h.heroCta}>{t("dailyHomeCard")}</Text>
-                <Ionicons name={fwd("arrow-back")} size={18} color={colors.tealDeep} />
-              </View>
-            </Pressable>
-            <View style={h.contactActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}`)}
-                style={h.contactButton}
-              >
-                <Ionicons name="logo-whatsapp" size={16} color={colors.teal} />
-                <Text style={h.contactLabel}>{t("whatsappUs")}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void Linking.openURL(`tel:+${WHATSAPP_NUMBER}`)}
-                style={h.contactButton}
-              >
-                <Ionicons name="call-outline" size={15} color={colors.teal} />
-                <Text style={h.contactLabel}>{t("callUs")}</Text>
-              </Pressable>
-            </View>
-          </View>
-          {!heroImage ? <View style={h.heroMark}><TamamMark size={54} color={colors.teal} /></View> : null}
+      <View style={h.intro}>
+        <Text style={h.eyebrow}>{copy("الناصرة والمنطقة · اقتراحات على ذوقك", "נצרת והאזור · הצעות לטעם שלך", "Nazareth & nearby · Picked for your taste")}</Text>
+        <Text style={h.heroTitle}>{copy("شو عبالك تاكل إسا؟", "מה בא לך לאכול עכשיו?", "What are you in the mood for?")}</Text>
+        <Text style={h.heroSub}>{copy("وجبة لليوم، طاولة للّمة، أو مقاضي للبيت. منرتّبلك البداية، وإنت بتعدّل على ذوقك.", "ארוחה להיום, שולחן למפגש או קניות לבית. מתחילים מהצעה ומשנים לפי הטעם.", "Today's meal, a table to share, or groceries for home. Start with a suggestion and make it yours.")}</Text>
       </View>
-
-      <Pressable accessibilityRole="button" accessibilityLabel={basketText(lang).start} onPress={() => router.push("/basket")} style={[h.section, { backgroundColor: colors.mint, borderRadius: 16, padding: 18, margin: 16 }]}>
-        <Text style={h.heading}>{basketText(lang).start}</Text>
+      <View style={h.entryCard}>
+        <View style={h.entryTop}><Ionicons name="restaurant-outline" size={24} color={colors.gold}/><Text style={h.eyebrow}>{copy("اقتراح جاهز · قابل للتعديل", "הצעה מוכנה · ניתנת לשינוי", "A ready suggestion · Yours to edit")}</Text></View>
+        <Text style={h.heading}>{copy("رتّب طاولتك", "מרכיבים שולחן", "Build your table")}</Text>
         <Text style={h.muted}>{basketText(lang).intro}</Text>
-      </Pressable>
-
-      <Pressable accessibilityRole="button" onPress={() => router.push("/market")} style={[h.section, {backgroundColor:colors.surface,borderRadius:16,padding:18,margin:16}]}>
-        <Text style={h.heading}>{lang==='en'?'Build a market basket':lang==='he'?'הרכבת סל מכולת':'رتّبي مقاضي البيت'}</Text>
-        <Text style={h.muted}>{lang==='en'?'Ready-made ideas. Save and repeat your basket.':lang==='he'?'סלים מוכנים, שמירה והזמנה חוזרת.':'سلال جاهزة، واحفظي سلتك لترجعي إلها.'}</Text>
-      </Pressable>
+        <View style={h.entryRule}/>
+        <Text style={h.muted}>{copy("حسب العدد، المناسبة والميزانية", "לפי מספר הסועדים, האירוע והתקציב", "For your party size, occasion and budget")}</Text>
+        <Pressable accessibilityRole="button" onPress={()=>router.push("/basket")} style={h.entryCta}><Text style={h.entryCtaText}>{copy("رتّب طاولتك إسا", "מרכיבים שולחן עכשיו", "Build your table")}</Text><Ionicons name={fwd("arrow-back")} size={19} color={colors.white}/></Pressable>
+      </View>
+      {[{path:"/daily-meal" as const,icon:"sunny-outline" as const,title:copy("وجبة اليوم", "ארוחת היום", "Daily meals"),detail:copy("شوف طبخات اليوم واختار الوجبة والحصص اللي بتناسبك.", "בוחרים מהתפריט היומי את הארוחה והמנות המתאימות.", "Explore today's menu and choose your meal and portions.")},{path:"/market" as const,icon:"basket-outline" as const,title:copy("مقاضي البيت", "קניות לבית", "Home groceries"),detail:copy("سلال وأفكار جاهزة، بتزيد عليها وبتنقص منها حسب حاجتك.", "סלים ורעיונות מוכנים שאפשר להתאים לצורך שלך.", "Ready baskets and ideas you can adjust to your needs.")}].map(entry=><Pressable key={entry.path} accessibilityRole="button" onPress={()=>router.push(entry.path)} style={h.entryCard}><View style={h.entryTop}><Ionicons name={entry.icon} size={24} color={colors.gold}/><Ionicons name={fwd("chevron-back")} size={18} color={colors.teal}/></View><Text style={h.heading}>{entry.title}</Text><Text style={h.muted}>{entry.detail}</Text></Pressable>)}
+      {heroImage && !heroFailed ? <Pressable accessibilityRole="button" accessibilityLabel={t("dailyHomeCard")} onPress={()=>router.push("/daily-meal")} style={h.featureCard}>
+        <Image nativeID="home-hero-photo" source={{uri:imageUrl(heroImage)}} style={h.featureImage} resizeMode="cover" onError={()=>setHeroFailed(true)} accessibilityLabel={t("mealImage")}/>
+        <View style={h.featureBody}><Text style={h.eyebrow}>{copy("من قائمة اليوم", "מהתפריט היומי", "From today's menu")}</Text><Text style={h.heading}>{t("dailyHomeCard")}</Text><Text style={h.link}>{copy("شوف الوجبات والتفاصيل ←", "לארוחות ולפרטים ←", "Explore meals and details →")}</Text></View>
+      </Pressable>:null}
+      <View style={h.contactActions}>
+        <Pressable accessibilityRole="button" onPress={()=>void Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}`)} style={h.contactButton}><Ionicons name="logo-whatsapp" size={18} color={colors.teal}/><Text style={h.contactLabel}>{t("whatsappUs")}</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={()=>void Linking.openURL(`tel:+${WHATSAPP_NUMBER}`)} style={h.contactButton}><Ionicons name="call-outline" size={18} color={colors.teal}/><Text style={h.contactLabel}>{t("callUs")}</Text></Pressable>
+      </View>
 
       {moods.value?.length ? (
         <View style={h.section}>
@@ -238,6 +193,15 @@ export default function Home() {
   );
 }
 const hs = StyleSheet.create({
+  intro: { gap: 12, paddingVertical: 20 },
+  entryCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline, borderRadius: 18, padding: 20, gap: 12 },
+  entryTop: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  entryRule: { height: 1, backgroundColor: colors.outline, marginVertical: 3 },
+  entryCta: { backgroundColor: colors.teal, borderRadius: 12, padding: 15, minHeight: 52, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  entryCtaText: { fontFamily: font.bold, color: colors.white, fontSize: 15, flexShrink: 1, lineHeight: 25 },
+  featureCard: { borderRadius: 18, overflow: "hidden", backgroundColor: colors.surface, borderColor: colors.outline, borderWidth: 1 },
+  featureImage: { width: "100%", height: 210 },
+  featureBody: { padding: 18, gap: 9 },
   section: { gap: 12, marginTop: 6 },
   sectionTitle: { flexDirection: "row-reverse", alignItems: "center", gap: 16 },
   heading: {
@@ -249,8 +213,8 @@ const hs = StyleSheet.create({
   },
   muted: {
     fontFamily: font.regular,
-    fontSize: 12,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 24,
     color: colors.muted,
     textAlign: "right",
   },
