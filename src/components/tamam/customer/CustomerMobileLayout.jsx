@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { useCart } from '@/lib/CartContext';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import TamamHeader from './TamamHeader';
@@ -21,6 +21,14 @@ export default function CustomerMobileLayout({ children, location = 'موقعك 
     >
       <TamamHeader cartCount={cartCount} location={location} />
       <main className="flex-1 min-h-0">{children ?? <Outlet />}</main>
+      <footer className="px-4 py-5 text-center text-[11px] text-tamam-text-muted border-t border-tamam-outline/30 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+        <Link to="/legal/terms">תקנון</Link>
+        <Link to="/legal/privacy">פרטיות</Link>
+        <Link to="/legal/delivery">משלוחים</Link>
+        <Link to="/legal/cancellations">ביטולים</Link>
+        <Link to="/legal/about">אודות</Link>
+        <Link to="/legal/contact">צור קשר</Link>
+      </footer>
       <div className="pb-16" />
       <TamamBottomNav />
     </div>
