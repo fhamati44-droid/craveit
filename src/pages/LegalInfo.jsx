@@ -4,9 +4,9 @@ import { getSupportWhatsApp, normalizeWhatsAppNumber } from '@/lib/siteConfig';
 // REVIEW BEFORE PAYMENT ACTIVATION: fill these fields with the actual registered merchant details.
 // Do not present "123" as a real Israeli registration number.
 const merchant = {
-  legalName: 'TAMAM — יש להשלים שם עוסק רשום',
-  registration: 'יש להשלים מספר עוסק / ח.פ.',
-  address: 'יש להשלים כתובת עסק',
+  legalName: 'גול סקור פרו בע״מ (GOAL SCORE PRO LTD), מפעילת TAMAM',
+  registration: 'ח.פ. 517245411',
+  address: 'כתובת העסק תושלם לפני הפעלת הסליקה',
   email: '',
   phone: '',
 };
@@ -58,7 +58,7 @@ const sections = {
   about: {
     title: 'אודות TAMAM',
     paragraphs: [
-      ['מי אנחנו', 'TAMAM היא פלטפורמה מקומית להזמנת אוכל ממסעדות ומטבחים עצמאיים. הלקוחות בוחרים תחילה את המנה הרצויה, רואים את בתי העסק שמציעים אותה, בוחרים בית עסק ומבצעים הזמנה.'],
+      ['מי אנחנו', 'TAMAM מופעלת על ידי גול סקור פרו בע״מ, ח.פ. 517245411. TAMAM היא פלטפורמה מקומית להזמנת אוכל ממסעדות וממטבחים עצמאיים. הלקוחות בוחרים תחילה את המנה הרצויה, רואים את בתי העסק שמציעים אותה, בוחרים בית עסק ומבצעים הזמנה.'],
       ['מה TAMAM עושה', 'TAMAM מנהלת הזמנות, גובה את התשלום המלא, מנפיקה מסמכים חשבונאיים על פי דין, מתאמת משלוחים ומטפלת בשירות לקוחות. הכנת המזון נעשית אצל בתי העסק.'],
     ],
   },
