@@ -12,6 +12,7 @@ import CustomerMobileLayout from '@/components/tamam/customer/CustomerMobileLayo
 
 // Info pages
 import HowTamamWorks from '@/pages/HowTamamWorks';
+import LegalInfo from '@/pages/LegalInfo';
 import TamamPoints from '@/pages/TamamPoints';
 
 // Pages
@@ -147,6 +148,7 @@ function App() {
               <Route path="/orders/:orderId/rate" element={<OrderRate />} />
               <Route path="/orders/:orderId/help" element={<OrderHelp />} />
               <Route path="/how-tamam-works" element={<HowTamamWorks />} />
+              <Route path="/legal/:page" element={<LegalInfo />} />
               <Route path="/how-tamam-works/:topic" element={<HowTamamWorks />} />
               <Route path="/tamam-points" element={<TamamPoints />} />
               <Route path="/account/points" element={<Rewards />} />
