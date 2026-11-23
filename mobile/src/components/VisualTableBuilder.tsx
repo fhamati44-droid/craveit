@@ -3,7 +3,8 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, font, money } from './ui';
 import { imageUrl } from '../lib/media';
-import { buildBasket, type Basket, type BasketInput, type DishGroup } from '../lib/basketEngine';
+import { type BasketInput, type DishGroup } from '../lib/basketEngine';
+import { quoteTable, type TableQuote } from '../lib/tableQuote';
 import { type OrderableOffer } from '../lib/basketCatalog';
 import { mealRelations } from '../lib/basketProfiles';
 
@@ -15,7 +16,8 @@ type Props = {
   disabled: boolean;
   mealName: (meal: OrderableOffer['meal']) => string;
   providerName: (provider: OrderableOffer['restaurant']) => string;
-  onChoose: (basket: Basket, people: number) => void;
+  onChoose: (quote: TableQuote, people: number) => void;
+  onEdit?: () => void;
 };
 
 /**
@@ -23,8 +25,8 @@ type Props = {
  * Only actual catalog records can be selected; no invented prices or ingredients.
  * A shared table must be serviceable by a single provider at this stage.
  */
-export function VisualTableBuilder({ group, catalog, input, at, disabled, mealName, providerName, onChoose }: Props) {
-  const [sideGroup, setSideGroup] = useState<string>('');
+export function VisualTableBuilder({ group, catalog, input, at, disabled, mealName, providerName, onChoose, onEdit }: Props) {
+  const [sideGroups, setSideGroups] = useState<Record<string,number>>({});
   const [people, setPeople] = useState(input.people);
   const effectiveInput = useMemo(() => ({...input, people}), [input, people]);
   const [ready, setReady] = useState(false);
@@ -43,12 +45,27 @@ export function VisualTableBuilder({ group, catalog, input, at, disabled, mealNa
 
   const providers = useMemo(() => group.providers.map(option => {
     const main = offers.get(option.primary.uid);
-    const side = sideGroup ? (mealRelations[option.primary.uid] || []).map(uid => offers.get(uid)).find(x => x?.group === sideGroup && x.available && x.restaurantId === option.primary.restaurantId) : undefined;
-    if (!main || (sideGroup && !side)) return null;
-    const quote = buildBasket(main, side, effectiveInput, at);
+    const chosen = Object.entries(sideGroups).filter(([,quantity]) => quantity > 0).map(([groupId,quantity]) => {
+      const offer = (mealRelations[option.primary.uid] || []).map(uid => offers.get(uid))
+        .find(o => o?.group === groupId && o.available && o.restaurantId === option.primary.restaurantId);
+      return offer ? {offer,quantity} : null;
+    });
+    if (!main || chosen.some(x=>!x)) return null;
+    const quote = quoteTable(main, chosen.filter((x): x is {offer:OrderableOffer;quantity:number} => x != null), effectiveInput, at);
     return { quote, main };
-  }).filter((item): item is { quote: Basket; main: OrderableOffer } => !!item && item.quote.eligible)
-    .sort((a,b) => b.quote.score-a.quote.score || a.quote.total-b.quote.total), [group, offers, sideGroup, effectiveInput, at]);
+  }).filter((item): item is {quote: TableQuote;main: OrderableOffer} => !!item && item.quote.eligible)
+    .sort((a,b) => b.quote.score-a.quote.score || a.quote.total-b.quote.total),
+  [group, offers, sideGroups, effectiveInput, at]);
+  function updateSide(key:string,qty:number) {
+    setSideGroups(old => ({...old,[key]:Math.max(0,Math.min(9,qty))}));
+    setReady(false);
+    onEdit?.();
+  }
+  function updatePeople(n:number) {
+    setPeople(Math.max(1,Math.min(99,n)));
+    setReady(false);
+    onEdit?.();
+  }
 
   if (!primary) return null;
   const minPrice = providers.length ? Math.min(...providers.map(p => p.quote.total)) : 0;
@@ -61,21 +78,26 @@ export function VisualTableBuilder({ group, catalog, input, at, disabled, mealNa
     <Text style={styles.title}>{mealName(primary.meal)}</Text>
     <View style={styles.counter}>
       <Text style={styles.label}>👥 عدد الأشخاص</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="زود شخص" onPress={() => {setPeople(n=>Math.min(99,n+1));setReady(false);}} style={styles.counterButton}><Ionicons name="add" size={21} color={colors.teal}/></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="زود شخص" onPress={() => updatePeople(people+1)} style={styles.counterButton}><Ionicons name="add" size={21} color={colors.teal}/></Pressable>
       <Text style={styles.price}>{people}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="قلّل شخص" onPress={() => {setPeople(n=>Math.max(1,n-1));setReady(false);}} style={styles.counterButton}><Ionicons name="remove" size={21} color={colors.teal}/></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="قلّل شخص" onPress={() => updatePeople(people-1)} style={styles.counterButton}><Ionicons name="remove" size={21} color={colors.teal}/></Pressable>
     </View>
     {sides.length ? <View style={styles.section}>
       <Text style={styles.heading}>🥗 إضافات للطاولة</Text>
       <View style={styles.cards}>
-        <Pressable accessibilityRole="radio" accessibilityState={{checked:!sideGroup}} onPress={() => {setSideGroup('');setReady(false);}} style={[styles.option,!sideGroup&&styles.active]}>
-          <Ionicons name="remove-circle-outline" size={27} color={colors.teal}/>
-          <Text style={styles.small}>بدون</Text>
-        </Pressable>
-        {sides.map(side => <Pressable key={side.group} accessibilityRole="radio" accessibilityState={{checked:sideGroup===side.group}} onPress={() => {setSideGroup(side.group);setReady(false);}} style={[styles.option,sideGroup===side.group&&styles.active]}>
+        {sides.map(side => <View key={side.group} style={[styles.option,(sideGroups[side.group]||0)>0&&styles.active]}>
           {side.meal.image_url ? <Image source={{uri:imageUrl(side.meal.image_url)}} style={styles.thumb}/> : <Text style={styles.emoji}>🥗</Text>}
           <Text numberOfLines={2} style={styles.small}>{mealName(side.meal)}</Text>
-        </Pressable>)}
+          <View style={styles.smallCounter}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`زيد ${mealName(side.meal)}`} onPress={()=>updateSide(side.group,(sideGroups[side.group]||0)+1)} style={styles.smallButton}>
+              <Ionicons name="add" size={18} color={colors.teal}/>
+            </Pressable>
+            <Text style={styles.small}>{sideGroups[side.group]||0}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={`قلل ${mealName(side.meal)}`} onPress={()=>updateSide(side.group,(sideGroups[side.group]||0)-1)} style={styles.smallButton}>
+              <Ionicons name="remove" size={18} color={colors.teal}/>
+            </Pressable>
+          </View>
+        </View>)}
       </View>
     </View> : null}
     {!ready ? <Pressable accessibilityRole="button" disabled={disabled||!providers.length} onPress={()=>setReady(true)} style={[styles.action,(!providers.length||disabled)&&styles.dim]}>
@@ -114,6 +136,8 @@ const styles=StyleSheet.create({
   providerLabel:{flex:1,gap:3},
   label:{fontFamily:font.bold,color:colors.teal,fontSize:14,textAlign:'right'},
   price:{fontFamily:font.bold,color:colors.teal,fontSize:16},
+  smallCounter:{flexDirection:'row-reverse',alignItems:'center',gap:4},
+  smallButton:{borderRadius:8,padding:6,borderWidth:1,borderColor:colors.outline},
   counter:{flexDirection:'row-reverse',alignItems:'center',gap:10},
   counterButton:{borderRadius:12,borderWidth:1,borderColor:colors.outline,padding:9},
   back:{alignSelf:'flex-end',padding:10},
