@@ -26,6 +26,11 @@ export default function Profile() {
     ["sparkles-outline", t("playTamam"), () => router.push("/game")],
     ["calendar-outline", t("dailyHomeCard"), () => router.push("/daily-meal")],
     ["shield-checkmark-outline", t("adminDailyMeals"), () => router.push("/admin/daily-meals")],
+    ["document-text-outline", "תקנון", () => router.push({pathname:"/legal/[page]",params:{page:"terms"}})],
+    ["lock-closed-outline", "מדיניות פרטיות", () => router.push({pathname:"/legal/[page]",params:{page:"privacy"}})],
+    ["bicycle-outline", "משלוחים וביטולים", () => router.push({pathname:"/legal/[page]",params:{page:"delivery"}})],
+    ["information-circle-outline", "אודות TAMAM", () => router.push({pathname:"/legal/[page]",params:{page:"about"}})],
+    ["call-outline", "צור קשר", () => router.push({pathname:"/legal/[page]",params:{page:"contact"}})],
     [
       "logo-whatsapp",
       t("whatsappUs"),
