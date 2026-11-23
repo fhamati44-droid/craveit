@@ -10,8 +10,8 @@ export const BUSINESS = {
   registration: "517245411",
   // REQUIRED BEFORE UPay approval. Never publish invented registration/address/contact details.
   address: "",
-  email: "",
-  phone: "",
+  email: "artcabinet1989@gmail.com",
+  phone: "0544616474",
 };
 const texts: Record<string, { title: string; rows: [string, string][] }> = {
   terms: {title:"תקנון אתר TAMAM",rows:[
@@ -46,7 +46,7 @@ const texts: Record<string, { title: string; rows: [string, string][] }> = {
   ]},
   contact:{title:"צור קשר",rows:[
     ["פרטי העסק",`${BUSINESS.registeredName} | ח.פ. ${BUSINESS.registration}`],
-    ["יצירת קשר","יש להשלים כתובת, טלפון ודוא״ל עסקיים פעילים לפני פרסום סופי והפעלת סליקה. ניתן לפנות בנושאי הזמנה, משלוח, שירות וביטול."],
+    ["יצירת קשר",`טלפון: ${BUSINESS.phone} | דוא״ל: ${BUSINESS.email}. כתובת העסק טרם נמסרה ויש להשלימה לפני פרסום סופי. ניתן לפנות בנושאי הזמנה, משלוח, שירות וביטול.`],
   ]},
 };
 const nav=[["terms","תקנון"],["privacy","פרטיות"],["delivery","משלוחים"],["cancellations","ביטולים"],["about","אודות"],["contact","צור קשר"]] as const;
