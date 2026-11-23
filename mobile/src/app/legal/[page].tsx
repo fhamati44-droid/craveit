@@ -9,13 +9,13 @@ export const BUSINESS = {
   englishName: "GOAL SCORE PRO LTD",
   registration: "517245411",
   // REQUIRED BEFORE UPay approval. Never publish invented registration/address/contact details.
-  address: "",
+  address: "נצרת, רחוב פאולוס השישי",
   email: "artcabinet1989@gmail.com",
   phone: "0544616474",
 };
 const texts: Record<string, { title: string; rows: [string, string][] }> = {
   terms: {title:"תקנון אתר TAMAM",rows:[
-    ["מפעיל האתר",`TAMAM הוא שם המותג של ${BUSINESS.registeredName} (${BUSINESS.englishName}), ח.פ. ${BUSINESS.registration}. האתר מאפשר הזמנת מזון מעסקים עצמאיים. אין בתקנון לגרוע מזכויות צרכניות על פי דין.`],
+    ["מפעיל האתר",`TAMAM הוא שם המותג של ${BUSINESS.registeredName} (${BUSINESS.englishName}), ח.פ. ${BUSINESS.registration}. כתובת: ${BUSINESS.address}. האתר מאפשר הזמנת מזון מעסקים עצמאיים. אין בתקנון לגרוע מזכויות צרכניות על פי דין.`],
     ["בחירת מוצרים והזמנות","הלקוח בוחר מוצר או מנה, מקבל את רשימת בתי העסק המספקים אותו, בוחר בית עסק ומשלים הזמנה. זמינות, מחיר, דמי משלוח וסכום כולל יוצגו לפני אישור ההזמנה. שינוי מהותי יחייב הסכמת הלקוח."],
     ["גביית תשלום","TAMAM גובה מהלקוח את מלוא סכום ההזמנה לרבות דמי משלוח ככל שישנם, ומנפיקה מסמכים חשבונאיים לפי דין. ההתחשבנות עם בתי העסק וספקי המשלוחים מבוצעת בנפרד על ידי TAMAM."],
     ["הכנת המזון ואחריות","בתי העסק העצמאיים מכינים את המזון ואחראים לרכיביו, איכותו ובטיחותו ולהחזקה ברישיונות הנדרשים לפי דין. TAMAM אחראית לניהול ההזמנה, לתשלומים, לשירות הלקוחות ולהסדרת המשלוח, לרבות משלוחים המבוצעים באמצעות ספק חיצוני, בהתאם לחובותיה בדין. לא תוגבל אחריות שאין להתנות עליה בדין."],
@@ -45,8 +45,8 @@ const texts: Record<string, { title: string; rows: [string, string][] }> = {
     ["אחריות ופעילות","TAMAM גובה את התשלום המלא, מנפיקה מסמכים חשבונאיים בהתאם לדין ומנהלת משלוחים ושירות לקוחות. הכנת המנות מתבצעת אצל המסעדות והמטבחים העצמאיים."],
   ]},
   contact:{title:"צור קשר",rows:[
-    ["פרטי העסק",`${BUSINESS.registeredName} | ח.פ. ${BUSINESS.registration}`],
-    ["יצירת קשר",`טלפון: ${BUSINESS.phone} | דוא״ל: ${BUSINESS.email}. כתובת העסק טרם נמסרה ויש להשלימה לפני פרסום סופי. ניתן לפנות בנושאי הזמנה, משלוח, שירות וביטול.`],
+    ["פרטי העסק",`${BUSINESS.registeredName} | ח.פ. ${BUSINESS.registration} | ${BUSINESS.address}`],
+    ["יצירת קשר",`טלפון: ${BUSINESS.phone} | דוא״ל: ${BUSINESS.email}. כתובת העסק: ${BUSINESS.address}. יש לאמת כתובת מלאה ומספר בניין לפני פרסום סופי. ניתן לפנות בנושאי הזמנה, משלוח, שירות וביטול.`],
   ]},
 };
 const nav=[["terms","תקנון"],["privacy","פרטיות"],["delivery","משלוחים"],["cancellations","ביטולים"],["about","אודות"],["contact","צור קשר"]] as const;
