@@ -15,7 +15,7 @@ type Props = {
   disabled: boolean;
   mealName: (meal: OrderableOffer['meal']) => string;
   providerName: (provider: OrderableOffer['restaurant']) => string;
-  onChoose: (basket: Basket) => void;
+  onChoose: (basket: Basket, people: number) => void;
 };
 
 /**
@@ -25,6 +25,8 @@ type Props = {
  */
 export function VisualTableBuilder({ group, catalog, input, at, disabled, mealName, providerName, onChoose }: Props) {
   const [sideGroup, setSideGroup] = useState<string>('');
+  const [people, setPeople] = useState(input.people);
+  const effectiveInput = useMemo(() => ({...input, people}), [input, people]);
   const [ready, setReady] = useState(false);
   const offers = useMemo(() => new Map(catalog.map(o => [o.uid, o])), [catalog]);
   const primary = offers.get(group.best.primary.uid);
@@ -43,10 +45,10 @@ export function VisualTableBuilder({ group, catalog, input, at, disabled, mealNa
     const main = offers.get(option.primary.uid);
     const side = sideGroup ? (mealRelations[option.primary.uid] || []).map(uid => offers.get(uid)).find(x => x?.group === sideGroup && x.available && x.restaurantId === option.primary.restaurantId) : undefined;
     if (!main || (sideGroup && !side)) return null;
-    const quote = buildBasket(main, side, input, at);
+    const quote = buildBasket(main, side, effectiveInput, at);
     return { quote, main };
   }).filter((item): item is { quote: Basket; main: OrderableOffer } => !!item && item.quote.eligible)
-    .sort((a,b) => b.quote.score-a.quote.score || a.quote.total-b.quote.total), [group, offers, sideGroup, input, at]);
+    .sort((a,b) => b.quote.score-a.quote.score || a.quote.total-b.quote.total), [group, offers, sideGroup, effectiveInput, at]);
 
   if (!primary) return null;
   const minPrice = providers.length ? Math.min(...providers.map(p => p.quote.total)) : 0;
@@ -57,7 +59,12 @@ export function VisualTableBuilder({ group, catalog, input, at, disabled, mealNa
     </View>
     {primary.meal.image_url ? <Image source={{ uri: imageUrl(primary.meal.image_url) }} style={styles.hero} resizeMode="cover" accessibilityLabel={mealName(primary.meal)}/> : null}
     <Text style={styles.title}>{mealName(primary.meal)}</Text>
-    <Text style={styles.muted}>👥 {input.people} · {money(group.best.subtotal)}</Text>
+    <View style={styles.counter}>
+      <Text style={styles.label}>👥 عدد الأشخاص</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="زود شخص" onPress={() => {setPeople(n=>Math.min(99,n+1));setReady(false);}} style={styles.counterButton}><Ionicons name="add" size={21} color={colors.teal}/></Pressable>
+      <Text style={styles.price}>{people}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="قلّل شخص" onPress={() => {setPeople(n=>Math.max(1,n-1));setReady(false);}} style={styles.counterButton}><Ionicons name="remove" size={21} color={colors.teal}/></Pressable>
+    </View>
     {sides.length ? <View style={styles.section}>
       <Text style={styles.heading}>🥗 إضافات للطاولة</Text>
       <View style={styles.cards}>
@@ -76,7 +83,7 @@ export function VisualTableBuilder({ group, catalog, input, at, disabled, mealNa
       <Ionicons name="arrow-back" size={20} color={colors.white}/>
     </Pressable> : <View style={styles.section}>
       <Text style={styles.heading}>🏪 اختاري المصلحة</Text>
-      {providers.map(({quote,main})=><Pressable key={main.uid} accessibilityRole="button" disabled={disabled} onPress={()=>onChoose(quote)} style={styles.provider}>
+      {providers.map(({quote,main})=><Pressable key={main.uid} accessibilityRole="button" disabled={disabled} onPress={()=>onChoose(quote,people)} style={styles.provider}>
         <View style={styles.providerLabel}><Text style={styles.label}>{providerName(main.restaurant)}</Text><Text style={styles.muted}>{quote.minutes} دقيقة</Text></View>
         <Text style={styles.price}>{money(quote.total)}</Text>
         <Ionicons name="chevron-back" size={20} color={colors.teal}/>
@@ -107,5 +114,7 @@ const styles=StyleSheet.create({
   providerLabel:{flex:1,gap:3},
   label:{fontFamily:font.bold,color:colors.teal,fontSize:14,textAlign:'right'},
   price:{fontFamily:font.bold,color:colors.teal,fontSize:16},
+  counter:{flexDirection:'row-reverse',alignItems:'center',gap:10},
+  counterButton:{borderRadius:12,borderWidth:1,borderColor:colors.outline,padding:9},
   back:{alignSelf:'flex-end',padding:10},
 });
