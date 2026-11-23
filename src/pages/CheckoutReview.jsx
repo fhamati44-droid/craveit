@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { LEGAL_VERSION } from '@/pages/LegalInfo';
 import { useCart } from '@/lib/CartContext';
 import { getCheckout, setCheckout } from '@/lib/checkoutStore';
 import { METHOD_LABELS, PAYMENT_LABELS } from '@/lib/orderUtils';
@@ -22,6 +23,7 @@ export default function CheckoutReview() {
   const [coupon, setCoupon] = useState(null); // {code, discount, coupon}
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   useEffect(() => {
     if (!items.length) { navigate('/cart', { replace: true }); return; }
@@ -52,7 +54,11 @@ export default function CheckoutReview() {
   };
 
   const submit = async () => {
-    persist({});
+    if (!termsAccepted) {
+      setPayError('لازم توافق على شروط الاستخدام وسياسة الخصوصية قبل إتمام الطلب.');
+      return;
+    }
+    persist({ legalAcceptedAt: new Date().toISOString(), legalVersion: LEGAL_VERSION });
     if (form.payment === 'cash' || form.payment === 'card_on_delivery') {
       navigate('/checkout/processing');
       return;
@@ -139,11 +145,15 @@ export default function CheckoutReview() {
             <div className="flex justify-between font-bold text-base pt-1 border-t border-outline-variant/30 mt-1"><span>الإجمالي</span><span className="text-primary">₪{Math.round(grand)}</span></div>
           </div>
         </div>
+        <div className="rounded-xl bg-surface-container p-4 flex items-start gap-3 text-sm">
+          <input id="tamam-legal-consent" type="checkbox" checked={termsAccepted} onChange={e => { setTermsAccepted(e.target.checked); setPayError(''); }} className="mt-1 w-5 h-5 accent-primary shrink-0" />
+          <label htmlFor="tamam-legal-consent" className="leading-6">قرأت ووافقت على <Link to="/legal/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline font-semibold" onClick={e => e.stopPropagation()}>شروط الاستخدام</Link> و<Link to="/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline font-semibold" onClick={e => e.stopPropagation()}>سياسة الخصوصية</Link>، واطلعت على <Link to="/legal/delivery" target="_blank" rel="noopener noreferrer" className="underline">التوصيل</Link> و<Link to="/legal/cancellations" target="_blank" rel="noopener noreferrer" className="underline">الإلغاء والاسترجاع</Link>.</label>
+        </div>
         <p className="text-center text-xs text-on-surface-variant">رح يوصلك رقم طلب وتقدر تتابع كل مرحلة.</p>
       </div>
       <div className="fixed bottom-0 inset-x-0 px-4 pb-4 pt-3 bg-gradient-to-t from-surface via-surface/95 to-transparent z-40 max-w-[480px] mx-auto">
         {payError && <p className="text-error text-xs text-center mb-2">{payError}</p>}
-        <button onClick={submit} disabled={paying} className="w-full h-14 bg-primary text-on-primary rounded-full font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 transition-transform disabled:opacity-50">
+        <button onClick={submit} disabled={paying || !termsAccepted} className="w-full h-14 bg-primary text-on-primary rounded-full font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 transition-transform disabled:opacity-50">
           {paying ? 'عم نوجّهك للدفع...' : <>تأكيد وتنفيذ الطلب · ₪{Math.round(grand)}<Icon name="keyboard_double_arrow_left" /></>}
         </button>
       </div>
