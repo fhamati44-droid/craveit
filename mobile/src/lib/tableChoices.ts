@@ -14,7 +14,7 @@ export function recommendTableChoices(offers: Offer[], relations: Record<string,
   const oneDish = simpleSuggestions.map(g => {
     const lines = g.best.lines.filter(l => l.offer.profile.role === 'أساسي');
     const best = buildMealBasket(lines, simpleInput, now);
-    return {style:'simple' as const, input:simpleInput, group:{...g, id:best.group, best, providers:[best]}};
+    return {style:'simple' as const, input:simpleInput, group:{...g, id:'simple:'+best.group, best, providers:[best]}};
   }).find(c => c.group.best.eligible && c.group.best.mainCount === 1);
   if (!oneDish) return [];
 
@@ -54,7 +54,7 @@ export function recommendTableChoices(offers: Offer[], relations: Record<string,
     .sort((a,b)=>Number(b.mainCount>1)-Number(a.mainCount>1) || Number(b.lines.length>2)-Number(a.lines.length>2) || a.total-b.total || b.score-a.score)[0];
 
   if (bestFull) {
-    result.push({style:'full',input:fullInput,group:{id:bestFull.group,best:bestFull,providers:[bestFull]}});
+    result.push({style:'full',input:fullInput,group:{id:'full:'+bestFull.group,best:bestFull,providers:[bestFull]}});
   }
   return result;
 }
