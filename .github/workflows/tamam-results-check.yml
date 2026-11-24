@@ -1,0 +1,42 @@
+name: TAMAM existing-flow result checks
+on:
+  push:
+    branches: ['feat/tamam-existing-results-only-20261124']
+  pull_request:
+    paths: ['mobile/**', '.github/workflows/tamam-results-check.yml']
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Protect features present in the actual production snapshot
+        run: |
+          test -s src/app/table.tsx
+          test -s public/day/index.html
+          test -s src/app/daily-meal.tsx
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npx expo export --platform web
+      - run: test -s dist/index.html
+      - name: Install pinned browser runner
+        run: npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Start web export and smoke test homepage, planner, and cart
+        run: |
+          npx --yes serve@14 -s dist -l 4173 > /tmp/tamam-preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 2
+          done
+          node tests/website.smoke.mjs
