@@ -11,9 +11,9 @@ function food(uid,name,price,role='أساسي',servings=1){
 }
 const offers=[food('A','دجاج مشوي',25),food('B','منسف لحم',30,'أساسي',2),food('S','سلطة عربية',10,'جانبي',4),food('T','سلطة تبولة',12,'جانبي',4)];
 test('Excel-derived result bands respect current people and occasion',()=>{
- assert.deepEqual(getDesiredResultComposition({...DEFAULT_BASKET_INPUT,people:1}),{event:'everyday',mains:1,salads:1});
- assert.deepEqual(getDesiredResultComposition({...DEFAULT_BASKET_INPUT,people:4,occasion:'guests'}),{event:'guests',mains:2,salads:1});
- assert.deepEqual(getDesiredResultComposition({...DEFAULT_BASKET_INPUT,people:5,gathering:'work'}),{event:'work',mains:2,salads:2});
+ assert.deepEqual(getDesiredResultComposition({...DEFAULT_BASKET_INPUT,people:1}),{event:'everyday',mains:1,salads:1,starters:0});
+ assert.deepEqual(getDesiredResultComposition({...DEFAULT_BASKET_INPUT,people:4,occasion:'guests'}),{event:'guests',mains:2,salads:1,starters:1});
+ assert.deepEqual(getDesiredResultComposition({...DEFAULT_BASKET_INPUT,people:5,gathering:'work'}),{event:'work',mains:2,salads:2,starters:0});
 });
 test('one customer sees main and real salad when budget permits',()=>{
  const group=recommendResultBaskets(offers,{}, {...DEFAULT_BASKET_INPUT,people:1,budget:100,autoTable:false,mainDishes:1},now)[0];
