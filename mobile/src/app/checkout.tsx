@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { router } from "expo-router";
-import { LEGAL_VERSION } from "./legal/[page]";
 import {
   Linking,
   Platform,
@@ -46,7 +45,6 @@ export default function Checkout() {
   const [pay, setPay] = useState<Pay>("cash");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [legalAccepted, setLegalAccepted] = useState(false);
   const [failure, setFailure] = useState("");
   const set = (key: keyof typeof form) => (value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -70,10 +68,6 @@ export default function Checkout() {
     );
 
   const submit = async () => {
-    if (!legalAccepted) {
-      setFailure("لازم توافق على شروط الاستخدام وسياسة الخصوصية قبل إتمام الطلب.");
-      return;
-    }
     const full: CheckoutForm = {
       ...form,
       payment: pay === "credit" ? "credit" : "cash",
@@ -85,8 +79,6 @@ export default function Checkout() {
     );
     if (Object.keys(found).length) return;
     saveCustomer({ name: form.name.trim(), phone: form.phone.trim(), address: form.address.trim() });
-    // Consent is captured client-side pending server-side immutable acceptance audit.
-    void LEGAL_VERSION;
     setFailure("");
 
     if (pay === "whatsapp") {
@@ -213,26 +205,13 @@ export default function Checkout() {
         </View>
       </View>
 
-      <View style={[s.card, { gap: 12 }]}>
-        <Pressable accessibilityRole="checkbox" accessibilityState={{checked: legalAccepted}} onPress={() => { setLegalAccepted(v => !v); setFailure(""); }} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
-          <Ionicons name={legalAccepted ? "checkbox" : "square-outline"} size={25} color={colors.teal} />
-          <Text style={{flex:1,textAlign:"right",color:colors.teal}}>אני מאשר/ת שקראתי ואני מסכים/ה לתקנון האתר ולמדיניות הפרטיות</Text>
-        </Pressable>
-        <View style={{flexDirection:"row-reverse",flexWrap:"wrap",gap:14}}>
-          {([["terms","תקנון"],["privacy","פרטיות"],["delivery","משלוחים"],["cancellations","ביטולים"]] as const).map(([page,title])=>(
-            <Pressable key={page} onPress={()=>router.push({pathname:"/legal/[page]",params:{page}})}>
-              <Text style={{color:colors.teal,textDecorationLine:"underline",fontSize:13}}>{title}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
       {failure ? (
         <Text accessibilityRole="alert" style={k.error}>{failure}</Text>
       ) : null}
       <Button
         label={busy ? t("sending") : pay === "whatsapp" ? t("continueWa") : t("orderNow", { p: money(total) })}
         tone="green"
-        disabled={busy || !legalAccepted}
+        disabled={busy}
         onPress={() => void submit()}
       />
     </Page>
