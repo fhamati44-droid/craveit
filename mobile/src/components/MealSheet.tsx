@@ -127,16 +127,18 @@ export function MealSheet({
                 </View>
                 {(group.menu_extra_options || []).map(option => {
                   const active = chosen.some(x => String(x.id) === String(option.id));
+                  const maxed = !active && chosen.length >= Number(group.max_select || 1);
                   return (
                     <Pressable key={String(option.id)} accessibilityRole="checkbox"
-                      accessibilityState={{checked: active}}
                       accessibilityLabel={name(option)}
+                      disabled={maxed}
+                      accessibilityState={{checked: active, disabled: maxed}}
                       onPress={() => toggle(group, option)}
-                      style={[ms.option, active && ms.optionSelected]}>
+                      style={[ms.option, active && ms.optionSelected, maxed && ms.optionDisabled]}>
                       <Ionicons name={active ? "checkmark-circle" : "ellipse-outline"} size={24}
                         color={active ? colors.green : colors.muted}/>
                       <Text numberOfLines={2} style={ms.optionLabel}>{name(option)}</Text>
-                      <Text style={ms.optionPrice}>{Number(option.price || 0) ? "+" + money(Number(option.price)) : "✓"}</Text>
+                      <Text style={ms.optionPrice}>{Number(option.price || 0) ? "+" + money(Number(option.price)) : (lang === "he" ? "חינם" : lang === "en" ? "Free" : "مجاني")}</Text>
                     </Pressable>
                   );
                 })}
@@ -195,6 +197,7 @@ const ms = StyleSheet.create({
   limit:{fontFamily:font.medium,fontSize:11,color:colors.muted},
   option:{minHeight:53,flexDirection:"row-reverse",gap:10,alignItems:"center",paddingHorizontal:12,paddingVertical:8,borderRadius:15,backgroundColor:colors.bg,borderWidth:1,borderColor:colors.outline},
   optionSelected:{borderColor:colors.green,backgroundColor:colors.mint},
+  optionDisabled:{opacity:0.48},
   optionLabel:{flex:1,color:colors.ink,fontFamily:font.medium,fontSize:13,textAlign:"right"},
   optionPrice:{color:colors.teal,fontFamily:font.bold,fontSize:12},
   noteToggle:{flexDirection:"row-reverse",alignItems:"center",gap:10,padding:12,borderRadius:15,backgroundColor:colors.surface,minHeight:48},
