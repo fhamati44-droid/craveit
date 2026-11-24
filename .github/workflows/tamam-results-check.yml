@@ -8,6 +8,8 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
     defaults:
       run:
         working-directory: mobile
@@ -23,3 +25,13 @@ jobs:
       - run: npm run typecheck
       - run: npx expo export --platform web
       - run: test -s dist/index.html
+      - name: Install pinned browser runner
+        run: npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Start web export and smoke test homepage, planner, and cart
+        run: |
+          npx --yes serve@14 -s dist -l 4173 > /tmp/tamam-preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 2
+          done
+          node tests/website.smoke.mjs
