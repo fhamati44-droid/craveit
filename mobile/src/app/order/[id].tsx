@@ -102,7 +102,13 @@ export default function OrderTracking() {
       </View> : null}
 
       <View style={s.card}>
-        <Text style={t.section}>{tr("orderDetails")}</Text>
+        <Pressable accessibilityRole="button" accessibilityState={{expanded:detailsOpen}} onPress={() => setDetailsOpen(v => !v)} style={t.detailsToggle}>
+          <Ionicons name="receipt-outline" size={20} color={colors.teal}/>
+          <Text style={t.section}>{tr("orderDetails")}</Text>
+          <Text style={t.total}>{money(Number(order.amount || 0))}</Text>
+          <Ionicons name={detailsOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.teal}/>
+        </Pressable>
+        {detailsOpen ? <View style={{gap:10}}>
         {(order.order_items || []).map((item, i) => (
           <View key={i} style={t.row}>
             <Text style={t.item}>{item.quantity}× {item.name}</Text>
@@ -115,6 +121,7 @@ export default function OrderTracking() {
           <Text style={t.total}>{money(Number(order.amount || 0))}</Text>
         </View>
         {order.address ? <Text style={t.muted}>📍 {order.address}</Text> : null}
+        </View> : null}
       </View>
 
       <Button
@@ -126,7 +133,7 @@ export default function OrderTracking() {
           )
         }
       />
-      <Button label={tr("backHome")} onPress={() => router.replace("/")} />
+      <Button label={order.status === "delivered" ? localeText("اطلب كمان مرة", "להזמין שוב", "Order again") : tr("backHome")} onPress={() => router.replace(order.status === "delivered" ? "/table" : "/")} />
     </Page>
   );
 }
@@ -141,6 +148,12 @@ const ts = StyleSheet.create({
   },
   heroTitle: { fontFamily: font.black, fontSize: 24, color: colors.white, textAlign: "center" },
   heroSub: { fontFamily: font.medium, fontSize: 12, color: "#CFE3DE" },
+  heroHint:{fontFamily:font.regular,fontSize:12,color:colors.white,textAlign:"center",marginTop:6},
+  progressRow:{flexDirection:"row-reverse",justifyContent:"space-around",alignItems:"flex-start",gap:4},
+  progressItem:{flex:1,alignItems:"center",gap:7},
+  progressLabel:{fontFamily:font.regular,fontSize:10,lineHeight:16,textAlign:"center",color:colors.muted},
+  progressLabelOn:{fontFamily:font.bold,color:colors.teal},
+  detailsToggle:{flexDirection:"row-reverse",gap:10,minHeight:50,alignItems:"center"},
   note: {
     fontFamily: font.regular,
     fontSize: 12,
@@ -164,7 +177,7 @@ const ts = StyleSheet.create({
   bar: { width: 3, height: 18, backgroundColor: colors.high },
   barOn: { backgroundColor: colors.green },
   stepText: { fontFamily: font.regular, fontSize: 14, color: colors.muted, paddingTop: 8, textAlign: "right" },
-  section: { fontFamily: font.bold, fontSize: 14, color: colors.teal, textAlign: "right" },
+  section: { flex:1,fontFamily: font.bold, fontSize: 14, color: colors.teal, textAlign: "right" },
   row: { flexDirection: "row-reverse", justifyContent: "space-between" },
   item: { fontFamily: font.regular, fontSize: 13, color: colors.ink, textAlign: "right" },
   totalRow: { borderTopWidth: 1, borderTopColor: colors.outline, paddingTop: 8 },
