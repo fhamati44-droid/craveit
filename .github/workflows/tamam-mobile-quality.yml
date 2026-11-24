@@ -1,0 +1,54 @@
+name: TAMAM mobile quality gate
+on:
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/tamam-mobile-quality.yml'
+  push:
+    branches:
+      - 'feat/tamam-simple-or-full-table-20261124'
+      - 'feat/tamam-food-first-visual-20261124'
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/tamam-mobile-quality.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Test, typecheck and production build
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Test order composition, totals, availability, provider and cart guards
+        run: npm test
+      - name: Typecheck Expo application
+        run: npm run typecheck
+      - name: Build production web bundle
+        run: npx expo export --platform web
+      - name: Confirm SPA output exists
+        run: test -s dist/index.html
+      - name: Install browser smoke runner
+        run: npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Start production export and probe pages
+        run: |
+          npx --yes serve@14 -s dist -l 4173 > /tmp/tamam-serve.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 2
+          done
+          node tests/website.smoke.mjs
