@@ -58,8 +58,11 @@ export default function Cart() {
             const key = line.key;
             return (
               <View key={key} style={c.line}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text numberOfLines={2} style={c.meal}>{name(line.meal)}</Text>
+                <View style={c.itemDetails}>
+                  <View style={c.itemHeading}>
+                    <Text numberOfLines={2} style={c.meal}>{name(line.meal)}</Text>
+                    <Text style={c.price}>{money(lineTotal(line))}</Text>
+                  </View>
                   {line.extras.length ? (
                     <View>
                       <Pressable accessibilityRole="button" accessibilityState={{ expanded: !!expandedExtras[key] }}
@@ -71,7 +74,6 @@ export default function Cart() {
                     </View>
                   ) : null}
                   {line.note ? <Text numberOfLines={2} style={c.muted}>“{line.note}”</Text> : null}
-                  <Text style={c.price}>{money(lineTotal(line))}</Text>
                 </View>
                 <View style={c.stepper}>
                   <Pressable
@@ -106,10 +108,6 @@ export default function Cart() {
           {t("multiRestaurant", { n: groups.length })}
         </Text>
       ) : null}
-      <View style={c.total}>
-        <Text style={c.totalLabel}>{t("itemsSubtotal")}</Text>
-        <Text style={c.totalValue}>{money(subtotal)}</Text>
-      </View>
       </ScrollView>
       <View style={[c.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <Pressable accessibilityRole="button" accessibilityLabel={t("toCheckout")} onPress={() => router.push("/checkout")} style={c.checkoutButton}>
@@ -131,7 +129,7 @@ const cs = StyleSheet.create({
   pageTitle: { flex: 1, fontFamily: font.black, fontSize: 19, color: colors.teal, textAlign: "right" },
   addFoodButton: { flexDirection: "row-reverse", alignItems: "center", gap: 4, padding: 9, borderRadius: 18, backgroundColor: colors.surface },
   addFoodLabel: { fontFamily: font.bold, fontSize: 11, color: colors.green, maxWidth: 115 },
-  extrasToggle: { alignSelf: "flex-end", flexDirection: "row-reverse", gap: 5, alignItems: "center", paddingVertical: 4 },
+  extrasToggle: { alignSelf: "flex-end", flexDirection: "row-reverse", gap: 5, alignItems: "center", minHeight: 36, paddingHorizontal: 10, borderRadius: 14, backgroundColor: colors.mint },
   extrasToggleText: { fontFamily: font.bold, fontSize: 12, color: colors.teal },
   footer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.outline, width: "100%" },
   footerPrice: { alignItems: "flex-end", gap: 1 },
@@ -150,24 +148,27 @@ const cs = StyleSheet.create({
   },
   emptyTitle: { fontFamily: font.black, fontSize: 20, color: colors.teal },
   muted: { fontFamily: font.regular, fontSize: 12, lineHeight: 20, color: colors.muted, textAlign: "right" },
-  restaurantCard: { paddingHorizontal: 15, paddingVertical: 13, borderRadius: 20, backgroundColor: colors.surface, gap: 12, borderWidth: 1, borderColor: colors.outline },
+  restaurantCard: { paddingHorizontal: 15, paddingVertical: 15, borderRadius: 22, backgroundColor: colors.surface, gap: 14, borderWidth: 1, borderColor: colors.outline },
   restRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
   restaurantCount: { minWidth: 24, textAlign: "center", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 12, backgroundColor: colors.mint, color: colors.teal, fontSize: 11, fontFamily: font.bold },
   restName: { fontFamily: font.bold, fontSize: 14, color: colors.teal, textAlign: "right" },
   line: {
-    flexDirection: "row-reverse",
-    gap: 12,
-    alignItems: "center",
+    flexDirection: "column",
+    gap: 9,
+    alignItems: "stretch",
     borderTopWidth: 1,
     borderTopColor: colors.outline,
     paddingTop: 12,
   },
-  meal: { fontFamily: font.bold, fontSize: 14, color: colors.ink, textAlign: "right" },
-  price: { fontFamily: font.bold, fontSize: 13, color: colors.green, textAlign: "right" },
+  itemDetails: { width: "100%", gap: 6 },
+  itemHeading: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 10, justifyContent: "space-between" },
+  meal: { fontFamily: font.bold, fontSize: 14, color: colors.ink, textAlign: "right", flexShrink: 1, flex: 1, lineHeight: 23 },
+  price: { fontFamily: font.bold, fontSize: 15, color: colors.teal, textAlign: "left", minWidth: 64 },
   stepper: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    gap: 4,
+    alignSelf: "flex-start",
+    gap: 8,
     backgroundColor: colors.bg,
     borderRadius: 22,
     padding: 3,
