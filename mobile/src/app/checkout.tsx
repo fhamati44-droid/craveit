@@ -133,8 +133,14 @@ export default function Checkout() {
   };
 
   return (
+    <View style={k.screen}>
     <Page>
-      <Text style={s.heading}>{t("screenCheckout")}</Text>
+      <View style={k.topLine}>
+        <Text style={k.pageTitle}>{t("screenCheckout")}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("yourCart")} style={k.backCart} onPress={() => router.back()}>
+          <Ionicons name="arrow-forward" color={colors.teal} size={21}/>
+        </Pressable>
+      </View>
 
       <View style={s.card}>
         <Text style={k.section}>{t("howToReceive")}</Text>
@@ -166,7 +172,12 @@ export default function Checkout() {
         {form.delivery === "delivery" ? (
           <Field icon="location-outline" placeholder={t("addressPh")} value={form.address} onChange={set("address")} error={errors.address} />
         ) : null}
-        <Field icon="chatbubble-ellipses-outline" placeholder={t("notesPh")} value={form.notes} onChange={set("notes")} multiline />
+        <Pressable accessibilityRole="button" style={k.notesToggle} onPress={() => setShowNotes(v => !v)}>
+          <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.teal}/>
+          <Text style={k.notesLabel}>{t("notesPh")}</Text>
+          <Ionicons name={showNotes ? "chevron-up" : "chevron-down"} size={17} color={colors.teal}/>
+        </Pressable>
+        {showNotes && <Field icon="chatbubble-ellipses-outline" placeholder={t("notesPh")} value={form.notes} onChange={set("notes")} multiline />}
       </View>
 
       <View style={s.card}>
@@ -182,7 +193,7 @@ export default function Checkout() {
             <Ionicons name={icon} size={22} color={value === "whatsapp" ? "#25D366" : colors.teal} />
             <View style={{ flex: 1 }}>
               <Text style={k.payLabel}>{t(label)}</Text>
-              <Text style={k.muted}>{t(hint)}</Text>
+              {pay === value && <Text style={k.muted}>{t(hint)}</Text>}
             </View>
             <Ionicons
               name={pay === value ? "radio-button-on" : "radio-button-off"}
@@ -211,16 +222,17 @@ export default function Checkout() {
         </View>
       </View>
 
-      {failure ? (
-        <Text accessibilityRole="alert" style={k.error}>{failure}</Text>
-      ) : null}
-      <Button
-        label={busy ? t("sending") : pay === "whatsapp" ? t("continueWa") : t("orderNow", { p: money(total) })}
-        tone="green"
-        disabled={busy}
-        onPress={() => void submit()}
-      />
+      {waOpened && pay === "whatsapp" ? <View style={k.waBanner}>
+        <Ionicons name="logo-whatsapp" size={24} color="#168545"/>
+        <Text style={k.waMessage}>{localeText("افتح واتساب وابعت الرسالة. الطلب مش مؤكّد لسه، وسلتك محفوظة.", "שלחו הודעה בוואטסאפ. ההזמנה עדיין לא אושרה והסל נשמר.", "Send the WhatsApp message. Order is not confirmed yet; cart is saved.")}</Text>
+      </View> : null}
+      {failure ? <Text accessibilityRole="alert" style={k.error}>{failure}</Text> : null}
     </Page>
+    <View style={[k.stickyFooter, {paddingBottom:Math.max(insets.bottom,12)}]}>
+      <Button label={busy ? t("sending") : pay === "whatsapp" ? t("continueWa") : t("orderNow", { p: money(total) })}
+        tone="green" disabled={busy} onPress={() => void submit()}/>
+    </View>
+    </View>
   );
 }
 
@@ -265,6 +277,15 @@ function Field({
 }
 
 const ks = StyleSheet.create({
+  screen:{flex:1,backgroundColor:colors.bg},
+  topLine:{flexDirection:"row-reverse",alignItems:"center",gap:10},
+  pageTitle:{flex:1,textAlign:"right",fontFamily:font.black,color:colors.teal,fontSize:19},
+  backCart:{width:44,height:44,alignItems:"center",justifyContent:"center",borderRadius:22,backgroundColor:colors.surface},
+  notesToggle:{flexDirection:"row-reverse",gap:10,alignItems:"center",minHeight:48,paddingHorizontal:8},
+  notesLabel:{flex:1,fontFamily:font.medium,color:colors.teal,fontSize:13,textAlign:"right"},
+  stickyFooter:{paddingHorizontal:16,paddingTop:10,borderTopWidth:1,borderColor:colors.outline,backgroundColor:colors.surface},
+  waBanner:{backgroundColor:colors.mint,borderRadius:16,padding:12,flexDirection:"row-reverse",alignItems:"center",gap:10},
+  waMessage:{flex:1,textAlign:"right",fontFamily:font.medium,color:colors.teal,fontSize:12,lineHeight:21},
   section: { fontFamily: font.bold, fontSize: 14, color: colors.teal, textAlign: "right" },
   muted: { fontFamily: font.regular, fontSize: 11, color: colors.muted, textAlign: "right" },
   toggle: { flexDirection: "row-reverse", gap: 8 },
