@@ -16,6 +16,8 @@ export default function Cart() {
   const [upsell, setUpsell] = useState([]);
   const [changing, setChanging] = useState(null);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState({});
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [consolidation, setConsolidation] = useState(null);
   const [consolidationLoading, setConsolidationLoading] = useState(false);
   const { toast } = useToast();
@@ -66,7 +68,7 @@ export default function Cart() {
   }
 
   return (
-    <div className="pt-4 pb-40">
+    <div className="pt-3 pb-40" dir="rtl">
       {/* Fulfillment summary */}
       <div className="mx-4 mb-4">
         <FulfillmentCard
@@ -79,23 +81,34 @@ export default function Cart() {
         />
       </div>
 
-      <h1 className="px-4 text-headline-md font-bold mb-3">سلة الطلبات</h1>
+      <div className="px-4 mb-3 flex items-center justify-between gap-3">
+        <button type="button" onClick={() => navigate(-1)} aria-label="رجوع" className="w-10 h-10 rounded-full bg-surface-container inline-flex items-center justify-center"><Icon name="arrow_forward" /></button>
+        <div className="flex-1"><h1 className="font-bold text-xl">سلّتك</h1><p className="text-xs text-on-surface-variant">{totalItems} قطعة</p></div>
+        <button type="button" onClick={() => navigate('/restaurants')} className="text-sm font-bold text-primary">+ زيد أكل</button>
+      </div>
 
       {/* Items */}
-      <div className="px-4 flex flex-col gap-3 mb-6">
+      <div className="px-4 flex flex-col gap-2 mb-4">
         {items.map(it => {
           const unit = it.selected_restaurant_id ? (it.restaurant_unit_price || 0) : (it.price || 0);
           const extrasTotal = (it.extras || []).reduce((s, e) => s + (e.price || 0), 0);
           const lineTotal = (unit + extrasTotal) * it.quantity;
           return (
-            <div key={it.cartId} className="bg-surface-container-low rounded-xl p-3 flex gap-3 active:scale-[0.98] transition-transform">
-              <div className="w-20 h-20 rounded-lg overflow-hidden bg-surface-variant flex-shrink-0">{it.image_url ? <img className="w-full h-full object-cover" src={resolvePublicMedia(it.image_url)} onError={handleImageError} alt={it.name} /> : <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>}</div>
+            <div key={it.cartId} className="bg-surface-container-low rounded-2xl p-3 flex gap-3">
+              <div className="w-16 h-16 rounded-xl overflow-hidden bg-surface-variant flex-shrink-0">{it.image_url ? <img className="w-full h-full object-cover" src={resolvePublicMedia(it.image_url)} onError={handleImageError} alt={it.name} /> : <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>}</div>
               <div className="flex-1 flex flex-col justify-between min-w-0">
                 <div className="flex justify-between items-start">
                   <h3 className="font-bold text-sm truncate">{it.name}</h3>
                   <span className="font-semibold text-sm">₪{Math.round(lineTotal)}</span>
                 </div>
-                {it.extras?.length > 0 && <p className="text-[11px] text-on-surface-variant truncate">{it.extras.map(e => e.name).join('، ')}</p>}
+                {it.extras?.length > 0 && (
+                  <div className="mt-1">
+                    <button type="button" aria-expanded={!!extrasOpen[it.cartId]} onClick={() => setExtrasOpen(v => ({ ...v, [it.cartId]: !v[it.cartId] }))} className="text-[11px] text-primary font-semibold inline-flex items-center gap-1">
+                      {it.extras.length} إضافات <Icon name={extrasOpen[it.cartId] ? 'expand_less' : 'expand_more'} className="text-[16px]" />
+                    </button>
+                    {extrasOpen[it.cartId] && <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">{it.extras.map(e => e.name).join(' · ')}</p>}
+                  </div>
+                )}
 
                 {/* Restaurant row */}
                 <div className="mt-1">
@@ -125,7 +138,7 @@ export default function Cart() {
                     <button onClick={() => updateQuantity(it.cartId, it.quantity + 1)} className="w-7 h-7 rounded-full bg-primary text-on-primary flex items-center justify-center"><Icon name="add" className="text-[18px]" /></button>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => navigate(`/restaurant/${restaurant?.slug || restaurant?.id || ''}`)} className="text-on-surface-variant"><Icon name="edit_note" className="text-[20px]" /></button>
+                    <button onClick={() => navigate('/restaurants')} className="text-on-surface-variant"><Icon name="edit_note" className="text-[20px]" /></button>
                     <button onClick={() => removeItem(it.cartId)} className="text-error/70"><Icon name="delete_outline" className="text-[20px]" /></button>
                   </div>
                 </div>
@@ -141,8 +154,11 @@ export default function Cart() {
       {/* Upsell */}
       {upsell.length > 0 && (
         <div className="mt-2 mb-6">
-          <h3 className="px-4 font-bold mb-3 flex items-center gap-2"><Icon name="auto_awesome" className="text-tertiary" />إضافات مقترحة لك</h3>
-          <div className="flex overflow-x-auto gap-3 px-4 no-scrollbar pb-2">
+          <button type="button" aria-expanded={suggestionsOpen} onClick={() => setSuggestionsOpen(v => !v)} className="mx-4 mb-2 w-[calc(100%-2rem)] bg-surface-container rounded-xl p-3 flex items-center justify-between">
+            <span className="font-bold text-sm flex items-center gap-2"><Icon name="add_circle" className="text-primary" /> بدك تزيد إشي؟</span>
+            <Icon name={suggestionsOpen ? 'expand_less' : 'expand_more'} className="text-on-surface-variant" />
+          </button>
+          {suggestionsOpen && <div className="flex overflow-x-auto gap-3 px-4 no-scrollbar pb-2">
             {upsell.map(u => (
               <div key={u.id} className="flex-shrink-0 w-32 bg-surface-container rounded-xl p-2 flex flex-col gap-2">
                 <div className="w-full h-24 rounded-lg overflow-hidden bg-surface-variant relative">
@@ -152,7 +168,7 @@ export default function Cart() {
                 <div><p className="text-label-sm truncate">{u.name}</p><p className="text-primary font-semibold text-sm">₪{u.price}</p></div>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       )}
 
@@ -187,7 +203,7 @@ export default function Cart() {
 
       {/* Summary */}
       <div className="px-4">
-        <div className="bg-surface-container rounded-2xl p-4 space-y-2">
+        <div className="bg-surface-container rounded-2xl p-3 space-y-1.5">
           <div className="flex justify-between text-sm"><span className="text-on-surface-variant">المجموع الفرعي للمنتجات</span><span className="font-semibold">₪{Math.round(restaurantTotals.products_subtotal)}</span></div>
           <div className="flex justify-between text-sm"><span className="text-on-surface-variant">رسوم التوصيل من المطاعم</span><span className="font-semibold">{restaurantTotals.delivery_total === 0 ? 'مجاني' : `₪${Math.round(restaurantTotals.delivery_total)}`}</span></div>
           <div className="border-t border-outline-variant/30 pt-2 mt-1 flex justify-between"><span className="font-bold">الإجمالي</span><span className="font-bold text-primary text-lg">₪{Math.round(restaurantTotals.total)}</span></div>
@@ -199,9 +215,9 @@ export default function Cart() {
 
       {/* Sticky CTA */}
       <div className="fixed bottom-16 inset-x-0 px-4 z-40">
-        <button onClick={() => navigate('/checkout')} className="w-full bg-primary text-on-primary h-14 rounded-full font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 transition-transform">
-          متابعة للدفع · ₪{Math.round(restaurantTotals.total)}
-          <span className="text-xs opacity-90">· {singleFulfillment && !hasPendingRestaurant ? 'توصيل واحد' : `${restaurantCount} مطاعم`}</span>
+        <button onClick={() => navigate('/checkout')} className="w-full bg-primary text-on-primary h-14 rounded-full font-bold flex items-center justify-between px-5 gap-2 shadow-lg shadow-primary/20 active:scale-95 transition-transform">
+          <span>إتمام الطلب</span><span>₪{Math.round(restaurantTotals.total)}</span>
+
         </button>
       </div>
 
