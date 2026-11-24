@@ -9,7 +9,7 @@ export const BUSINESS = {
   englishName: "GOAL SCORE PRO LTD",
   registration: "517245411",
   // REQUIRED BEFORE UPay approval. Never publish invented registration/address/contact details.
-  address: "נצרת, רחוב פאולוס השישי",
+  address: "עכו, רחוב בן עמי 28",
   email: "artcabinet1989@gmail.com",
   phone: "0544616474",
 };
@@ -46,7 +46,7 @@ const texts: Record<string, { title: string; rows: [string, string][] }> = {
   ]},
   contact:{title:"צור קשר",rows:[
     ["פרטי העסק",`${BUSINESS.registeredName} | ח.פ. ${BUSINESS.registration} | ${BUSINESS.address}`],
-    ["יצירת קשר",`טלפון: ${BUSINESS.phone} | דוא״ל: ${BUSINESS.email}. כתובת העסק: ${BUSINESS.address}. יש לאמת כתובת מלאה ומספר בניין לפני פרסום סופי. ניתן לפנות בנושאי הזמנה, משלוח, שירות וביטול.`],
+    ["יצירת קשר",`טלפון: ${BUSINESS.phone} | דוא״ל: ${BUSINESS.email}. כתובת העסק: ${BUSINESS.address}.  ניתן לפנות בנושאי הזמנה, משלוח, שירות וביטול.`],
   ]},
 };
 const nav=[["terms","תקנון"],["privacy","פרטיות"],["delivery","משלוחים"],["cancellations","ביטולים"],["about","אודות"],["contact","צור קשר"]] as const;
