@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, money, Page, useS } from "../components/ui";
 import { useStore } from "../lib/state";
@@ -8,6 +9,7 @@ import { groupByRestaurant, lineTotal } from "../lib/orders";
 
 export default function Cart() {
   const { lines, quantity, subtotal, dailyCart } = useStore();
+  const [expandedExtras, setExpandedExtras] = useState<Record<string, boolean>>({});
   const { t, name, sheet } = useT();
   const s = useS();
   const c = sheet(cs);
@@ -30,8 +32,18 @@ export default function Cart() {
   if(!lines.length)return <Page>{dailySection}</Page>;
   const groups = groupByRestaurant(lines);
   return (
-    <Page>
-      <Text style={s.heading}>{t("yourCart")}</Text>
+    <View style={c.screen}>
+      <ScrollView style={c.scroll} contentContainerStyle={c.content} keyboardShouldPersistTaps="handled">
+      <View style={c.topRow}>
+        <Pressable accessibilityRole="button" accessibilityLabel="رجوع" onPress={() => router.back()} style={c.backButton}>
+          <Ionicons name="arrow-forward" size={22} color={colors.teal} />
+        </Pressable>
+        <Text style={c.pageTitle}>{t("yourCart")}</Text>
+        <Pressable accessibilityRole="button" onPress={() => router.push("/restaurants")} style={c.addFoodButton}>
+          <Ionicons name="add" size={17} color={colors.green} />
+          <Text style={c.addFoodLabel}>{t("browseRestaurants")}</Text>
+        </Pressable>
+      </View>
       {dailySection}
       {groups.map((group) => (
         <View key={String(group[0].restaurant.id)} style={s.card}>
@@ -46,9 +58,14 @@ export default function Cart() {
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={c.meal}>{name(line.meal)}</Text>
                   {line.extras.length ? (
-                    <Text style={c.muted}>
-                      {line.extras.map((x) => name(x)).join(", ")}
-                    </Text>
+                    <View>
+                      <Pressable accessibilityRole="button" accessibilityState={{ expanded: !!expandedExtras[key] }}
+                        onPress={() => setExpandedExtras((prev) => ({ ...prev, [key]: !prev[key] }))} style={c.extrasToggle}>
+                        <Text style={c.extrasToggleText}>{line.extras.length} +</Text>
+                        <Ionicons name={expandedExtras[key] ? "chevron-up" : "chevron-down"} size={15} color={colors.teal} />
+                      </Pressable>
+                      {expandedExtras[key] ? <Text style={c.muted}>{line.extras.map((x) => name(x)).join(" · ")}</Text> : null}
+                    </View>
                   ) : null}
                   {line.note ? <Text style={c.muted}>“{line.note}”</Text> : null}
                   <Text style={c.price}>{money(lineTotal(line))}</Text>
@@ -90,12 +107,33 @@ export default function Cart() {
         <Text style={c.totalLabel}>{t("itemsSubtotal")}</Text>
         <Text style={c.totalValue}>{money(subtotal)}</Text>
       </View>
-      <Button label={t("toCheckout")} tone="green" onPress={() => router.push("/checkout")} />
-    </Page>
+      </ScrollView>
+      <View style={c.footer}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("toCheckout")} onPress={() => router.push("/checkout")} style={c.checkoutButton}>
+          <Text style={c.checkoutLabel}>{t("toCheckout")}</Text>
+          <Text style={c.checkoutTotal}>{money(subtotal)}</Text>
+          <Ionicons name="arrow-back" size={18} color="#fff" />
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 const cs = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 12 },
+  topRow: { flexDirection: "row-reverse", alignItems: "center", gap: 10 },
+  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+  pageTitle: { flex: 1, fontFamily: font.black, fontSize: 19, color: colors.teal, textAlign: "right" },
+  addFoodButton: { flexDirection: "row-reverse", alignItems: "center", gap: 4, padding: 9, borderRadius: 18, backgroundColor: colors.surface },
+  addFoodLabel: { fontFamily: font.bold, fontSize: 11, color: colors.green },
+  extrasToggle: { alignSelf: "flex-end", flexDirection: "row-reverse", gap: 5, alignItems: "center", paddingVertical: 4 },
+  extrasToggleText: { fontFamily: font.bold, fontSize: 12, color: colors.teal },
+  footer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.outline },
+  checkoutButton: { minHeight: 54, borderRadius: 18, backgroundColor: colors.green, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, gap: 10 },
+  checkoutLabel: { flex: 1, fontFamily: font.bold, fontSize: 15, color: "#fff", textAlign: "right" },
+  checkoutTotal: { fontFamily: font.black, fontSize: 17, color: "#fff" },
   empty: { alignItems: "center", gap: 10, paddingTop: 40, paddingBottom: 10 },
   emptyIcon: {
     width: 80,
