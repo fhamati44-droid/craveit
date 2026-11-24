@@ -122,11 +122,10 @@ export function MealSheet({
           <Text numberOfLines={1} style={ms.heading}>{name(meal)}</Text>
           <Text style={ms.headerPrice}>{money(Number(meal.price))}</Text>
         </View>
+        {isPersonalPizza && <PizzaVisual selected={pizzaVisualSelected}
+          caption={lang === "he" ? "הדמיה להמחשה · התוספות שבחרת" : lang === "en" ? "Live illustration · your selected toppings" : "معاينة توضيحية · الإضافات اللي اخترتها"} />}
         <Page>
-          {isPersonalPizza ? (
-            <PizzaVisual selected={pizzaVisualSelected}
-              caption={lang === "he" ? "הדמיה להמחשה · התוספות שבחרת" : lang === "en" ? "Live illustration · your selected toppings" : "معاينة توضيحية · الإضافات اللي اخترتها"} />
-          ) : <View style={ms.photo}><Picture uri={meal.image_url}/></View>}
+          {!isPersonalPizza && <View style={ms.photo}><Picture uri={meal.image_url}/></View>}
           {!!desc(meal) && <Text numberOfLines={2} style={ms.desc}>{desc(meal)}</Text>}
           <Status loading={data.loading} error={data.error} retry={() => void data.reload()}/>
           {data.value?.map(group => {
