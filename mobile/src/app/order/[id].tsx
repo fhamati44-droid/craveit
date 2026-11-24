@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { ActivityIndicator, Linking, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Button, colors, font, money, Page, useS } from "../../components/ui";
 import { useT } from "../../lib/i18n";
@@ -20,11 +20,13 @@ const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 export default function OrderTracking() {
   const { id, more } = useLocalSearchParams<{ id: string; more?: string }>();
   const { api } = useStore();
-  const { t: tr, sheet, msg } = useT();
+  const { t: tr, sheet, msg, lang } = useT();
+  const localeText = (ar: string, he: string, en: string) => lang === "he" ? he : lang === "en" ? en : ar;
   const s = useS();
   const t = sheet(ts);
   const [order, setOrder] = useState<Order | null>();
   const [error, setError] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const [tick, setTick] = useState(0);
   const load = useCallback(() => setTick((n) => n + 1), []);
@@ -73,6 +75,9 @@ export default function OrderTracking() {
         <TamamMark size={34} color={colors.white} />
         <Text style={t.heroTitle}>{tr(statusKey(cancelled ? "cancelled" : STATUS_STEPS[step]))}</Text>
         <Text style={t.heroSub}>{tr("orderNo", { id: order.id })}</Text>
+        {!cancelled && !final && <Text style={t.heroHint}>{order.status === "new"
+          ? localeText("طلبك وصل، بنستنى تأكيد المصلحة", "ההזמנה התקבלה במערכת, ממתינים לאישור העסק", "Order received; awaiting restaurant confirmation")
+          : localeText("حالة الطلب بتتحدث لحالها", "הסטטוס מתעדכן אוטומטית", "Order status updates automatically")}</Text>}
       </View>
 
       {extra > 0 ? (
@@ -81,27 +86,20 @@ export default function OrderTracking() {
         </Text>
       ) : null}
 
-      {!cancelled ? (
-        <View style={s.card}>
+      {!cancelled ? <View style={s.card}>
+        <View style={t.progressRow}>
           {STATUS_STEPS.map((st, i) => {
             const done = i <= step;
-            return (
-              <View key={st} style={t.step}>
-                <View style={{ alignItems: "center" }}>
-                  <View style={[t.dot, done && t.dotOn]}>
-                    <Ionicons name={ICONS[st]} size={18} color={done ? colors.white : colors.muted} />
-                  </View>
-                  {i < STATUS_STEPS.length - 1 ? <View style={[t.bar, i < step && t.barOn]} /> : null}
-                </View>
-                <Text style={[t.stepText, done && { color: colors.ink, fontFamily: font.bold }]}>
-                  {tr(statusKey(st))}
-                </Text>
+            return <View key={st} style={t.progressItem}>
+              <View style={[t.dot, done && t.dotOn]}>
+                <Ionicons name={ICONS[st]} size={19} color={done ? colors.white : colors.muted}/>
               </View>
-            );
+              <Text numberOfLines={2} style={[t.progressLabel, done && t.progressLabelOn]}>{tr(statusKey(st))}</Text>
+            </View>;
           })}
-          {!final ? <Text style={t.muted}>{tr("autoUpdate")}</Text> : null}
         </View>
-      ) : null}
+        {!final && <Text style={t.muted}>{tr("autoUpdate")}</Text>}
+      </View> : null}
 
       <View style={s.card}>
         <Text style={t.section}>{tr("orderDetails")}</Text>
