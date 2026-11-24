@@ -16,6 +16,7 @@ const OCCASION_RULES = {
 } as const;
 type OccasionKey = keyof typeof OCCASION_RULES;
 function occasionFor(input: BasketInput): OccasionKey | null {
+  if(input.period==='snack') return null;
   if(input.period==='breakfast'||input.period==='brunch') return 'breakfast';
   if(input.gathering==='work') return 'work';
   if(input.occasion==='guests') return 'guests';
@@ -55,7 +56,7 @@ function enrich(base:MealBasket,offers:Offer[],input:BasketInput,now:Date,needed
 export function recommendResultBaskets(offers:Offer[],relations:Record<string,string[]>,input:BasketInput,now=new Date()):MealBasketGroup[] {
   const requirements=getDesiredResultComposition(input);
   const current=recommendMealBaskets(offers,relations,input,now);
-  if(!current.length || input.allergen.trim())return current;
+  if(!current.length || input.allergen.trim() || requirements.event==='legacy')return current;
   const withMoreMains=requirements.mains>1
     ? recommendMealBaskets(offers,relations,{...input,autoTable:false,mainDishes:2},now)
     : [];
