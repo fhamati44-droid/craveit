@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-nativ
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, colors, font, money, Page, Picture, Status, useS } from "./ui";
+import { PizzaVisual, pizzaKind } from "./PizzaVisual";
 import { useT } from "../lib/i18n";
 import { useStore } from "../lib/state";
 import type { Line } from "../lib/state";
@@ -62,6 +63,16 @@ export function MealSheet({
   );
   const data = useLoad(load);
   const extras = Object.values(selected).flat();
+  const isPersonalPizza = /بيتزا شخصية|פיצה אישית|personal pizza/i.test(
+    [meal.name_ar, meal.name_he, meal.name_en, meal.name].filter(Boolean).join(" "),
+  );
+  const toppingGroup = isPersonalPizza
+    ? data.value?.find(group => Number(group.max_select) === 5)
+    : undefined;
+  const toppings = toppingGroup ? (selected[String(toppingGroup.id)] || []) : [];
+  const pizzaVisualSelected = toppings.map(item => ({
+    id: String(item.id), text: [item.name_ar, item.name_he, item.name_en, item.name].filter(Boolean).join(" "), item,
+  }));
   const unit =
     Number(meal.price) +
     extras.reduce((sum, x) => sum + Number(x.price || 0), 0);
@@ -112,7 +123,10 @@ export function MealSheet({
           <Text style={ms.headerPrice}>{money(Number(meal.price))}</Text>
         </View>
         <Page>
-          <View style={ms.photo}><Picture name={meal.name_ar || meal.name} uri={meal.image_url}/></View>
+          {isPersonalPizza ? (
+            <PizzaVisual selected={pizzaVisualSelected}
+              caption={lang === "he" ? "הדמיה להמחשה · התוספות שבחרת" : lang === "en" ? "Live illustration · your selected toppings" : "معاينة توضيحية · الإضافات اللي اخترتها"} />
+          ) : <View style={ms.photo}><Picture uri={meal.image_url}/></View>}
           {!!desc(meal) && <Text numberOfLines={2} style={ms.desc}>{desc(meal)}</Text>}
           <Status loading={data.loading} error={data.error} retry={() => void data.reload()}/>
           {data.value?.map(group => {
@@ -125,16 +139,27 @@ export function MealSheet({
                   {required && <Text style={ms.required}>{t("required")}</Text>}
                   <Text style={ms.limit}>{chosen.length}/{group.max_select || 1}</Text>
                 </View>
+                {isPersonalPizza && String(toppingGroup?.id) === String(group.id) && (
+                  <View style={ms.toppingProgress}>
+                    {Array.from({length: Number(group.max_select) || 5}, (_, i) =>
+                      <View key={i} style={[ms.progressDot, i < chosen.length && ms.progressDotOn]}/>)}
+                  </View>
+                )}
+                <View style={isPersonalPizza && String(toppingGroup?.id) === String(group.id) ? ms.toppingsGrid : undefined}>
                 {(group.menu_extra_options || []).map(option => {
                   const active = chosen.some(x => String(x.id) === String(option.id));
                   const maxed = !active && chosen.length >= Number(group.max_select || 1);
+                  const pizzaTopping = isPersonalPizza && String(toppingGroup?.id) === String(group.id);
+                  const kind = pizzaKind([option.name_ar, option.name_he, option.name_en, option.name].filter(Boolean).join(" "));
+                  const emoji = ({olive:"🫒",mushroom:"🍄",corn:"🌽",tomato:"🍅",onion:"🧅",pepper:"🌶️",cheese:"🧀",tuna:"🐟",anchovy:"🐟"} as Record<string,string>)[kind] || "🌿";
                   return (
                     <Pressable key={String(option.id)} accessibilityRole="checkbox"
                       accessibilityLabel={name(option)}
                       disabled={maxed}
                       accessibilityState={{checked: active, disabled: maxed}}
                       onPress={() => toggle(group, option)}
-                      style={[ms.option, active && ms.optionSelected, maxed && ms.optionDisabled]}>
+                      style={[ms.option, pizzaTopping && ms.toppingOption, active && ms.optionSelected, maxed && ms.optionDisabled]}>
+                      {pizzaTopping && <Text style={ms.toppingEmoji}>{emoji}</Text>}
                       <Ionicons name={active ? "checkmark-circle" : "ellipse-outline"} size={24}
                         color={active ? colors.green : colors.muted}/>
                       <Text numberOfLines={2} style={ms.optionLabel}>{name(option)}</Text>
@@ -142,6 +167,7 @@ export function MealSheet({
                     </Pressable>
                   );
                 })}
+                </View>
               </View>
             );
           })}
@@ -198,6 +224,12 @@ const ms = StyleSheet.create({
   option:{minHeight:53,flexDirection:"row-reverse",gap:10,alignItems:"center",paddingHorizontal:12,paddingVertical:8,borderRadius:15,backgroundColor:colors.bg,borderWidth:1,borderColor:colors.outline},
   optionSelected:{borderColor:colors.green,backgroundColor:colors.mint},
   optionDisabled:{opacity:0.48},
+  toppingsGrid:{flexDirection:"row-reverse",flexWrap:"wrap",justifyContent:"space-between",gap:8},
+  toppingOption:{width:"48%",minHeight:88,flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,paddingHorizontal:7,paddingVertical:8},
+  toppingEmoji:{fontSize:23,textAlign:"center"},
+  toppingProgress:{flexDirection:"row-reverse",alignItems:"center",justifyContent:"center",gap:7,paddingVertical:5},
+  progressDot:{height:9,width:25,borderRadius:5,backgroundColor:"#D5E3CF"},
+  progressDotOn:{backgroundColor:colors.green},
   optionLabel:{flex:1,color:colors.ink,fontFamily:font.medium,fontSize:13,textAlign:"right"},
   optionPrice:{color:colors.teal,fontFamily:font.bold,fontSize:12},
   noteToggle:{flexDirection:"row-reverse",alignItems:"center",gap:10,padding:12,borderRadius:15,backgroundColor:colors.surface,minHeight:48},
