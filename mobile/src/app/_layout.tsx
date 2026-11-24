@@ -34,7 +34,7 @@ function Screens() {
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="restaurant/[id]" options={{ title: t("screenRestaurant") }} />
-      <Stack.Screen name="cart" options={{ title: t("screenCart") }} />
+      <Stack.Screen name="cart" options={{ headerShown: false }} />
       <Stack.Screen name="checkout" options={{ title: t("screenCheckout") }} />
       <Stack.Screen name="order/[id]" options={{ title: t("screenTracking") }} />
       <Stack.Screen name="suggestions" options={{ title: t("screenSuggestions") }} />
