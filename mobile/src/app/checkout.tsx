@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Linking,
   Platform,
@@ -32,8 +33,12 @@ const PAYMENTS: [Pay, Key, Key, keyof typeof Ionicons.glyphMap][] = [
 
 export default function Checkout() {
   const { api, lines, customer, saveCustomer, rememberOrders, clear } = useStore();
-  const { t, name, sheet, msg } = useT();
+  const { t, name, sheet, msg, lang } = useT();
+  const localeText = (ar: string, he: string, en: string) => lang === "he" ? he : lang === "en" ? en : ar;
   const s = useS();
+  const insets = useSafeAreaInsets();
+  const [showNotes, setShowNotes] = useState(false);
+  const [waOpened, setWaOpened] = useState(false);
   const k = sheet(ks);
   const [form, setForm] = useState({
     name: customer.name,
@@ -91,11 +96,12 @@ export default function Checkout() {
         form.notes ? `\n${t("waNotes", { v: form.notes })}` : "",
         `\n${t("waTotal", { v: money(total) })}`,
       ].join("\n");
-      await Linking.openURL(
-        `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`,
-      ).catch(() => {});
-      clear();
-      router.replace("/");
+      try {
+        await Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`);
+        setWaOpened(true);
+      } catch {
+        setFailure(localeText("ما قدرنا نفتح واتساب", "לא הצלחנו לפתוח WhatsApp", "Could not open WhatsApp"));
+      }
       return;
     }
 
