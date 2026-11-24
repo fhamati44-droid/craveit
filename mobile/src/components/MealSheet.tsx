@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
-import { Modal, Pressable, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, colors, money, Page, Picture, Status, Txt, useS } from "./ui";
+import { Button, colors, font, money, Page, Picture, Status, useS } from "./ui";
 import { useT } from "../lib/i18n";
 import { useStore } from "../lib/state";
 import type { Line } from "../lib/state";
@@ -50,6 +51,7 @@ export function MealSheet({
   const [note, setNote] = useState(initialNote);
   const [selected, setSelected] = useState<Record<string, Extra[]>>({});
   const [error, setError] = useState("");
+  const [showNote, setShowNote] = useState(!!initialNote);
   const load = useCallback(
     () => extrasSourceId === undefined
       ? api.extras(meal.id)
@@ -97,91 +99,114 @@ export function MealSheet({
     if (onPrepared) onPrepared(line);
     else { add(line); close(); }
   };
+  const unavailable = data.loading || !!data.error || !Number.isFinite(unit) || unit <= 0 ||
+    meal.is_available === false || (restaurant.is_open ?? restaurant.active) === false;
   return (
     <Modal animationType="slide" onRequestClose={close}>
-      <SafeAreaView style={s.page}>
+      <SafeAreaView style={ms.screen}>
+        <View style={ms.header}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t("close")} onPress={close} style={ms.close}>
+            <Ionicons name="close" size={23} color={colors.teal}/>
+          </Pressable>
+          <Text numberOfLines={1} style={ms.heading}>{name(meal)}</Text>
+          <Text style={ms.headerPrice}>{money(Number(meal.price))}</Text>
+        </View>
         <Page>
-          <Button label={t("close")} onPress={close} />
-          <Picture name={meal.name_ar||meal.name} uri={meal.image_url} />
-          <Text style={s.heading}>{name(meal)}</Text>
-          <Txt muted>{desc(meal)}</Txt>
-          <Txt>{money(Number(meal.price))}</Txt>
-          <Status
-            loading={data.loading}
-            error={data.error}
-            retry={() => void data.reload()}
-          />
-          {data.value?.map((group) => (
-            <View key={group.id} style={s.card}>
-              <Txt>
-                {name(group) || group.group_name} {group.required ? t("required") : ""}
-              </Txt>
-              <Txt muted>{t("upTo", { n: group.max_select || 1 })}</Txt>
-              {(group.menu_extra_options || []).map((option) => (
-                <Pressable
-                  key={option.id}
-                  style={s.chip}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{
-                    checked: !!selected[String(group.id)]?.some(
-                      (x) => x.id === option.id,
-                    ),
-                  }}
-                  onPress={() => toggle(group, option)}
-                >
-                  <Txt>
-                    {selected[String(group.id)]?.some((x) => x.id === option.id)
-                      ? "✓  "
-                      : "○  "}
-                    {name(option)} · {money(Number(option.price || 0))}
-                  </Txt>
-                </Pressable>
-              ))}
-            </View>
-          ))}
-          <TextInput
-            style={s.input}
-            value={note}
-            onChangeText={setNote}
-            multiline
-            maxLength={500}
-            placeholder={t("mealNotePh")}
-            placeholderTextColor={colors.muted}
-            accessibilityLabel={t("mealNote")}
-          />
-          <View style={s.row}>
-            <Button
-              label="+"
-              onPress={() => setQuantity((n) => Math.min(99, n + 1))}
-            />
-            <Txt>{quantity}</Txt>
-            <Button
-              label="−"
-              onPress={() => setQuantity((n) => Math.max(minimumQuantity, n - 1))}
-            />
-          </View>
-          {!!(error||externalError) && (
-            <Text
-              style={[s.text, { color: colors.error }]}
-              accessibilityRole="alert"
-            >
-              {error||externalError}
-            </Text>
-          )}
-          <Button
-            label={submitLabel || t("addToCart", { p: money(unit * quantity) })}
-            disabled={
-              data.loading ||
-              !!data.error ||
-              !Number.isFinite(unit) ||
-              unit <= 0 ||
-              meal.is_available === false ||
-              (restaurant.is_open ?? restaurant.active) === false
-            }
-            onPress={submit}
-          />
+          <View style={ms.photo}><Picture name={meal.name_ar || meal.name} uri={meal.image_url}/></View>
+          {!!desc(meal) && <Text numberOfLines={2} style={ms.desc}>{desc(meal)}</Text>}
+          <Status loading={data.loading} error={data.error} retry={() => void data.reload()}/>
+          {data.value?.map(group => {
+            const chosen = selected[String(group.id)] || [];
+            const required = !!group.required || Number(group.min_select || 0) > 0;
+            return (
+              <View key={String(group.id)} style={ms.group}>
+                <View style={ms.groupHeader}>
+                  <Text style={ms.groupTitle}>{name(group) || group.group_name}</Text>
+                  {required && <Text style={ms.required}>{t("required")}</Text>}
+                  <Text style={ms.limit}>{chosen.length}/{group.max_select || 1}</Text>
+                </View>
+                {(group.menu_extra_options || []).map(option => {
+                  const active = chosen.some(x => String(x.id) === String(option.id));
+                  return (
+                    <Pressable key={String(option.id)} accessibilityRole="checkbox"
+                      accessibilityState={{checked: active}}
+                      accessibilityLabel={name(option)}
+                      onPress={() => toggle(group, option)}
+                      style={[ms.option, active && ms.optionSelected]}>
+                      <Ionicons name={active ? "checkmark-circle" : "ellipse-outline"} size={24}
+                        color={active ? colors.green : colors.muted}/>
+                      <Text numberOfLines={2} style={ms.optionLabel}>{name(option)}</Text>
+                      <Text style={ms.optionPrice}>{Number(option.price || 0) ? "+" + money(Number(option.price)) : "✓"}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            );
+          })}
+          <Pressable accessibilityRole="button" onPress={() => setShowNote(v => !v)} style={ms.noteToggle}>
+            <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.teal}/>
+            <Text style={ms.noteText}>{t("mealNote")}</Text>
+            <Ionicons name={showNote ? "chevron-up" : "chevron-down"} size={17} color={colors.teal}/>
+          </Pressable>
+          {showNote && <TextInput style={[s.input, ms.noteInput]} value={note} onChangeText={setNote}
+            multiline maxLength={500} placeholder={t("mealNotePh")}
+            placeholderTextColor={colors.muted} accessibilityLabel={t("mealNote")}/>}
+          {!!(error || externalError) && <Text accessibilityRole="alert" style={ms.error}>{error || externalError}</Text>}
+          <View style={{height:12}}/>
         </Page>
+        <View style={ms.footer}>
+          <View style={ms.quantityRow}>
+            <View style={ms.quantity}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t("increase")}
+                style={ms.qtyButton} onPress={() => setQuantity(n => Math.min(99, n + 1))}>
+                <Ionicons name="add" size={22} color={colors.teal}/>
+              </Pressable>
+              <Text style={ms.qtyNum}>{quantity}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={t("decrease")}
+                style={ms.qtyButton} onPress={() => setQuantity(n => Math.max(minimumQuantity, n - 1))}>
+                <Ionicons name="remove" size={21} color={colors.teal}/>
+              </Pressable>
+            </View>
+            <View style={ms.sumColumn}>
+              <Text style={ms.sumValue}>{money(unit * quantity)}</Text>
+              <Text style={ms.sumHint}>{lang === "he" ? "משלוח בסל" : lang === "en" ? "Delivery in cart" : "التوصيل بالسلة"}</Text>
+            </View>
+          </View>
+          <Button label={submitLabel || t("addToCart", {p: money(unit * quantity)})}
+            disabled={unavailable} onPress={submit}/>
+        </View>
       </SafeAreaView>
     </Modal>
   );
 }
+
+const ms = StyleSheet.create({
+  screen:{flex:1,backgroundColor:colors.bg},
+  header:{flexDirection:"row-reverse",alignItems:"center",paddingHorizontal:16,paddingVertical:10,gap:10,backgroundColor:colors.surface},
+  close:{width:44,height:44,borderRadius:22,alignItems:"center",justifyContent:"center",backgroundColor:colors.mint},
+  heading:{flex:1,fontFamily:font.bold,color:colors.teal,fontSize:16,textAlign:"right"},
+  headerPrice:{fontFamily:font.black,color:colors.green,fontSize:15},
+  photo:{borderRadius:19,overflow:"hidden"},
+  desc:{fontFamily:font.regular,color:colors.muted,fontSize:12,lineHeight:21,textAlign:"right"},
+  group:{backgroundColor:colors.surface,borderRadius:19,padding:12,gap:8},
+  groupHeader:{flexDirection:"row-reverse",alignItems:"center",gap:8,paddingVertical:3},
+  groupTitle:{flex:1,color:colors.teal,fontFamily:font.bold,fontSize:15,textAlign:"right"},
+  required:{color:colors.green,fontFamily:font.bold,fontSize:11,backgroundColor:colors.mint,paddingHorizontal:8,paddingVertical:4,borderRadius:10},
+  limit:{fontFamily:font.medium,fontSize:11,color:colors.muted},
+  option:{minHeight:53,flexDirection:"row-reverse",gap:10,alignItems:"center",paddingHorizontal:12,paddingVertical:8,borderRadius:15,backgroundColor:colors.bg,borderWidth:1,borderColor:colors.outline},
+  optionSelected:{borderColor:colors.green,backgroundColor:colors.mint},
+  optionLabel:{flex:1,color:colors.ink,fontFamily:font.medium,fontSize:13,textAlign:"right"},
+  optionPrice:{color:colors.teal,fontFamily:font.bold,fontSize:12},
+  noteToggle:{flexDirection:"row-reverse",alignItems:"center",gap:10,padding:12,borderRadius:15,backgroundColor:colors.surface,minHeight:48},
+  noteText:{flex:1,fontFamily:font.medium,color:colors.teal,textAlign:"right",fontSize:13},
+  noteInput:{minHeight:80,textAlignVertical:"top"},
+  error:{color:colors.error,textAlign:"right",fontSize:13},
+  footer:{padding:14,paddingBottom:18,borderTopWidth:1,borderTopColor:colors.outline,backgroundColor:colors.surface,gap:10},
+  quantityRow:{flexDirection:"row-reverse",alignItems:"center",justifyContent:"space-between"},
+  quantity:{flexDirection:"row-reverse",alignItems:"center",gap:10,backgroundColor:colors.bg,borderRadius:24,padding:3},
+  qtyButton:{width:44,height:44,alignItems:"center",justifyContent:"center",backgroundColor:colors.surface,borderRadius:22},
+  qtyNum:{fontFamily:font.black,color:colors.ink,fontSize:16,minWidth:25,textAlign:"center"},
+  sumColumn:{alignItems:"flex-start",gap:2},
+  sumValue:{fontFamily:font.black,color:colors.teal,fontSize:20},
+  sumHint:{fontFamily:font.regular,fontSize:10,color:colors.muted},
+});
