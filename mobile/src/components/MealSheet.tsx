@@ -148,7 +148,7 @@ export function MealSheet({
                 <View style={isPersonalPizza && String(toppingGroup?.id) === String(group.id) ? ms.toppingsGrid : undefined}>
                 {(group.menu_extra_options || []).map(option => {
                   const active = chosen.some(x => String(x.id) === String(option.id));
-                  const maxed = !active && chosen.length >= Number(group.max_select || 1);
+                  const maxed = !active && Number(group.max_select || 1) > 1 && chosen.length >= Number(group.max_select || 1);
                   const pizzaTopping = isPersonalPizza && String(toppingGroup?.id) === String(group.id);
                   const kind = pizzaKind([option.name_ar, option.name_he, option.name_en, option.name].filter(Boolean).join(" "));
                   const emoji = ({olive:"🫒",mushroom:"🍄",corn:"🌽",tomato:"🍅",onion:"🧅",pepper:"🌶️",cheese:"🧀",tuna:"🐟",anchovy:"🐟"} as Record<string,string>)[kind] || "🌿";
