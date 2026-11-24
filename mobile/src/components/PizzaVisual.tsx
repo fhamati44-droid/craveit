@@ -56,7 +56,7 @@ export function PizzaVisual({
   return (
     <View style={v.frame}>
       <View style={v.pizzaCircle}>
-        <Svg width={258} height={258} viewBox="0 0 250 250" accessibilityLabel={caption}>
+        <Svg width={218} height={218} viewBox="0 0 250 250" accessibilityLabel={caption}>
           <Defs>
             <LinearGradient id="crust" x1="0" y1="0" x2="1" y2="1">
               <Stop offset="0" stopColor="#E8A54E"/><Stop offset="0.6" stopColor="#C77A2C"/><Stop offset="1" stopColor="#E9B76C"/>
@@ -83,6 +83,6 @@ export function PizzaVisual({
 }
 const v = StyleSheet.create({
   frame:{alignItems:"center",gap:6,paddingVertical:8,borderRadius:20,backgroundColor:"#E3EBD8"},
-  pizzaCircle:{width:260,height:260,alignItems:"center",justifyContent:"center",borderRadius:130},
+  pizzaCircle:{width:220,height:220,alignItems:"center",justifyContent:"center",borderRadius:110},
   caption:{fontFamily:font.medium,fontSize:11,color:colors.muted,textAlign:"center"},
 });
