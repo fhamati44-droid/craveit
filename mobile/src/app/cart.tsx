@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -9,6 +10,7 @@ import { groupByRestaurant, lineTotal } from "../lib/orders";
 
 export default function Cart() {
   const { lines, quantity, subtotal, dailyCart } = useStore();
+  const insets = useSafeAreaInsets();
   const [expandedExtras, setExpandedExtras] = useState<Record<string, boolean>>({});
   const { t, name, sheet } = useT();
   const s = useS();
@@ -35,39 +37,40 @@ export default function Cart() {
     <View style={c.screen}>
       <ScrollView style={c.scroll} contentContainerStyle={c.content} keyboardShouldPersistTaps="handled">
       <View style={c.topRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel="رجوع" onPress={() => router.back()} style={c.backButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="رجوع" onPress={() => router.canGoBack() ? router.back() : router.replace("/restaurants")} style={c.backButton}>
           <Ionicons name="arrow-forward" size={22} color={colors.teal} />
         </Pressable>
         <Text style={c.pageTitle}>{t("yourCart")}</Text>
         <Pressable accessibilityRole="button" onPress={() => router.push("/restaurants")} style={c.addFoodButton}>
           <Ionicons name="add" size={17} color={colors.green} />
-          <Text style={c.addFoodLabel}>{t("browseRestaurants")}</Text>
+          <Text numberOfLines={1} style={c.addFoodLabel}>{t("browseRestaurants")}</Text>
         </Pressable>
       </View>
       {dailySection}
       {groups.map((group) => (
-        <View key={String(group[0].restaurant.id)} style={s.card}>
+        <View key={String(group[0].restaurant.id)} style={c.restaurantCard}>
           <View style={c.restRow}>
             <Ionicons name="storefront-outline" size={16} color={colors.green} />
-            <Text style={c.restName}>{name(group[0].restaurant)}</Text>
+            <Text numberOfLines={1} style={c.restName}>{name(group[0].restaurant)}</Text>
+            <Text style={c.restaurantCount}>{group.length}</Text>
           </View>
           {group.map((line) => {
             const key = line.key;
             return (
               <View key={key} style={c.line}>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={c.meal}>{name(line.meal)}</Text>
+                  <Text numberOfLines={2} style={c.meal}>{name(line.meal)}</Text>
                   {line.extras.length ? (
                     <View>
                       <Pressable accessibilityRole="button" accessibilityState={{ expanded: !!expandedExtras[key] }}
                         onPress={() => setExpandedExtras((prev) => ({ ...prev, [key]: !prev[key] }))} style={c.extrasToggle}>
-                        <Text style={c.extrasToggleText}>{line.extras.length} +</Text>
+                        <Text style={c.extrasToggleText}>+ {line.extras.length}</Text>
                         <Ionicons name={expandedExtras[key] ? "chevron-up" : "chevron-down"} size={15} color={colors.teal} />
                       </Pressable>
                       {expandedExtras[key] ? <Text style={c.muted}>{line.extras.map((x) => name(x)).join(" · ")}</Text> : null}
                     </View>
                   ) : null}
-                  {line.note ? <Text style={c.muted}>“{line.note}”</Text> : null}
+                  {line.note ? <Text numberOfLines={2} style={c.muted}>“{line.note}”</Text> : null}
                   <Text style={c.price}>{money(lineTotal(line))}</Text>
                 </View>
                 <View style={c.stepper}>
@@ -108,10 +111,10 @@ export default function Cart() {
         <Text style={c.totalValue}>{money(subtotal)}</Text>
       </View>
       </ScrollView>
-      <View style={c.footer}>
+      <View style={[c.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <Pressable accessibilityRole="button" accessibilityLabel={t("toCheckout")} onPress={() => router.push("/checkout")} style={c.checkoutButton}>
           <Text style={c.checkoutLabel}>{t("toCheckout")}</Text>
-          <Text style={c.checkoutTotal}>{money(subtotal)}</Text>
+          <View style={c.footerPrice}><Text style={c.footerCaption}>{t("itemsSubtotal")}</Text><Text style={c.checkoutTotal}>{money(subtotal)}</Text></View>
           <Ionicons name="arrow-back" size={18} color="#fff" />
         </Pressable>
       </View>
@@ -122,16 +125,18 @@ export default function Cart() {
 const cs = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 12 },
+  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 12, width: "100%", maxWidth: 760, alignSelf: "center" },
   topRow: { flexDirection: "row-reverse", alignItems: "center", gap: 10 },
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   pageTitle: { flex: 1, fontFamily: font.black, fontSize: 19, color: colors.teal, textAlign: "right" },
   addFoodButton: { flexDirection: "row-reverse", alignItems: "center", gap: 4, padding: 9, borderRadius: 18, backgroundColor: colors.surface },
-  addFoodLabel: { fontFamily: font.bold, fontSize: 11, color: colors.green },
+  addFoodLabel: { fontFamily: font.bold, fontSize: 11, color: colors.green, maxWidth: 115 },
   extrasToggle: { alignSelf: "flex-end", flexDirection: "row-reverse", gap: 5, alignItems: "center", paddingVertical: 4 },
   extrasToggleText: { fontFamily: font.bold, fontSize: 12, color: colors.teal },
-  footer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.outline },
-  checkoutButton: { minHeight: 54, borderRadius: 18, backgroundColor: colors.green, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, gap: 10 },
+  footer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.outline, width: "100%" },
+  footerPrice: { alignItems: "flex-end", gap: 1 },
+  footerCaption: { fontFamily: font.regular, fontSize: 10, color: "#F3FFF2" },
+  checkoutButton: { minHeight: 60, borderRadius: 18, backgroundColor: colors.green, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, gap: 10, width: "100%", maxWidth: 760, alignSelf: "center" },
   checkoutLabel: { flex: 1, fontFamily: font.bold, fontSize: 15, color: "#fff", textAlign: "right" },
   checkoutTotal: { fontFamily: font.black, fontSize: 17, color: "#fff" },
   empty: { alignItems: "center", gap: 10, paddingTop: 40, paddingBottom: 10 },
@@ -145,7 +150,9 @@ const cs = StyleSheet.create({
   },
   emptyTitle: { fontFamily: font.black, fontSize: 20, color: colors.teal },
   muted: { fontFamily: font.regular, fontSize: 12, lineHeight: 20, color: colors.muted, textAlign: "right" },
-  restRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6 },
+  restaurantCard: { paddingHorizontal: 15, paddingVertical: 13, borderRadius: 20, backgroundColor: colors.surface, gap: 12, borderWidth: 1, borderColor: colors.outline },
+  restRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
+  restaurantCount: { minWidth: 24, textAlign: "center", paddingHorizontal: 5, paddingVertical: 3, borderRadius: 12, backgroundColor: colors.mint, color: colors.teal, fontSize: 11, fontFamily: font.bold },
   restName: { fontFamily: font.bold, fontSize: 14, color: colors.teal, textAlign: "right" },
   line: {
     flexDirection: "row-reverse",
@@ -166,9 +173,9 @@ const cs = StyleSheet.create({
     padding: 3,
   },
   step: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
