@@ -39,7 +39,7 @@ export function recommendTableChoices(offers: Offer[], relations: Record<string,
       o.profile.servings && o.profile.servings > 0 && o.price > 0 &&
       restaurantIds.has(o.restaurantId) && !selected.has(o.group) &&
       (input.allergen.trim() === '') &&
-      !input.disliked.split(/[,،;\\n]/).map(x=>x.trim().toLocaleLowerCase()).filter(Boolean).some(x=>(o.name+' '+o.description).toLocaleLowerCase().includes(x)) &&
+      !input.disliked.split(/[,،;\n]/).map(x=>x.trim().toLocaleLowerCase()).filter(Boolean).some(x=>(o.name+' '+o.description).toLocaleLowerCase().includes(x)) &&
       !base.lines.some(l=>l.offer.uid===o.uid) &&
       // Prefer salads / starters when composing a meal; no double-counting extras.
       ['salad','starter','other'].includes(tableRole(o))
