@@ -27,6 +27,7 @@ export function MealSheet({
   onPrepared,
   deliveryTotal,
   submitLabel,
+  externalError,
 }: {
   meal: Meal;
   restaurant: Restaurant;
@@ -40,6 +41,7 @@ export function MealSheet({
   onPrepared?: (line: Omit<Line, "key">) => void;
   deliveryTotal?: number;
   submitLabel?: string;
+  externalError?: string;
 }) {
   const { api, add } = useStore();
   const { t, name, desc, lang } = useT();
@@ -100,7 +102,7 @@ export function MealSheet({
       <SafeAreaView style={s.page}>
         <Page>
           <Button label={t("close")} onPress={close} />
-          <Picture uri={meal.image_url} />
+          <Picture name={meal.name_ar||meal.name} uri={meal.image_url} />
           <Text style={s.heading}>{name(meal)}</Text>
           <Txt muted>{desc(meal)}</Txt>
           <Txt>{money(Number(meal.price))}</Txt>
@@ -158,12 +160,12 @@ export function MealSheet({
               onPress={() => setQuantity((n) => Math.max(minimumQuantity, n - 1))}
             />
           </View>
-          {!!error && (
+          {!!(error||externalError) && (
             <Text
               style={[s.text, { color: colors.error }]}
               accessibilityRole="alert"
             >
-              {error}
+              {error||externalError}
             </Text>
           )}
           <Button
