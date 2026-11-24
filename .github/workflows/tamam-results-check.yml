@@ -20,6 +20,11 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: mobile/package-lock.json
+      - name: Protect features present in the actual production snapshot
+        run: |
+          test -s src/app/table.tsx
+          test -s public/day/index.html
+          test -s src/app/daily-meal.tsx
       - run: npm ci
       - run: npm test
       - run: npm run typecheck
