@@ -2,13 +2,13 @@ import { useLocalSearchParams, router } from "expo-router";
 import { ScrollView, Text, Pressable, View, Linking } from "react-native";
 import { colors } from "../../components/ui";
 
-export const LEGAL_VERSION = "2026-11-23-draft";
+export const LEGAL_VERSION = "2026-11-24";
 export const BUSINESS = {
   brand: "TAMAM",
   registeredName: "גול סקור פרו בע״מ",
   englishName: "GOAL SCORE PRO LTD",
   registration: "517245411",
-  // REQUIRED BEFORE UPay approval. Never publish invented registration/address/contact details.
+  // Merchant identification provided by site operator. Review legal text against actual processing and operations.
   address: "עכו, רחוב בן עמי 28",
   email: "artcabinet1989@gmail.com",
   phone: "0544616474",
@@ -38,7 +38,10 @@ const texts: Record<string, { title: string; rows: [string, string][] }> = {
     ["מידע נאסף","שם, טלפון, כתובת למשלוח, כתובת דוא״ל אם נמסרה, פרטי הזמנה ומידע טכני הנדרש להפעלת השירות."],
     ["מטרות עיבוד","קליטת הזמנה, שירות לקוחות, תשלום, אספקה, מניעת הונאות וקיום חובות חוקיות. דיוור שיווקי ייעשה בכפוף להסכמה ולהוראות הדין."],
     ["שיתוף מידע","מידע הנדרש להזמנה מועבר לבית העסק המבצע, לספקי משלוחים ולספקי סליקה וטכנולוגיה בהתאם לצורך ולדין."],
-    ["שמירה, אבטחה וזכויות","המידע יישמר לתקופה הנדרשת למטרותיו ולחובות חוקיות. ניתן לפנות לבקשות עיון ותיקון לפי דין. יש להשלים פירוט של שירותי אחסון, עוגיות, אנליטיקה והעברות מידע לפני אישור סופי."],
+    ["בעל השליטה ויצירת קשר",`בעל השליטה במידע הנאסף במסגרת השירות הוא ${BUSINESS.registeredName}, ח.פ. ${BUSINESS.registration}, כתובת: ${BUSINESS.address}. לפניות בנושאי פרטיות: ${BUSINESS.email} או ${BUSINESS.phone}.`],
+    ["מסירת מידע והשלכות אי מסירתו","מסירת פרטים לצורך הזמנה נעשית מרצון. אין חובה חוקית כללית למסור מידע לצורך הזמנה, אך ללא שם, טלפון ופרטי אספקה רלוונטיים לא ניתן יהיה להשלים הזמנה או לספקה. דוא״ל, ככל שאינו נדרש לצורך שירות מסוים, הוא שדה רשות."],
+    ["נתוני שימוש ועוגיות","האתר עשוי להשתמש באחסון מקומי בדפדפן, בעוגיות ובכלי מדידה ופרסום דוגמת Meta Pixel ככל שהם מופעלים, לצורך תפעול, מדידה ושיפור השירות. אפשר לנהל הרשאות ומחיקת נתונים בהגדרות הדפדפן. מסירת מידע לספקי מדידה ופרסום תיעשה בכפוף לדין."],
+    ["שמירה, אבטחה וזכויות",`המידע נשמר בהתאם לצורכי השירות, מניעת הונאות וחובות התיעוד שבדין; תקופת השמירה עשויה להשתנות לפי סוג המידע. ניתן לבקש עיון במידע אישי ותיקון מידע שאינו נכון, שלם, ברור או מעודכן, בהתאם לדין, באמצעות ${BUSINESS.email}. גישה למידע מוגבלת לפי הצורך התפעולי וננקטים אמצעי אבטחה סבירים.`],
   ]},
   about:{title:"אודות TAMAM",rows:[
     ["הפעילות שלנו",`TAMAM, המופעלת על ידי ${BUSINESS.registeredName} (ח.פ. ${BUSINESS.registration}), מאפשרת לבחור תחילה את המנה הרצויה, למצוא את בתי העסק שמציעים אותה, לבצע הזמנה ולשלם במקום אחד.`],
@@ -55,7 +58,7 @@ export default function LegalPage() {
   const section=texts[String(page||"terms")]||texts.terms;
   return <ScrollView style={{flex:1,backgroundColor:colors.bg}} contentContainerStyle={{padding:18,paddingBottom:70,gap:14}}>
     <Text style={{fontSize:23,fontWeight:"800",color:colors.teal,textAlign:"right"}}>{section.title}</Text>
-    <Text style={{fontSize:11,color:"#6b7280",textAlign:"right"}}>טיוטה לבדיקת עו״ד · 23.11.2026</Text>
+    <Text style={{fontSize:11,color:"#6b7280",textAlign:"right"}}>עדכון אחרון: 24.11.2026</Text>
     {section.rows.map(([title,body])=><View key={title} style={{backgroundColor:colors.white||"#fff",padding:16,borderRadius:14,gap:7}}>
       <Text style={{fontSize:16,fontWeight:"700",textAlign:"right",color:colors.teal}}>{title}</Text>
       <Text style={{fontSize:13,lineHeight:23,textAlign:"right",color:"#374151"}}>{body}</Text>
