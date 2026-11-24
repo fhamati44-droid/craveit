@@ -74,8 +74,12 @@ export default function Checkout() {
       setFailure("لازم توافق على شروط الاستخدام وسياسة الخصوصية قبل إتمام الطلب.");
       return;
     }
+    // Record policy version and acceptance time within each existing CRM order.
+    // This is not a substitute for an immutable server-side consent audit.
+    const consentNote = `אישור תקנון ופרטיות ${LEGAL_VERSION} @ ${new Date().toISOString()}`;
     const full: CheckoutForm = {
       ...form,
+      notes: [form.notes.trim(), consentNote].filter(Boolean).join(" | "),
       payment: pay === "credit" ? "credit" : "cash",
       channel: Platform.OS === "web" ? "אתר" : "אפליקציה",
     };
@@ -85,8 +89,6 @@ export default function Checkout() {
     );
     if (Object.keys(found).length) return;
     saveCustomer({ name: form.name.trim(), phone: form.phone.trim(), address: form.address.trim() });
-    // Consent is captured client-side pending server-side immutable acceptance audit.
-    void LEGAL_VERSION;
     setFailure("");
 
     if (pay === "whatsapp") {
@@ -96,7 +98,7 @@ export default function Checkout() {
         form.delivery === "delivery" ? t("waAddress", { v: form.address }) : t("waPickup"),
         "",
         ...lines.map((l) => `${l.quantity}× ${name(l.meal)} (${name(l.restaurant)}) - ${money(lineTotal(l))}`),
-        form.notes ? `\n${t("waNotes", { v: form.notes })}` : "",
+        `\n${t("waNotes", { v: full.notes })}`,
         `\n${t("waTotal", { v: money(total) })}`,
       ].join("\n");
       await Linking.openURL(
